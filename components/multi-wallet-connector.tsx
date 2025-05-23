@@ -9,8 +9,13 @@ import { Connection, clusterApiUrl, PublicKey } from "@solana/web3.js"
 import Image from "next/image"
 import SoundButton from "./sound-button"
 import { audioManager, playIntroSound, initializeAudio, loadAudioFiles } from "@/utils/audio-manager"
-import { ThemeToggle } from "./theme-toggle"
 import { LOGOS, TOKENS } from "@/utils/image-paths"
+
+// Add imports for the theme context
+// Remove this line:
+// import { useTheme } from "next-themes"
+// Keep only this import:
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 
 // Add this after the existing imports
 import { keyframes } from "@emotion/react"
@@ -339,6 +344,12 @@ export default function MultiWalletConnector({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isAudioInitialized, setIsAudioInitialized] = useState(false)
 
+  // Add theme control
+  // Replace this line:
+  // const { setTheme } = useTheme()
+  // With this line:
+  const { styleMode, toggleStyleMode } = useCyberpunkTheme()
+
   const testWalletAddress = "TestModeWallet1111111111111111111111111"
 
   // Initialize audio manager (but don't load sounds yet)
@@ -381,6 +392,14 @@ export default function MultiWalletConnector({
       setIsCollapsed(true) // Minimize wallet by default for already connected wallets
       setConnectedWallet(solWindow.solana!)
 
+      // Switch to dark mode after connection
+      // Replace this:
+      // setTheme("dark")
+      // With this:
+      // if (styleMode === "regular") {
+      //   toggleStyleMode()
+      // }
+
       // Track already connected wallet
       if (typeof window !== "undefined" && (window as any).gtag) {
         ;(window as any).gtag("event", "phantom", {
@@ -398,6 +417,14 @@ export default function MultiWalletConnector({
       setActiveWallet("solflare")
       setIsCollapsed(true) // Minimize wallet by default for already connected wallets
       setConnectedWallet(solWindow.solflare!)
+
+      // Switch to dark mode after connection
+      // Replace this:
+      // setTheme("dark")
+      // With this:
+      // if (styleMode === "regular") {
+      //   toggleStyleMode()
+      // }
 
       // Track already connected wallet
       if (typeof window !== "undefined" && (window as any).gtag) {
@@ -554,6 +581,15 @@ export default function MultiWalletConnector({
       setIsTestMode(true)
       setBalance(5.0) // Set mock balance
       setIsCollapsed(true) // Minimize wallet by default after connection
+
+      // Switch to dark mode after connection
+      // Replace this:
+      // setTheme("dark")
+      // With this:
+      // if (styleMode === "regular") {
+      //   toggleStyleMode()
+      // }
+
       setConnectedWallet(mockProvider)
 
       // Play intro sound when wallet is connected (if not muted)
@@ -602,6 +638,14 @@ export default function MultiWalletConnector({
         setIsTestMode(false)
         setConnectedWallet(walletProvider)
 
+        // Switch to dark mode after connection
+        // Replace this:
+        // setTheme("dark")
+        // With this:
+        // if (styleMode === "regular") {
+        //   toggleStyleMode()
+        // }
+
         // Play intro sound when wallet is connected (if not muted)
         if (!audioManager.isSoundMuted()) {
           playIntroSound()
@@ -625,6 +669,14 @@ export default function MultiWalletConnector({
           setActiveWallet(walletType)
           setIsTestMode(false)
           setConnectedWallet(walletProvider)
+
+          // Switch to dark mode after connection
+          // Replace this:
+          // setTheme("dark")
+          // With this:
+          // if (styleMode === "regular") {
+          //   toggleStyleMode()
+          // }
 
           // Play intro sound when wallet is connected (if not muted)
           if (!audioManager.isSoundMuted()) {
@@ -727,7 +779,7 @@ export default function MultiWalletConnector({
   // Render the collapsed wallet view when connected
   const renderCollapsedWallet = () => {
     return (
-      <div className="flex items-center justify-between bg-[#fbf3de] dark:bg-gradient-to-r dark:from-[#0a0a24]/90 dark:to-[#1a1a4a]/90 rounded-full px-3 py-1.5 shadow-md border-2 border-black dark:border dark:border-cyan-400/50 ml-auto backdrop-blur-sm w-full sm:w-auto">
+      <div className="flex items-center justify-between bg-[#fbf3de] dark:bg-[#0a0a24] rounded-full px-3 py-1.5 shadow-md border-2 border-black dark:border dark:border-cyan-400/50 ml-auto backdrop-blur-sm w-full sm:w-auto dark:text-white">
         <div className="flex items-center gap-2">
           {isTestMode ? (
             <div className="bg-purple-500/80 p-1 rounded-full">
@@ -762,14 +814,13 @@ export default function MultiWalletConnector({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <ThemeToggle size="xs" />
           <SoundButton
             variant="ghost"
             size="icon"
             className="h-6 w-6 hover:bg-cyan-400/20 rounded-full text-cyan-400"
             onClick={toggleCollapse}
           >
-            <ChevronDown className="h-3 w-3" />
+            <ChevronDown className="h-3 w-3 text-black" />
           </SoundButton>
         </div>
       </div>
@@ -799,14 +850,28 @@ export default function MultiWalletConnector({
       ) : (
         // Regular card view
         <Card
-          className={`${
-            compact ? "w-full" : "w-full max-w-md mx-auto"
-          } relative overflow-hidden bg-[#fbf3de] dark:bg-gradient-to-r dark:from-[rgba(16,16,48,0.9)] dark:to-[rgba(32,16,64,0.9)] border-2 border-black dark:border dark:border-[#0ff]/30 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[0_0_15px_rgba(0,255,255,0.2)]`}
+          className={`${compact ? "w-full" : "w-full max-w-md mx-auto"} relative overflow-hidden ${
+            connected && !isCollapsed
+              ? "bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black"
+              : "bg-[#fbf3de] dark:bg-gradient-to-r dark:from-[rgba(16,16,48,0.9)] dark:to-[rgba(32,16,64,0.9)] border-2 border-black dark:border dark:border-[#0ff]/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] dark:text-white"
+          }`}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 dark:border-b dark:border-[#0ff]/30 dark:bg-[rgba(16,16,48,0.7)]">
+          <CardHeader
+            className={`flex flex-row items-center justify-between space-y-0 pb-2 ${
+              connected && !isCollapsed ? "" : "dark:border-b dark:border-[#0ff]/30 dark:bg-[rgba(16,16,48,0.7)]"
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-black dark:text-[#0ff]" />
-              <CardTitle className="text-black dark:text-[#0ff] font-mono dark:text-shadow-[0_0_5px_rgba(0,255,255,0.7)]">
+              <Wallet
+                className={`h-5 w-5 ${connected && !isCollapsed ? "text-black" : "text-black dark:text-[#0ff]"}`}
+              />
+              <CardTitle
+                className={`font-mono ${
+                  connected && !isCollapsed
+                    ? "text-black"
+                    : "text-black dark:text-[#0ff] dark:text-shadow-[0_0_5px_rgba(0,255,255,0.7)]"
+                }`}
+              >
                 SOLANA WALLET
               </CardTitle>
             </div>
@@ -825,7 +890,7 @@ export default function MultiWalletConnector({
           </CardHeader>
 
           {connected && isCollapsed ? (
-            <CardContent className="pt-4">{renderCollapsedWallet()}</CardContent>
+            <CardContent className="pt-4 dark:bg-[#0a0a24]">{renderCollapsedWallet()}</CardContent>
           ) : (
             <>
               {!connected && (
@@ -833,11 +898,15 @@ export default function MultiWalletConnector({
                   Connect your Solana wallet to use Mutable
                 </CardDescription>
               )}
-              <CardContent className="space-y-4 text-black dark:text-[#0ff] px-3 sm:px-6">
+              <CardContent
+                className={`space-y-4 px-3 sm:px-6 ${
+                  connected && !isCollapsed ? "text-black" : "text-black dark:text-[#0ff]"
+                }`}
+              >
                 {connected ? (
                   <>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-800 dark:text-[#0ff]">Wallet:</span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-cyan-400">Wallet:</span>
                       <div className="flex items-center gap-2">
                         {isTestMode ? (
                           <>
@@ -964,16 +1033,30 @@ export default function MultiWalletConnector({
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="dark:border-t dark:border-cyan-400/30 dark:bg-[rgba(16,16,48,0.7)]">
+              <CardFooter
+                className={`${
+                  connected && !isCollapsed ? "" : "dark:border-t dark:border-cyan-400/30 dark:bg-[rgba(16,16,48,0.7)]"
+                }`}
+              >
                 {!connected ? (
                   <div className="text-center w-full text-sm">
-                    <p className="text-gray-700 dark:text-cyan-300 mb-2">Don't have a Solana wallet?</p>
+                    <p
+                      className={`mb-2 ${
+                        connected && !isCollapsed ? "text-gray-700" : "text-gray-700 dark:text-cyan-300"
+                      }`}
+                    >
+                      Don't have a Solana wallet?
+                    </p>
                     <div className="flex justify-center gap-4">
                       <a
                         href="https://phantom.app/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-cyan-400 hover:text-blue-800 dark:hover:text-cyan-300 hover:underline font-medium"
+                        className={`hover:underline font-medium ${
+                          connected && !isCollapsed
+                            ? "text-blue-600 hover:text-blue-800"
+                            : "text-blue-600 dark:text-cyan-400 hover:text-blue-800 dark:hover:text-cyan-300"
+                        }`}
                       >
                         Get Phantom
                       </a>
@@ -981,7 +1064,11 @@ export default function MultiWalletConnector({
                         href="https://solflare.com/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-cyan-400 hover:text-blue-800 dark:hover:text-cyan-300 hover:underline font-medium"
+                        className={`hover:underline font-medium ${
+                          connected && !isCollapsed
+                            ? "text-blue-600 hover:text-blue-800"
+                            : "text-blue-600 dark:text-cyan-400 hover:text-blue-800 dark:hover:text-cyan-300"
+                        }`}
                       >
                         Get Solflare
                       </a>

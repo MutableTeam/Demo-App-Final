@@ -52,6 +52,10 @@ export default function LastStandGameLauncher({
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
   const { toast } = useToast()
 
+  // Define the consistent button style for light UI
+  const lightButtonStyle =
+    "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+
   const handleModeSelect = (modeId: string) => {
     const mode = lastStandConfig.modes.find((m) => m.id === modeId)
     if (!mode) return
@@ -138,7 +142,11 @@ export default function LastStandGameLauncher({
             </CardContent>
             <CardFooter>
               <SoundButton
-                className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+                className={cn(
+                  lightButtonStyle,
+                  "w-full",
+                  isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
+                )}
                 onClick={() => setIsGamePopOutOpen(true)}
               >
                 RESUME GAME
@@ -210,19 +218,15 @@ export default function LastStandGameLauncher({
 
         <CardFooter className="flex justify-between">
           <SoundButton
-            variant="outline"
-            className={cn(
-              "border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all",
-              isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30",
-            )}
+            className={cn(lightButtonStyle, isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30")}
             onClick={() => setSelectedMode(null)}
           >
-            Back
+            BACK
           </SoundButton>
 
           <SoundButton
             className={cn(
-              "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono",
+              lightButtonStyle,
               isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
             )}
             onClick={handleStartGame}
@@ -391,7 +395,8 @@ export default function LastStandGameLauncher({
               >
                 <SoundButton
                   className={cn(
-                    "w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono",
+                    lightButtonStyle,
+                    "w-full",
                     isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
                     mode.id === "hourly" &&
                       isCyberpunk &&
@@ -412,18 +417,18 @@ export default function LastStandGameLauncher({
         </div>
       </CardContent>
 
-      <CardFooter>
+      <CardContent className="pt-4">
         <SoundButton
-          variant="outline"
           className={cn(
-            "w-full border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono",
+            lightButtonStyle,
+            "w-full",
             isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30",
           )}
           onClick={onExit}
         >
           BACK TO GAME SELECTION
         </SoundButton>
-      </CardFooter>
+      </CardContent>
     </Card>
   )
 }

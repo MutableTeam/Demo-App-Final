@@ -19,7 +19,7 @@ const CyberpunkThemeContext = createContext<CyberpunkThemeContextType | undefine
 
 export function CyberpunkThemeProvider({ children }: { children: React.ReactNode }) {
   // Change default from "regular" to "cyberpunk"
-  const [styleMode, setStyleMode] = useState<StyleMode>("cyberpunk")
+  const [styleMode, setStyleMode] = useState<StyleMode>("regular")
 
   // Load preference from localStorage on mount
   useEffect(() => {
@@ -27,9 +27,9 @@ export function CyberpunkThemeProvider({ children }: { children: React.ReactNode
     if (savedMode && (savedMode === "regular" || savedMode === "cyberpunk")) {
       setStyleMode(savedMode)
     } else {
-      // If no saved preference, set to cyberpunk and save it
-      setStyleMode("cyberpunk")
-      localStorage.setItem("styleMode", "cyberpunk")
+      // If no saved preference, set to regular and save it
+      setStyleMode("regular")
+      localStorage.setItem("styleMode", "regular")
     }
   }, [])
 

@@ -293,42 +293,6 @@ const CyberButtonPrimary = styled.button`
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
-    animation: ${buttonGlitch} 4s infinite, ${flashGlitch} 4s infinite;
-    
-    & > span {
-      animation: ${glitchAnim} 8s infinite;
-    }
-    
-    &::before, &::after {
-      content: attr(data-text);
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(90deg, #0ff 0%, #f0f 100%);
-      color: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.3;
-    }
-    
-    &::before {
-      left: 1px;
-      text-shadow: -0.5px 0 #ff00de;
-      animation: ${glitchClip} 8s infinite linear alternate-reverse;
-      background: linear-gradient(90deg, #0ff 20%, #f0f 80%);
-      clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
-    }
-    
-    &::after {
-      left: -1px;
-      text-shadow: 0.5px 0 #00ffff;
-      animation: ${glitchClip} 8s infinite linear alternate-reverse;
-      background: linear-gradient(90deg, #0ff 20%, #f0f 80%);
-      clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
-    }
   }
   
   &:active {
@@ -595,8 +559,27 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       }
     }
 
-    // For regular mode or when asChild is true, use the standard button
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+    // Check if we're in archer arena context and should hide this button
+    const isArcherArenaContext =
+      typeof window !== "undefined" &&
+      (window.location.pathname.includes("archer") || document.querySelector('[data-game="archer-arena"]') !== null)
+
+    if (isArcherArenaContext && !isCyberpunk) {
+      return null
+    }
+
+    // For regular mode or when asChild is true, use the standard button with consistent light UI styling
+    return (
+      <Comp
+        className={cn(
+          buttonVariants({ variant, size, className }),
+          !isCyberpunk &&
+            "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono",
+        )}
+        ref={ref}
+        {...props}
+      />
+    )
   },
 )
 Button.displayName = "Button"

@@ -27,7 +27,7 @@ export function ThemeToggle({ size = "default" }: ThemeToggleProps) {
         >
           <Sun
             className={cn(
-              "rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0",
+              "rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-black",
               size === "xs" ? "h-3 w-3" : size === "sm" ? "h-4 w-4" : "h-5 w-5",
             )}
           />

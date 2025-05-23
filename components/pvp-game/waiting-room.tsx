@@ -480,7 +480,7 @@ export default function WaitingRoom({
           })}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between gap-4">
         <CyberButton variant="outline" className="outline" onClick={handleExit} disabled={isCountingDown}>
           Leave Lobby
         </CyberButton>
@@ -502,7 +502,7 @@ export default function WaitingRoom({
       </CardFooter>
     </CyberWaitingCard>
   ) : (
-    <Card className="arcade-card">
+    <Card className="arcade-card bg-[#f5efdc]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -616,10 +616,9 @@ export default function WaitingRoom({
           })}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between gap-4">
         <SoundButton
-          variant="outline"
-          className="border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]"
+          className="flex-1 bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
           onClick={handleExit}
           disabled={isCountingDown}
         >
@@ -628,7 +627,7 @@ export default function WaitingRoom({
 
         {isHost ? (
           <SoundButton
-            className="bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]"
+            className="flex-1 bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
             onClick={handleGameStart}
             disabled={!allPlayersReady || isCountingDown}
           >
@@ -636,8 +635,7 @@ export default function WaitingRoom({
           </SoundButton>
         ) : (
           <SoundButton
-            variant="outline"
-            className={`border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] ${
+            className={`flex-1 bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono ${
               isCountingDown ? "cursor-not-allowed opacity-50" : ""
             }`}
             onClick={toggleReady}

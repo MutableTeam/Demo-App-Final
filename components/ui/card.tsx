@@ -157,11 +157,6 @@ const CyberCardDescription = styled.p`
   text-shadow: 0 0 2px rgba(0, 255, 255, 0.3);
   letter-spacing: 0.5px;
   line-height: 1.5;
-  
-  /* Add subtle glitch effect on hover */
-  &:hover {
-    animation: ${glitchAnim1} 0.2s;
-  }
 `
 
 const CyberCardContent = styled.div`
@@ -201,10 +196,6 @@ const CyberCardContent = styled.div`
   /* Occasional text glitch */
   & > * {
     position: relative;
-    
-    &:hover {
-      animation: ${glitchAnim1} 0.3s;
-    }
   }
 `
 
@@ -272,7 +263,12 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   }
 
   return (
-    <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
+    <div
+      ref={ref}
+      className={cn("rounded-lg border text-card-foreground shadow-sm", className)}
+      style={{ backgroundColor: "#F5EFDC", ...props.style }}
+      {...props}
+    />
   )
 })
 Card.displayName = "Card"
@@ -325,7 +321,7 @@ const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     const isCyberpunk = styleMode === "cyberpunk"
 
     if (isCyberpunk) {
-      return <CyberCardContent ref={ref} className={cn("mt-2", className)} {...props} />
+      return <CyberCardContent ref={ref} className={cn("mt-2 text-cyan-100", className)} {...props} />
     }
 
     return <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />

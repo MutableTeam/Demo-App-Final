@@ -87,9 +87,6 @@ export default function Home() {
           <DebugOverlay initiallyVisible={false} position="bottom-right" />
         </div>
       </RetroArcadeBackground>
-
-      {/* Sign Up Banner - now only shows when wallet is connected */}
-      <SignUpBanner walletConnected={walletConnected} />
     </main>
   )
 }
