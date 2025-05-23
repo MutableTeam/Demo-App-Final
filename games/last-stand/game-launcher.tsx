@@ -416,19 +416,6 @@ export default function LastStandGameLauncher({
           ))}
         </div>
       </CardContent>
-
-      <CardContent className="pt-4">
-        <SoundButton
-          className={cn(
-            lightButtonStyle,
-            "w-full",
-            isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30",
-          )}
-          onClick={onExit}
-        >
-          BACK TO GAME SELECTION
-        </SoundButton>
-      </CardContent>
     </Card>
   )
 }
