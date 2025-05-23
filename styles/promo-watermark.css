@@ -1,0 +1,26 @@
+/* Promo Watermark Styles */
+.arcade-form-container {
+  /* Override any inherited styles from the arcade background */
+  position: relative;
+  z-index: 100;
+  isolation: isolate;
+}
+
+/* Remove CRT effects from the form container */
+.arcade-form-container::before,
+.arcade-form-container::after {
+  content: none !important;
+}
+
+/* Ensure form elements are clearly visible */
+.arcade-form-container input,
+.arcade-form-container button {
+  font-family: "Press Start 2P", monospace;
+  position: relative;
+  z-index: 10;
+}
+
+/* Ensure the dropdown is above everything else */
+.arcade-form-container {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+}

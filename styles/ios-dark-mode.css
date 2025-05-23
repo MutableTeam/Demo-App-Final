@@ -1,0 +1,91 @@
+/* iOS-specific dark mode fixes */
+.ios-dark {
+  /* Force background colors */
+  --background: #121212 !important;
+  --card: #1a1a1a !important;
+  --foreground: #ffffff !important;
+  --card-foreground: #ffffff !important;
+
+  /* Force text colors */
+  color: #ffffff !important;
+}
+
+/* Force specific element styles for iOS dark mode */
+.ios-dark .arcade-card,
+.ios-dark [class*="Card"] {
+  background-color: #1a1a1a !important;
+  border-color: #444444 !important;
+  color: #ffffff !important;
+}
+
+.ios-dark .bg-\[\#fbf3de\] {
+  background-color: #1a1a1a !important;
+}
+
+.ios-dark .bg-\[\#f5efdc\] {
+  background-color: #222222 !important;
+}
+
+.ios-dark .text-black {
+  color: #ffffff !important;
+}
+
+.ios-dark .border-black {
+  border-color: #444444 !important;
+}
+
+/* Special handling for yellow elements */
+.ios-dark .bg-\[\#FFD54F\] {
+  background-color: #d4af37 !important;
+}
+
+.ios-dark .hover\:bg-\[\#FFD54F\]:hover {
+  background-color: #c4a137 !important;
+}
+
+.ios-dark .hover\:bg-\[\#FFCA28\]:hover {
+  background-color: #b49127 !important;
+}
+
+/* Force all text elements to have proper contrast */
+.ios-dark h1,
+.ios-dark h2,
+.ios-dark h3,
+.ios-dark h4,
+.ios-dark h5,
+.ios-dark h6,
+.ios-dark p,
+.ios-dark span,
+.ios-dark div:not([class*="bg-"]) {
+  color: #ffffff !important;
+}
+
+/* Force all buttons to have proper styling */
+.ios-dark button:not([class*="bg-"]),
+.ios-dark [class*="Button"]:not([class*="bg-"]) {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+  border-color: #555555 !important;
+}
+
+/* Force all badges to have proper styling */
+.ios-dark [class*="Badge"] {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+  border-color: #555555 !important;
+}
+
+/* Special case for yellow buttons to maintain their color but ensure readability */
+.ios-dark .bg-\[\#FFD54F\].text-black,
+.ios-dark .hover\:bg-\[\#FFD54F\]:hover.text-black,
+.ios-dark .hover\:bg-\[\#FFCA28\]:hover.text-black {
+  background-color: #d4af37 !important;
+  color: #000000 !important;
+}
+
+/* iOS-safe class for elements that need special handling */
+.ios-dark-safe {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  border-color: #444444 !important;
+}

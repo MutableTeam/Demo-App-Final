@@ -1,0 +1,138 @@
+/* Cyberpunk wallet connector styles */
+.cyberpunk-wallet {
+  --wallet-bg: #0a0a24;
+  --wallet-grid: rgba(0, 255, 255, 0.1);
+  --wallet-text-primary: #0ff;
+  --wallet-text-secondary: #f0f;
+  --wallet-glow-primary: rgba(0, 255, 255, 0.7);
+  --wallet-glow-secondary: rgba(255, 0, 255, 0.7);
+  --wallet-border: rgba(0, 255, 255, 0.3);
+  --wallet-card-bg: linear-gradient(135deg, rgba(16, 16, 48, 0.9) 0%, rgba(32, 16, 64, 0.9) 100%);
+}
+
+.wallet-grid-bg {
+  background-color: var(--wallet-bg);
+  background-image: linear-gradient(90deg, var(--wallet-grid) 1px, transparent 1px),
+    linear-gradient(0deg, var(--wallet-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.wallet-text-primary {
+  color: var(--wallet-text-primary);
+  text-shadow: 0 0 5px var(--wallet-glow-primary);
+}
+
+.wallet-text-secondary {
+  color: var(--wallet-text-secondary);
+  text-shadow: 0 0 5px var(--wallet-glow-secondary);
+}
+
+.wallet-border {
+  border: 1px solid var(--wallet-border);
+  box-shadow: 0 0 15px var(--wallet-glow-primary), inset 0 0 10px var(--wallet-glow-secondary);
+}
+
+.wallet-card {
+  background: var(--wallet-card-bg);
+  border: 1px solid var(--wallet-border);
+  box-shadow: 0 0 15px var(--wallet-glow-primary), inset 0 0 10px var(--wallet-glow-secondary);
+  backdrop-filter: blur(5px);
+}
+
+.wallet-button-primary {
+  background: linear-gradient(90deg, #0ff 0%, #f0f 100%);
+  color: #000;
+  font-weight: bold;
+  letter-spacing: 1px;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.wallet-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px var(--wallet-glow-primary);
+  background: linear-gradient(90deg, #0ff 20%, #f0f 80%);
+}
+
+.wallet-button-primary:active {
+  transform: translateY(1px);
+}
+
+.wallet-button-secondary {
+  background: linear-gradient(90deg, #f0f 0%, #b300b3 100%);
+  color: #000;
+  font-weight: bold;
+  letter-spacing: 1px;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.wallet-button-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px var(--wallet-glow-secondary);
+  background: linear-gradient(90deg, #f0f 20%, #b300b3 80%);
+}
+
+.wallet-button-secondary:active {
+  transform: translateY(1px);
+}
+
+@keyframes wallet-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: 0 200%;
+  }
+}
+
+.wallet-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.wallet-shine::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent 45%, rgba(255, 255, 255, 0.8) 50%, transparent 55%);
+  background-size: 200% 200%;
+  animation: wallet-shine 8s infinite linear;
+  z-index: 0;
+}
+
+@keyframes wallet-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.wallet-blink {
+  animation: wallet-blink 1.5s infinite;
+}
+
+.wallet-badge-primary {
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  color: #0ff;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+}
+
+.wallet-badge-secondary {
+  background: linear-gradient(90deg, rgba(255, 0, 255, 0.2) 0%, rgba(179, 0, 179, 0.2) 100%);
+  border: 1px solid rgba(255, 0, 255, 0.5);
+  color: #f0f;
+  text-shadow: 0 0 5px rgba(255, 0, 255, 0.7);
+}

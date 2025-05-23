@@ -1,0 +1,13 @@
+[package]
+name = "token-swap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-program = "1.16.0"
+borsh = "0.10.3"
+thiserror = "1.0.40"
+spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
+
+[lib]
+crate-type = ["cdylib", "lib"]

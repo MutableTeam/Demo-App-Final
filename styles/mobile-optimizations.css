@@ -1,0 +1,339 @@
+/* Mobile Optimizations CSS */
+
+/* Base mobile optimizations */
+html {
+  -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape */
+  touch-action: manipulation; /* Disable double-tap to zoom */
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+}
+
+/* Improve touch targets */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Optimize for mobile viewports */
+@media (max-width: 767px) {
+  /* Reduce motion for better performance */
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Improve tap targets */
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"],
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Optimize font sizes */
+  h1 {
+    font-size: 1.75rem !important;
+  }
+
+  h2 {
+    font-size: 1.5rem !important;
+  }
+
+  h3 {
+    font-size: 1.25rem !important;
+  }
+
+  /* Adjust spacing */
+  .p-6 {
+    padding: 1rem !important;
+  }
+
+  .m-6 {
+    margin: 1rem !important;
+  }
+
+  /* Optimize container widths */
+  .container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+/* Cyberpunk mode mobile optimizations */
+html.cyberpunk-mode {
+  /* Reduce animation complexity on mobile */
+  @media (max-width: 767px) {
+    --cyber-animation-speed: 0.5;
+
+    /* Scale down glitch effects */
+    .cyber-glitch::before,
+    .cyber-glitch::after {
+      animation-duration: calc(var(--cyber-animation-speed) * 8s) !important;
+    }
+  }
+}
+
+/* Responsive grid adjustments */
+.grid-cols-3 {
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Responsive spacing utility classes */
+.responsive-p {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .responsive-p {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-p {
+    padding: 2rem;
+  }
+}
+
+/* Responsive typography */
+.responsive-text {
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .responsive-text {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-text {
+    font-size: 1.125rem;
+  }
+}
+
+/* Hide scrollbar on mobile while preserving functionality */
+@media (max-width: 767px) {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Optimize images for mobile */
+img.responsive {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent content from being hidden under fixed headers */
+.has-fixed-header {
+  scroll-padding-top: 60px;
+}
+
+/* Mobile navigation optimizations */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--background);
+  padding: 0.5rem;
+  display: flex;
+  justify-content: space-around;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+}
+
+@media (min-width: 768px) {
+  .mobile-nav {
+    display: none;
+  }
+}
+
+/* Utility classes for responsive layouts */
+.mobile-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .mobile-stack {
+    flex-direction: row;
+  }
+}
+
+.mobile-reverse {
+  flex-direction: column-reverse;
+}
+
+@media (min-width: 768px) {
+  .mobile-reverse {
+    flex-direction: row;
+  }
+}
+
+.mobile-center {
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .mobile-center {
+    text-align: left;
+  }
+}
+
+.mobile-full-width {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .mobile-full-width {
+    width: auto;
+  }
+}
+
+/* Mobile-friendly form elements */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+  }
+}
+
+/* Base mobile optimizations */
+@media (max-width: 767px) {
+  /* Increase touch targets */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Adjust font sizes for better readability */
+  html {
+    font-size: 16px; /* Ensure base font size is readable */
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  /* Optimize for touch */
+  input[type="checkbox"],
+  input[type="radio"] {
+    transform: scale(1.2);
+    margin: 0.25rem;
+  }
+
+  /* Reduce animation complexity */
+  * {
+    animation-duration: 50% !important;
+    transition-duration: 50% !important;
+  }
+}
+
+/* Responsive spacing utilities */
+.m-mobile-0 {
+  margin: 0 !important;
+}
+.p-mobile-0 {
+  padding: 0 !important;
+}
+.m-mobile-1 {
+  margin: 0.25rem !important;
+}
+.p-mobile-1 {
+  padding: 0.25rem !important;
+}
+.m-mobile-2 {
+  margin: 0.5rem !important;
+}
+.p-mobile-2 {
+  padding: 0.5rem !important;
+}
+.m-mobile-4 {
+  margin: 1rem !important;
+}
+.p-mobile-4 {
+  padding: 1rem !important;
+}
+
+/* Responsive layout utilities */
+.flex-col-mobile {
+  display: flex;
+  flex-direction: column !important;
+}
+
+.items-center-mobile {
+  align-items: center !important;
+}
+
+.text-center-mobile {
+  text-align: center !important;
+}
+
+.w-full-mobile {
+  width: 100% !important;
+}
+
+/* Hide/show based on screen size */
+@media (max-width: 767px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .visible-mobile-only {
+    display: none !important;
+  }
+}
+
+/* Cyberpunk mode mobile optimizations */
+.cyberpunk-mode-active {
+  @media (max-width: 767px) {
+    /* Reduce glow effects on mobile for better performance */
+    --glow-intensity: 0.5;
+
+    /* Simplify animations */
+    --animation-complexity: 0.5;
+
+    /* Adjust font sizes */
+    --font-size-scale: 0.9;
+  }
+}
