@@ -837,7 +837,7 @@ export default function MultiWalletConnector({
                 {connected ? (
                   <>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-800 dark:text-cyan-400">Wallet:</span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-[#0ff]">Wallet:</span>
                       <div className="flex items-center gap-2">
                         {isTestMode ? (
                           <>
@@ -855,7 +855,7 @@ export default function MultiWalletConnector({
                             />
                             <Badge
                               variant="outline"
-                              className="bg-green-50 dark:bg-transparent text-green-700 dark:text-cyan-400 border-green-200 dark:border-cyan-400/50 font-mono"
+                              className="bg-green-50 dark:bg-transparent text-green-700 dark:text-[#0ff] border-green-200 dark:border-[#0ff]/50 font-mono"
                             >
                               {activeWallet?.toUpperCase()}
                             </Badge>
@@ -864,9 +864,9 @@ export default function MultiWalletConnector({
                       </div>
                     </div>
                     <div className="flex justify-between items-center flex-wrap">
-                      <span className="text-sm font-medium text-gray-800 dark:text-cyan-400">Address:</span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-[#0ff]">Address:</span>
                       <div className="flex items-center gap-2 mt-1 sm:mt-0">
-                        <span className="text-sm font-mono text-gray-800 dark:text-cyan-400">
+                        <span className="text-sm font-mono text-gray-800 dark:text-[#0ff]">
                           {shortenAddress(getWalletAddress())}
                         </span>
                         <SoundButton
@@ -880,7 +880,7 @@ export default function MultiWalletConnector({
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-800 dark:text-cyan-400">Balances:</span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-[#0ff]">Balances:</span>
                       <div className="flex flex-col gap-1 items-end">
                         <div className="flex items-center gap-2">
                           <Image
@@ -891,7 +891,7 @@ export default function MultiWalletConnector({
                             className="rounded-full"
                           />
                           {balance !== null ? (
-                            <span className="font-mono text-gray-800 dark:text-cyan-400">{balance} SOL</span>
+                            <span className="font-mono text-gray-800 dark:text-[#0ff]">{balance} SOL</span>
                           ) : (
                             <Skeleton className="h-4 w-20 bg-cyan-400/10" />
                           )}
@@ -905,7 +905,7 @@ export default function MultiWalletConnector({
                             className="rounded-full"
                           />
                           {mutbBalance !== null ? (
-                            <span className="font-mono text-gray-800 dark:text-cyan-400">{mutbBalance} MUTB</span>
+                            <span className="font-mono text-gray-800 dark:text-[#0ff]">{mutbBalance} MUTB</span>
                           ) : (
                             <Skeleton className="h-4 w-20 bg-cyan-400/10" />
                           )}
