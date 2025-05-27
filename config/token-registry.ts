@@ -12,15 +12,15 @@ export const SOL_TOKEN: TokenConfig = {
   coingeckoId: "solana",
 }
 
-// MUTB token configuration
+// MUTB token configuration - Updated for your mainnet address for testing
 export const MUTB_TOKEN: TokenConfig = {
   id: "mutb",
   name: "Mutable Token",
   symbol: "MUTB",
-  mintAddress: "BKc4wfcYXm8Eky71EoeAmKuao7zY1dhiJgYaQUAEVGyG",
+  mintAddress: "4EeyZSGjkiM4bBhMPWriyaR9mqdFBGtYKcYCAzTivQbW", // Your mainnet token for testing
   decimals: 9,
   logoURI: "/images/mutable-token.png",
-  fixedPrice: 0.1, // Fixed at $0.10
+  fixedPrice: 0.01, // Fixed at $0.01
 }
 
 // Default swap pair

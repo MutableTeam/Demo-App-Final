@@ -88,6 +88,9 @@ const CyberToggleButton = styled(SoundButton)`
   background: rgba(16, 16, 48, 0.8);
   border: 1px solid rgba(0, 255, 255, 0.5);
   color: rgba(0, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   
   &:hover:not(:disabled) {
     background: rgba(16, 16, 48, 0.9);
@@ -620,39 +623,17 @@ export function TokenSwapForm({
         <CyberButton
           className="w-full font-mono"
           onClick={handleSwap}
-          disabled={isSwapping || !publicKey || !isTokenTradable || checkingTradability}
+          disabled={true} // Always disabled for now
         >
-          {isSwapping ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              SWAPPING...
-            </span>
-          ) : checkingTradability ? (
-            "CHECKING TRADABILITY..."
-          ) : !isTokenTradable ? (
-            "TOKEN NOT YET TRADABLE"
-          ) : (
-            `SWAP ${inputToken.symbol} TO ${outputToken.symbol}`
-          )}
+          SWAP TEMPORARILY DISABLED
         </CyberButton>
       ) : (
         <SoundButton
-          className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+          className="w-full bg-gray-400 hover:bg-gray-400 text-gray-600 border-2 border-gray-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-mono cursor-not-allowed"
           onClick={handleSwap}
-          disabled={isSwapping || !publicKey || !isTokenTradable || checkingTradability}
+          disabled={true} // Always disabled for now
         >
-          {isSwapping ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              SWAPPING...
-            </span>
-          ) : checkingTradability ? (
-            "CHECKING TRADABILITY..."
-          ) : !isTokenTradable ? (
-            "TOKEN NOT YET TRADABLE"
-          ) : (
-            `SWAP ${inputToken.symbol} TO ${outputToken.symbol}`
-          )}
+          SWAP TEMPORARILY DISABLED
         </SoundButton>
       )}
     </div>

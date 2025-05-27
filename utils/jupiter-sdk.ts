@@ -1,4 +1,11 @@
-import { type Connection, type PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js"
+import {
+  type Connection,
+  type PublicKey,
+  Transaction,
+  VersionedTransaction,
+  SendTransactionError,
+} from "@solana/web3.js"
+import { Buffer } from "buffer"
 
 // Jupiter V6 API types
 export interface JupiterQuoteResponse {
@@ -47,7 +54,7 @@ export interface JupiterSwapResult {
 export class JupiterApiClient {
   private connection: Connection
   private apiUrl = "https://quote-api.jup.ag/v6"
-  private isTestnet = true // Set to true for devnet/testnet
+  private isTestnet = true
 
   constructor(connection: Connection) {
     this.connection = connection
@@ -56,35 +63,97 @@ export class JupiterApiClient {
     const endpoint = connection.rpcEndpoint
     this.isTestnet = endpoint.includes("devnet") || endpoint.includes("testnet")
 
-    console.log(`Jupiter API client initialized for ${this.isTestnet ? "testnet" : "mainnet"}`)
+    console.log(`🚀 Jupiter API client initialized`)
+    console.log(`📡 Network: ${this.isTestnet ? "DEVNET" : "MAINNET"}`)
+    console.log(`🔗 RPC endpoint: ${endpoint}`)
+    console.log(`🌐 Jupiter API: ${this.apiUrl}`)
   }
 
   // Check if a token is tradable on Jupiter
   async isTokenTradable(inputMint: string, outputMint: string): Promise<boolean> {
     try {
-      // Try to get a quote with a small amount
-      const amount = 10000000 // 0.01 SOL in lamports
+      // Try multiple amounts to be thorough
+      const testAmounts = [
+        1000000000, // 1 token
+        100000000, // 0.1 token
+        10000000, // 0.01 token
+      ]
 
-      // Build the API URL with query parameters
-      const queryParams = new URLSearchParams({
-        inputMint,
-        outputMint,
-        amount: amount.toString(),
-        slippageBps: "50",
-        onlyDirectRoutes: "false",
-      })
+      console.log(`🔍 Testing tradability: ${inputMint} -> ${outputMint}`)
 
-      const response = await fetch(`${this.apiUrl}/quote?${queryParams}`)
+      for (const amount of testAmounts) {
+        const queryParams = new URLSearchParams({
+          inputMint,
+          outputMint,
+          amount: amount.toString(),
+          slippageBps: "100", // 1% slippage for testing
+          onlyDirectRoutes: "false",
+        })
 
-      if (!response.ok) {
-        return false
+        const url = `${this.apiUrl}/quote?${queryParams}`
+        console.log(`📞 Testing with amount ${amount}: ${url}`)
+
+        try {
+          const response = await fetch(url)
+
+          if (response.ok) {
+            const data = await response.json()
+            if (data && data.routePlan && data.routePlan.length > 0) {
+              console.log(`✅ Token is tradable! Found ${data.routePlan.length} routes`)
+              console.log(
+                `📊 Route details:`,
+                data.routePlan.map((r) => r.swapInfo.label),
+              )
+              return true
+            }
+          } else {
+            const errorText = await response.text()
+            console.log(`❌ Amount ${amount} failed:`, response.status, errorText)
+          }
+        } catch (error) {
+          console.log(`❌ Amount ${amount} error:`, error)
+        }
       }
 
-      const data = await response.json()
-      return !!(data && data.routePlan && data.routePlan.length > 0)
-    } catch (error) {
-      console.error("Error checking if token is tradable:", error)
+      console.log(`❌ Token not tradable with any test amount`)
       return false
+    } catch (error) {
+      console.error("❌ Error checking if token is tradable:", error)
+      return false
+    }
+  }
+
+  // Check what tokens are available on Jupiter
+  async getAvailableTokens(): Promise<any[]> {
+    try {
+      console.log(`🔍 Fetching available tokens from Jupiter...`)
+      const response = await fetch(`${this.apiUrl}/tokens`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tokens: ${response.status}`)
+      }
+
+      const tokens = await response.json()
+      console.log(`📋 Found ${tokens.length} tokens available on Jupiter`)
+
+      // Check if our MUTB token is in the list
+      const mutbToken = tokens.find((token: any) => token.address === "4EeyZSGjkiM4bBhMPWriyaR9mqdFBGtYKcYCAzTivQbW")
+
+      if (mutbToken) {
+        console.log(`✅ MUTB token found in Jupiter token list:`, mutbToken)
+      } else {
+        console.log(`❌ MUTB token NOT found in Jupiter token list`)
+        console.log(`🔍 Searching for similar tokens...`)
+        const similarTokens = tokens.filter(
+          (token: any) => token.symbol?.toLowerCase().includes("mutb") || token.name?.toLowerCase().includes("mutable"),
+        )
+        console.log(`🔍 Similar tokens found:`, similarTokens)
+      }
+
+      return tokens
+    } catch (error) {
+      console.error("❌ Error fetching available tokens:", error)
+      return []
     }
   }
 
@@ -93,10 +162,9 @@ export class JupiterApiClient {
     inputMint: string,
     outputMint: string,
     amount: number,
-    slippageBps = 50, // 0.5% default slippage
+    slippageBps = 50,
     onlyDirectRoutes = false,
   ): Promise<JupiterQuoteResponse> {
-    // Build the API URL with query parameters
     const queryParams = new URLSearchParams({
       inputMint,
       outputMint,
@@ -105,49 +173,55 @@ export class JupiterApiClient {
       onlyDirectRoutes: onlyDirectRoutes.toString(),
     })
 
-    console.log(`Fetching Jupiter quote: ${this.apiUrl}/quote?${queryParams}`)
+    console.log(`📞 Fetching Jupiter quote: ${this.apiUrl}/quote?${queryParams}`)
     const response = await fetch(`${this.apiUrl}/quote?${queryParams}`)
 
     if (!response.ok) {
       const errorText = await response.text()
-      let errorJson
-      try {
-        errorJson = JSON.parse(errorText)
-      } catch (e) {
-        errorJson = { error: errorText }
-      }
-
+      console.error(`❌ Jupiter quote failed:`, response.status, errorText)
       throw new Error(`Jupiter API error: ${response.status} - ${errorText}`)
     }
 
     const quoteResponse = (await response.json()) as JupiterQuoteResponse
-    console.log("Jupiter quote received:", quoteResponse)
+    console.log("✅ Jupiter quote received:", quoteResponse)
     return quoteResponse
   }
 
   // Get a swap transaction
   async getSwapTransaction(quoteResponse: JupiterQuoteResponse, userPublicKey: string): Promise<JupiterSwapResponse> {
-    console.log("Requesting swap transaction from Jupiter")
+    console.log("📞 Requesting swap transaction from Jupiter")
+
+    // For devnet, we need to be more careful about address lookup tables
+    const requestBody = {
+      quoteResponse,
+      userPublicKey,
+      wrapAndUnwrapSol: true,
+      // Add devnet-specific options
+      ...(this.isTestnet && {
+        // Disable address lookup tables for devnet if they're causing issues
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: "auto",
+      }),
+    }
+
+    console.log("📦 Swap request body:", JSON.stringify(requestBody, null, 2))
+
     const response = await fetch(`${this.apiUrl}/swap`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        quoteResponse,
-        userPublicKey,
-        wrapAndUnwrapSol: true, // Automatically wrap/unwrap SOL
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error("Jupiter swap API error:", errorText)
+      console.error("❌ Jupiter swap API error:", errorText)
       throw new Error(`Jupiter swap API error: ${errorText}`)
     }
 
     const swapResponse = (await response.json()) as JupiterSwapResponse
-    console.log("Jupiter swap transaction received")
+    console.log("✅ Jupiter swap transaction received")
     return swapResponse
   }
 
@@ -156,55 +230,125 @@ export class JupiterApiClient {
     swapTransaction: string,
     walletPublicKey: PublicKey,
     signTransaction: (transaction: Transaction | VersionedTransaction) => Promise<Transaction | VersionedTransaction>,
-    quoteResponse: JupiterQuoteResponse, // Added quoteResponse as parameter
+    quoteResponse: JupiterQuoteResponse,
   ): Promise<JupiterSwapResult> {
-    console.log("Executing Jupiter swap transaction")
-    // Real implementation for Jupiter swap execution
-    // Deserialize the transaction
-    const transactionBuf = Buffer.from(swapTransaction, "base64")
+    console.log("🔄 Executing Jupiter swap transaction")
 
-    // Check if it's a legacy or versioned transaction
-    const isVersionedTransaction = transactionBuf[0] === 0x80
+    try {
+      // Deserialize the transaction
+      const transactionBuf = Buffer.from(swapTransaction, "base64")
+      console.log("📦 Transaction buffer length:", transactionBuf.length)
 
-    let transaction
-    if (isVersionedTransaction) {
-      transaction = VersionedTransaction.deserialize(transactionBuf)
-    } else {
-      transaction = Transaction.from(transactionBuf)
-    }
+      let transaction: Transaction | VersionedTransaction
+      let isVersionedTransaction = false
 
-    // Sign the transaction
-    console.log("Signing transaction")
-    const signedTransaction = await signTransaction(transaction)
+      try {
+        // First, try to deserialize as a versioned transaction
+        transaction = VersionedTransaction.deserialize(transactionBuf)
+        isVersionedTransaction = true
+        console.log("✅ Successfully deserialized as VersionedTransaction")
 
-    // Serialize and send the transaction
-    let rawTransaction
-    if (isVersionedTransaction) {
-      rawTransaction = (signedTransaction as VersionedTransaction).serialize()
-    } else {
-      rawTransaction = (signedTransaction as Transaction).serialize()
-    }
+        // Log address lookup table info for debugging
+        if (transaction.message.addressTableLookups && transaction.message.addressTableLookups.length > 0) {
+          console.log("🔍 Address lookup tables found:", transaction.message.addressTableLookups.length)
+          transaction.message.addressTableLookups.forEach((alt, index) => {
+            console.log(`ALT ${index}:`, alt.accountKey.toString())
+          })
+        }
+      } catch (versionedError) {
+        console.log("⚠️ Failed to deserialize as VersionedTransaction, trying legacy Transaction")
+        try {
+          // If that fails, try as a legacy transaction
+          transaction = Transaction.from(transactionBuf)
+          isVersionedTransaction = false
+          console.log("✅ Successfully deserialized as legacy Transaction")
+        } catch (legacyError) {
+          console.error("❌ Failed to deserialize as both VersionedTransaction and Transaction")
+          console.error("VersionedTransaction error:", versionedError)
+          console.error("Legacy Transaction error:", legacyError)
+          throw new Error("Failed to deserialize transaction in any format")
+        }
+      }
 
-    // Send the transaction
-    console.log("Sending transaction to blockchain")
-    const txid = await this.connection.sendRawTransaction(rawTransaction, {
-      skipPreflight: false,
-      preflightCommitment: "confirmed",
-    })
-    console.log("Transaction sent, ID:", txid)
+      // Sign the transaction
+      console.log("✍️ Signing transaction")
+      const signedTransaction = await signTransaction(transaction)
 
-    // Wait for confirmation
-    console.log("Waiting for confirmation")
-    const confirmation = await this.connection.confirmTransaction(txid, "confirmed")
+      // Serialize and send the transaction
+      let rawTransaction: Uint8Array
+      if (isVersionedTransaction) {
+        rawTransaction = (signedTransaction as VersionedTransaction).serialize()
+        console.log("📦 Serialized as VersionedTransaction")
+      } else {
+        rawTransaction = (signedTransaction as Transaction).serialize()
+        console.log("📦 Serialized as legacy Transaction")
+      }
 
-    if (confirmation.value.err) {
-      throw new Error(`Transaction failed: ${confirmation.value.err.toString()}`)
-    }
+      console.log("📡 Sending transaction to blockchain")
 
-    console.log("Transaction confirmed successfully")
-    return {
-      txid,
-      outputAmount: quoteResponse.outAmount,
+      try {
+        // First try with simulation
+        console.log("🧪 Simulating transaction first...")
+        const simulation = await this.connection.simulateTransaction(
+          isVersionedTransaction ? (signedTransaction as VersionedTransaction) : (signedTransaction as Transaction),
+          {
+            commitment: "confirmed",
+            replaceRecentBlockhash: true,
+          },
+        )
+
+        if (simulation.value.err) {
+          console.error("❌ Simulation failed:", simulation.value.err)
+          console.error("📋 Simulation logs:", simulation.value.logs)
+          throw new Error(`Simulation failed: ${JSON.stringify(simulation.value.err)}`)
+        }
+
+        console.log("✅ Simulation successful")
+        console.log("📋 Simulation logs:", simulation.value.logs)
+
+        // If simulation passes, send the actual transaction
+        const txid = await this.connection.sendRawTransaction(rawTransaction, {
+          skipPreflight: true, // Skip preflight since we already simulated
+          preflightCommitment: "confirmed",
+          maxRetries: 3,
+        })
+        console.log("✅ Transaction sent, ID:", txid)
+
+        console.log("⏳ Waiting for confirmation")
+        const confirmation = await this.connection.confirmTransaction(txid, "confirmed")
+
+        if (confirmation.value.err) {
+          console.error("❌ Transaction failed:", confirmation.value.err)
+          throw new Error(`Transaction failed: ${confirmation.value.err.toString()}`)
+        }
+
+        console.log("🎉 Transaction confirmed successfully")
+        return {
+          txid,
+          outputAmount: quoteResponse.outAmount,
+        }
+      } catch (sendError) {
+        console.error("❌ Error sending transaction:", sendError)
+
+        // If it's a SendTransactionError, get the logs
+        if (sendError instanceof SendTransactionError) {
+          console.error("📋 Transaction logs:", sendError.logs)
+        }
+
+        // Check if it's an address lookup table issue
+        if (sendError.message.includes("address table account that doesn't exist")) {
+          console.error("🚨 Address Lookup Table issue detected")
+          console.error("💡 This might be because the ALT doesn't exist on devnet")
+          throw new Error(
+            "Address lookup table not found on devnet. This token might not be fully supported on devnet yet.",
+          )
+        }
+
+        throw sendError
+      }
+    } catch (error) {
+      console.error("❌ Error in executeSwap:", error)
+      throw error
     }
   }
 
@@ -216,15 +360,8 @@ export class JupiterApiClient {
     walletPublicKey: PublicKey,
     signTransaction: (transaction: Transaction) => Promise<Transaction>,
   ): Promise<string> {
-    // This is a simplified mock function
-    // In a real implementation, you would:
-    // 1. Create a pool on a DEX like Raydium or Orca
-    // 2. Add initial liquidity
-
-    console.log(`Creating liquidity pool for token ${tokenMint}`)
-    console.log(`Adding ${solAmount} SOL and ${tokenAmount} tokens as initial liquidity`)
-
-    // For demonstration purposes, we'll return a mock transaction ID
+    console.log(`🏊 Creating liquidity pool for token ${tokenMint}`)
+    console.log(`💰 Adding ${solAmount} SOL and ${tokenAmount} tokens as initial liquidity`)
     return "mock_pool_creation_tx_" + Math.random().toString(36).substring(2, 15)
   }
 }

@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 
 // Cyberpunk styled components
 const glowPulse = keyframes`
@@ -52,6 +53,8 @@ interface SwapSettingsProps {
 
 export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk = false }: SwapSettingsProps) {
   const [open, setOpen] = useState(false)
+  const { styleMode } = useCyberpunkTheme()
+  const isActuallyCyberpunk = isCyberpunk || styleMode === "cyberpunk"
 
   // Convert basis points to percentage for display
   const slippagePercentage = slippageBps / 100
@@ -62,7 +65,7 @@ export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk = fals
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        {isCyberpunk ? (
+        {isActuallyCyberpunk ? (
           <CyberButton variant="outline" size="icon" className="h-8 w-8">
             <Settings className="h-4 w-4" />
           </CyberButton>
@@ -72,8 +75,8 @@ export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk = fals
           </Button>
         )}
       </PopoverTrigger>
-      {isCyberpunk ? (
-        <CyberPopoverContent className="w-80">
+      {isActuallyCyberpunk ? (
+        <CyberPopoverContent className="w-80" side="bottom" align="end">
           <div className="p-4">
             <h4 className="font-medium mb-2 text-cyan-300">Swap Settings</h4>
             <div className="space-y-4">
@@ -120,7 +123,7 @@ export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk = fals
           </div>
         </CyberPopoverContent>
       ) : (
-        <PopoverContent className="w-80">
+        <PopoverContent className="w-80" side="bottom" align="end">
           <div className="p-4">
             <h4 className="font-medium mb-2">Swap Settings</h4>
             <div className="space-y-4">
