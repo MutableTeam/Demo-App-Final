@@ -13,6 +13,18 @@ import { keyframes } from "@emotion/react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { ResponsiveGrid } from "@/components/mobile-optimized-container"
 import { GAME_IMAGES, TOKENS } from "@/utils/image-paths"
+import { useState } from "react"
+import { Switch } from "@/components/ui/switch"
+import { cn } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Define breakpoints locally to avoid import issues
 const breakpoints = {
@@ -227,6 +239,9 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
     originalName: game.config.name, // Store original name for reference
   }))
 
+  const [wagerToken, setWagerToken] = useState<"MUTB" | "SOL">("MUTB")
+  const [showSolWarning, setShowSolWarning] = useState(false)
+
   // Modify the name for Archer Arena: Last Stand
   const processedGames = allGames.map((game) => {
     if (game.name === "Archer Arena: Last Stand") {
@@ -271,6 +286,12 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
 
   // Handle game selection with Google Analytics tracking
   const handleGameSelect = (gameId: string) => {
+    // Check if SOL is selected and show popup
+    if (wagerToken === "SOL") {
+      setShowSolWarning(true)
+      return
+    }
+
     // Get the game name for tracking
     const game = games.find((g) => g.id === gameId)
 
@@ -283,6 +304,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
         ;(window as any).gtag("event", eventName, {
           event_category: "Games",
           event_label: game.name,
+          wager_token: wagerToken,
         })
       }
     }
@@ -308,27 +330,120 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
               MUTABLE GAMES
             </CardTitle>
           </div>
-          <Badge
-            variant="outline"
-            className={
-              isCyberpunk
-                ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
-                : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
-            }
-          >
-            <Image
-              src={TOKENS.MUTABLE || "/placeholder.svg"}
-              alt="MUTB"
-              width={16}
-              height={16}
-              className="rounded-full"
-            />
-            {mutbBalance.toFixed(2)} MUTB
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge
+              variant="outline"
+              className={
+                isCyberpunk
+                  ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
+                  : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
+              }
+            >
+              <Image
+                src={TOKENS.MUTABLE || "/placeholder.svg"}
+                alt="MUTB"
+                width={16}
+                height={16}
+                className="rounded-full"
+              />
+              {mutbBalance.toFixed(2)} MUTB
+            </Badge>
+            <Badge
+              variant="outline"
+              className={
+                isCyberpunk
+                  ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
+                  : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
+              }
+            >
+              <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
+              {balance?.toFixed(4) || "0.0000"} SOL
+            </Badge>
+          </div>
         </div>
         <CardDescription className={isCyberpunk ? "text-[#0ff]/70" : ""}>
-          Select a game to play and wager MUTB tokens
+          Select a game to play and wager tokens
         </CardDescription>
+
+        {/* Wager Token Selection */}
+        <div className="flex items-center justify-between px-2 py-3 border-b border-gray-200 dark:border-gray-700/50">
+          <div className="flex items-center gap-3">
+            <span
+              className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-400" : "text-gray-700 dark:text-gray-300")}
+            >
+              Wager Token:
+            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "text-sm font-mono",
+                  wagerToken === "MUTB"
+                    ? isCyberpunk
+                      ? "text-cyan-400 font-bold"
+                      : "text-black dark:text-white font-bold"
+                    : "text-gray-500",
+                )}
+              >
+                MUTB
+              </span>
+              <Switch
+                checked={wagerToken === "SOL"}
+                onCheckedChange={(checked) => setWagerToken(checked ? "SOL" : "MUTB")}
+                className={isCyberpunk ? "data-[state=checked]:bg-cyan-500" : ""}
+              />
+              <span
+                className={cn(
+                  "text-sm font-mono",
+                  wagerToken === "SOL"
+                    ? isCyberpunk
+                      ? "text-cyan-400 font-bold"
+                      : "text-black dark:text-white font-bold"
+                    : "text-gray-500",
+                )}
+              >
+                SOL
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-400")}>
+              Selected Balance:
+            </span>
+            <div className="flex items-center gap-1">
+              {wagerToken === "MUTB" ? (
+                <>
+                  <Image
+                    src={TOKENS.MUTABLE || "/placeholder.svg"}
+                    alt="MUTB"
+                    width={16}
+                    height={16}
+                    className="rounded-full"
+                  />
+                  <span
+                    className={cn(
+                      "font-medium font-mono",
+                      isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
+                    )}
+                  >
+                    {mutbBalance.toFixed(2)} MUTB
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
+                  <span
+                    className={cn(
+                      "font-medium font-mono",
+                      isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
+                    )}
+                  >
+                    {balance?.toFixed(4) || "0.0000"} SOL
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className={isMobile ? "p-4" : undefined}>
         <ResponsiveGrid
@@ -388,8 +503,17 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   <div className={`mt-2 ${isMobile ? "text-xs" : "text-sm"} flex items-center gap-1 text-[#0ff]/80`}>
                     <span className="font-medium">Min Wager:</span>
                     <div className="flex items-center">
-                      <Image src={TOKENS.MUTABLE || "/placeholder.svg"} alt="MUTB" width={12} height={12} />
-                      <span>{game.minWager} MUTB</span>
+                      {wagerToken === "MUTB" ? (
+                        <>
+                          <Image src={TOKENS.MUTABLE || "/placeholder.svg"} alt="MUTB" width={12} height={12} />
+                          <span>{game.minWager} MUTB</span>
+                        </>
+                      ) : (
+                        <>
+                          <Image src="/solana-logo.png" alt="SOL" width={12} height={12} />
+                          <span>{((game.minWager * 0.01) / 150).toFixed(4)} SOL</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -457,8 +581,17 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   <div className={`mt-2 ${isMobile ? "text-xs" : "text-xs"} flex items-center gap-1`}>
                     <span className="font-medium">Min Wager:</span>
                     <div className="flex items-center">
-                      <Image src={TOKENS.MUTABLE || "/placeholder.svg"} alt="MUTB" width={12} height={12} />
-                      <span>{game.minWager} MUTB</span>
+                      {wagerToken === "MUTB" ? (
+                        <>
+                          <Image src={TOKENS.MUTABLE || "/placeholder.svg"} alt="MUTB" width={12} height={12} />
+                          <span>{game.minWager} MUTB</span>
+                        </>
+                      ) : (
+                        <>
+                          <Image src="/solana-logo.png" alt="SOL" width={12} height={12} />
+                          <span>{((game.minWager * 0.01) / 150).toFixed(4)} SOL</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -477,6 +610,27 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
           )}
         </ResponsiveGrid>
       </CardContent>
+
+      {/* SOL Warning Dialog */}
+      <AlertDialog open={showSolWarning} onOpenChange={setShowSolWarning}>
+        <AlertDialogContent className={isCyberpunk ? "bg-black/90 border-cyan-500/50" : ""}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className={isCyberpunk ? "text-cyan-400" : ""}>SOL Wagering Coming Soon</AlertDialogTitle>
+            <AlertDialogDescription className={isCyberpunk ? "text-cyan-300/70" : ""}>
+              SOL wagering functionality is currently in development and will be available soon. Please switch to MUTB
+              to play games in this demo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setShowSolWarning(false)}
+              className={isCyberpunk ? "bg-cyan-500 hover:bg-cyan-600 text-black" : ""}
+            >
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
