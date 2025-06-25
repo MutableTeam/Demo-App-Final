@@ -6,9 +6,9 @@ import type { PlayerState } from "@/schemas/Player"
 const generateRandomUsername = () => {
   const adjectives = ["Cyber", "Neo", "Arcade", "Pixel", "Quantum", "Digital", "Synth", "Vapor", "Neon", "Retro"]
   const nouns = ["Knight", "Racer", "Hunter", "Pilot", "Glitch", "Specter", "Droid", "Echo", "Phantom", "Byte"]
+  const randomNumber = Math.floor(Math.random() * 1000)
   const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)]
   const randomNoun = nouns[Math.floor(Math.random() * nouns.length)]
-  const randomNumber = Math.floor(Math.random() * 1000)
   return `${randomAdjective}${randomNoun}${randomNumber}`
 }
 
@@ -31,6 +31,7 @@ const initialPlayerState: PlayerState = {
   username: "",
   solBalance: 0,
   mutbBalance: 0,
+  publicKey: "", // Ensure publicKey is part of PlayerState
 }
 
 export function usePlayerState() {
