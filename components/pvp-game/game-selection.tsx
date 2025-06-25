@@ -218,7 +218,7 @@ const CyberBadge = styled(Badge)`
 interface GameSelectionProps {
   publicKey: string
   balance: number | null
-  mutbBalance: number
+  mutbBalance: number | null // Updated to allow null
   onSelectGame: (gameId: string) => void
 }
 
@@ -425,7 +425,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                       isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
                     )}
                   >
-                    {mutbBalance.toFixed(2)} MUTB
+                    {mutbBalance?.toFixed(2) || "0.00"} MUTB
                   </span>
                 </>
               ) : (
