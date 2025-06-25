@@ -190,6 +190,7 @@ interface Player {
   id: string
   name: string
   isReady: boolean
+  isHost?: boolean
 }
 
 interface WaitingRoomProps {
@@ -201,6 +202,9 @@ interface WaitingRoomProps {
   maxPlayers: number
   wager: number
   gameMode: string
+  players?: Player[] // Real players from Colyseus
+  isReady?: boolean
+  onToggleReady?: () => void
   onExit: () => void
   onGameStart: () => void
 }
@@ -214,15 +218,12 @@ export default function WaitingRoom({
   maxPlayers,
   wager,
   gameMode,
+  players: colyseusPlayers = [],
+  isReady: colyseusIsReady = false,
+  onToggleReady,
   onExit,
   onGameStart,
 }: WaitingRoomProps) {
-  const [players, setPlayers] = useState<Player[]>([
-    // Host is automatically ready
-    { id: hostId, name: hostName, isReady: true },
-    // If current player is not the host, add them as not ready
-    ...(publicKey !== hostId ? [{ id: publicKey, name: playerName, isReady: false }] : []),
-  ])
   const [isCountingDown, setIsCountingDown] = useState(false)
   const [isHost] = useState(hostId === publicKey)
   const componentId = useRef(`waiting-room-${lobbyId}`).current
@@ -230,6 +231,17 @@ export default function WaitingRoom({
   const countdownStartedAtRef = useRef<number | null>(null)
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
+
+  // Use real players from Colyseus or fallback to initial state
+  const players =
+    colyseusPlayers.length > 0
+      ? colyseusPlayers
+      : [
+          { id: hostId, name: hostName, isReady: true, isHost: true },
+          ...(publicKey !== hostId ? [{ id: publicKey, name: playerName, isReady: false }] : []),
+        ]
+
+  const isReady = colyseusIsReady
 
   // Check if all players are ready
   const allPlayersReady = players.length >= 2 && players.every((player) => player.isReady)
@@ -239,69 +251,19 @@ export default function WaitingRoom({
     debugManager.trackComponentMount("WaitingRoom", { lobbyId, isHost })
     transitionDebugger.trackTransition("none", "mounted", "WaitingRoom", { lobbyId, isHost })
 
-    // Simulate other players joining
-    const joinInterval = transitionDebugger.safeSetInterval(
-      () => {
-        if (isCountingDown) return // Don't add players during countdown
-
-        setPlayers((currentPlayers) => {
-          // Only add players if we're not at max capacity
-          if (currentPlayers.length >= maxPlayers) {
-            return currentPlayers
-          }
-
-          // Check if player already exists with this ID
-          const botId = `bot-${Date.now()}`
-          if (currentPlayers.some((p) => p.id === botId)) {
-            return currentPlayers
-          }
-
-          // Generate a random player
-          const botNames = ["CryptoArcher", "TokenShooter", "BlockchainGamer", "NFTWarrior", "SolanaSniper"]
-          const randomName = botNames[Math.floor(Math.random() * botNames.length)]
-          const newPlayer = { id: botId, name: randomName, isReady: false }
-
-          return [...currentPlayers, newPlayer]
-        })
-      },
-      3000,
-      `${componentId}-join-interval`,
-    )
-
-    // Simulate bots randomly getting ready
-    const readyInterval = transitionDebugger.safeSetInterval(
-      () => {
-        if (isCountingDown) return // Don't change ready status during countdown
-
-        setPlayers((currentPlayers) =>
-          currentPlayers.map((player) => {
-            // Only update bot players that aren't ready
-            if (player.id.startsWith("bot-") && !player.isReady && Math.random() > 0.5) {
-              return { ...player, isReady: true }
-            }
-            return player
-          }),
-        )
-      },
-      2000,
-      `${componentId}-ready-interval`,
-    )
-
-    // Cleanup function
+    // Cleanup function - NO MORE SIMULATION INTERVALS
     return () => {
       debugManager.trackComponentUnmount("WaitingRoom")
       transitionDebugger.trackTransition("mounted", "unmounted", "WaitingRoom")
 
-      // Clean up all timers and intervals
-      transitionDebugger.safeClearInterval(`${componentId}-join-interval`)
-      transitionDebugger.safeClearInterval(`${componentId}-ready-interval`)
+      // Clean up any remaining timers
       transitionDebugger.safeClearTimeout(`${componentId}-start-countdown`)
       transitionDebugger.safeClearTimeout(`${componentId}-game-start`)
 
       // Log cleanup
       debugManager.logInfo("WaitingRoom", "Component cleanup completed")
     }
-  }, [lobbyId, isHost, maxPlayers, componentId, isCountingDown])
+  }, [lobbyId, isHost, componentId])
 
   // Watch for all players ready to automatically start countdown
   useEffect(() => {
@@ -362,14 +324,9 @@ export default function WaitingRoom({
 
   // Toggle ready status for current player
   const toggleReady = () => {
-    setPlayers((currentPlayers) =>
-      currentPlayers.map((player) => {
-        if (player.id === publicKey) {
-          return { ...player, isReady: !player.isReady }
-        }
-        return player
-      }),
-    )
+    if (onToggleReady) {
+      onToggleReady()
+    }
   }
 
   // Memoize the countdown timer to prevent re-renders
@@ -441,7 +398,7 @@ export default function WaitingRoom({
                     <div className="flex-1">
                       <div className="font-bold font-mono flex items-center gap-2 text-[#0ff]">
                         {player.name}
-                        {player.id === hostId && (
+                        {(player.isHost || player.id === hostId) && (
                           <CyberBadge variant="outline" className="ml-2 host">
                             HOST
                           </CyberBadge>
@@ -496,7 +453,7 @@ export default function WaitingRoom({
             onClick={toggleReady}
             disabled={isCountingDown}
           >
-            {players.find((p) => p.id === publicKey)?.isReady ? "Not Ready" : "Ready!"}
+            {isReady ? "Not Ready" : "Ready!"}
           </CyberButton>
         )}
       </CardFooter>
@@ -571,7 +528,7 @@ export default function WaitingRoom({
                     <div className="flex-1">
                       <div className="font-bold font-mono flex items-center gap-2 dark:text-white">
                         {player.name}
-                        {player.id === hostId && (
+                        {(player.isHost || player.id === hostId) && (
                           <Badge
                             variant="outline"
                             className="ml-2 bg-[#FFD54F] text-black text-xs dark:bg-[#D4AF37] dark:border-gray-700"
@@ -641,7 +598,7 @@ export default function WaitingRoom({
             onClick={toggleReady}
             disabled={isCountingDown}
           >
-            {players.find((p) => p.id === publicKey)?.isReady ? "Not Ready" : "Ready!"}
+            {isReady ? "Not Ready" : "Ready!"}
           </SoundButton>
         )}
       </CardFooter>
