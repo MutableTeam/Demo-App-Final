@@ -155,8 +155,18 @@ export default function Home() {
       }
     } else {
       // Disconnect Colyseus if wallet disconnects
+      // Replace this problematic code:
+      // if (colyseusClientRef.current) {
+      //   colyseusClientRef.current.leave()
+      //   colyseusClientRef.current = null
+      //   log("Colyseus client disconnected due to wallet disconnect", "info")
+      // }
+      // With this proper cleanup:
+      if (hubRoomRef.current) {
+        hubRoomRef.current.leave()
+        hubRoomRef.current = null
+      }
       if (colyseusClientRef.current) {
-        colyseusClientRef.current.leave()
         colyseusClientRef.current = null
         log("Colyseus client disconnected due to wallet disconnect", "info")
       }
@@ -166,9 +176,21 @@ export default function Home() {
 
   // Cleanup Colyseus client on component unmount
   useEffect(() => {
+    // Replace this problematic code:
+    // return () => {
+    //   if (colyseusClientRef.current) {
+    //     colyseusClientRef.current.leave()
+    //     colyseusClientRef.current = null
+    //     log("Colyseus client disconnected on unmount", "info")
+    //   }
+    // }
+    // With this proper cleanup:
     return () => {
+      if (hubRoomRef.current) {
+        hubRoomRef.current.leave()
+        hubRoomRef.current = null
+      }
       if (colyseusClientRef.current) {
-        colyseusClientRef.current.leave()
         colyseusClientRef.current = null
         log("Colyseus client disconnected on unmount", "info")
       }
