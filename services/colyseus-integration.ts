@@ -13,6 +13,18 @@ export interface ColyseusLobbyOptions {
   maxPlayers: number
 }
 
+export interface GameListing {
+  id: string
+  gameType: string
+  gameMode: string
+  wager: number
+  maxPlayers: number
+  currentPlayers: number
+  hostName: string
+  status: "waiting" | "full" | "in-progress"
+  createdAt: string
+}
+
 export class ColyseusIntegrationService {
   private client: Client | null = null
   private hubRoom: Room | null = null
@@ -40,24 +52,60 @@ export class ColyseusIntegrationService {
     return this.hubRoom
   }
 
-  async createLobby(options: ColyseusLobbyOptions & { username: string }): Promise<Room> {
+  async joinLobby(username: string): Promise<Room> {
     if (!this.client) {
       throw new Error("Not connected to server")
     }
 
-    this.lobbyRoom = await this.client.create("lobby", options)
-    console.log("Created lobby room:", this.lobbyRoom.id)
+    // Join the main CustomLobbyRoom (not create individual lobbies)
+    this.lobbyRoom = await this.client.joinOrCreate("lobby", { username })
+    console.log("Joined main lobby room:", this.lobbyRoom.id)
     return this.lobbyRoom
   }
 
-  async joinLobby(lobbyId: string, username: string): Promise<Room> {
-    if (!this.client) {
-      throw new Error("Not connected to server")
+  async createGame(options: ColyseusLobbyOptions): Promise<void> {
+    if (!this.lobbyRoom) {
+      throw new Error("Not in a lobby")
     }
 
-    this.lobbyRoom = await this.client.joinById(lobbyId, { username })
-    console.log("Joined lobby room:", this.lobbyRoom.id)
-    return this.lobbyRoom
+    // Send create_game message to the CustomLobbyRoom
+    await this.lobbyRoom.send("create_game", {
+      gameType: "battle",
+      gameMode: options.gameMode,
+      wager: options.wager,
+      maxPlayers: options.maxPlayers,
+    })
+    console.log("Created game in lobby:", options)
+  }
+
+  async joinGame(gameId: string): Promise<void> {
+    if (!this.lobbyRoom) {
+      throw new Error("Not in a lobby")
+    }
+
+    // Send join_game message to the CustomLobbyRoom
+    await this.lobbyRoom.send("join_game", { gameId })
+    console.log("Joined game:", gameId)
+  }
+
+  async leaveGame(gameId: string): Promise<void> {
+    if (!this.lobbyRoom) {
+      throw new Error("Not in a lobby")
+    }
+
+    // Send leave_game message to the CustomLobbyRoom
+    await this.lobbyRoom.send("leave_game", { gameId })
+    console.log("Left game:", gameId)
+  }
+
+  async selectGameType(gameType: string): Promise<void> {
+    if (!this.lobbyRoom) {
+      throw new Error("Not in a lobby")
+    }
+
+    // Send select_game_type message to join a game session
+    await this.lobbyRoom.send("select_game_type", { gameType })
+    console.log("Selected game type:", gameType)
   }
 
   async toggleReady(ready: boolean): Promise<void> {
@@ -67,6 +115,16 @@ export class ColyseusIntegrationService {
 
     await this.lobbyRoom.send("ready", { ready })
     console.log("Toggled ready state:", ready)
+  }
+
+  async requestActiveLobbies(): Promise<void> {
+    if (!this.lobbyRoom) {
+      throw new Error("Not in a lobby")
+    }
+
+    // Request active game listings from the CustomLobbyRoom
+    await this.lobbyRoom.send("get_active_lobbies", { gameType: "battle" })
+    console.log("Requested active lobbies")
   }
 
   async leaveLobby(): Promise<void> {
@@ -111,8 +169,6 @@ export class ColyseusIntegrationService {
 
     // Disconnect client
     if (this.client) {
-      // Note: Colyseus client doesn't have a direct disconnect method
-      // Rooms will automatically disconnect when they go out of scope
       this.client = null
       console.log("Disconnected from Colyseus server")
     }

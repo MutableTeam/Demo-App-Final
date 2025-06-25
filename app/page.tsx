@@ -33,6 +33,9 @@ export default function Home() {
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
 
+  // Add after existing state declarations
+  const [availableRooms, setAvailableRooms] = useState<any[]>([])
+
   // Colyseus States and Refs
   const [colyseusLogs, setColyseusLogs] = useState<string[]>([])
   const colyseusClientRef = useRef<ColyseusClient | null>(null)
@@ -84,9 +87,16 @@ export default function Home() {
           log(`Hub Player Count Update: ${message.totalPlayers}`, "info")
           setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
         })
+        hubRoom.onMessage("hub_state_update", (message) => {
+          log(`Hub State Update: ${JSON.stringify(message)}`, "info")
+          setCurrentPlayerState((prev) => ({ ...prev, ...message }))
+        })
         hubRoom.onMessage("lobbies_discovered", (message) => {
-          // log(`Discovered Lobbies: ${JSON.stringify(message.lobbies)}`, "info") // Too verbose for root page
+          log(`Discovered Lobbies: ${message.lobbies?.length || 0} lobbies`, "info")
           setCurrentPlayerState((prev) => ({ ...prev, availableRooms: message.lobbies }))
+          if (message.lobbies) {
+            setAvailableRooms(message.lobbies)
+          }
         })
       } catch (e: any) {
         log(`Failed to join Hub Room: ${e.message}`, "error")
@@ -95,6 +105,36 @@ export default function Home() {
     },
     [log],
   )
+
+  // Add room scanning function after the connectAndJoinHub function
+  const scanAvailableRooms = useCallback(async () => {
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "ws://localhost:2567"
+    const httpUrl = serverUrl.replace("wss://", "https://").replace("ws://", "http://")
+
+    try {
+      log("🔍 Scanning for available rooms...", "info")
+      const apiUrl = `${httpUrl}/api/rooms`
+
+      const response = await fetch(apiUrl)
+      if (response.ok) {
+        const rooms = await response.json()
+        log(`✅ Found ${rooms.length} available rooms`, "success")
+        setAvailableRooms(rooms)
+      } else {
+        log(`❌ Room scan failed: ${response.status}`, "error")
+      }
+    } catch (error: any) {
+      log(`❌ Room scan error: ${error.message}`, "error")
+    }
+  }, [log])
+
+  // Add lobby rooms request function
+  const requestRoomsFromHub = useCallback(() => {
+    if (hubRoomRef.current && playerState.isInHub) {
+      log("🔍 Requesting active lobbies from hub...", "info")
+      hubRoomRef.current.send("get_lobbies")
+    }
+  }, [log, playerState.isInHub])
 
   // Initialize Google Analytics
   useEffect(() => {
@@ -134,6 +174,23 @@ export default function Home() {
       }
     }
   }, [log])
+
+  // Add periodic room scanning
+  useEffect(() => {
+    if (walletConnected && playerState.isConnected) {
+      // Initial scan
+      scanAvailableRooms()
+      requestRoomsFromHub()
+
+      // Set up periodic scanning
+      const scanInterval = setInterval(() => {
+        scanAvailableRooms()
+        requestRoomsFromHub()
+      }, 15000) // Every 15 seconds
+
+      return () => clearInterval(scanInterval)
+    }
+  }, [walletConnected, playerState.isConnected, scanAvailableRooms, requestRoomsFromHub])
 
   const handleWalletConnection = (connected: boolean, publicKey: string, balance: number | null, provider: any) => {
     console.log("Wallet connection changed:", { connected, publicKey, balance })

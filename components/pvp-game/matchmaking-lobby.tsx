@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -272,6 +272,10 @@ export default function MatchmakingLobby({
     leaveLobby,
     leaveHub,
     disconnect,
+    createGame,
+    joinGame,
+    selectGameType,
+    availableGames,
   } = useColyseusLobby({
     serverUrl,
     username: localPlayerName,
@@ -284,6 +288,57 @@ export default function MatchmakingLobby({
       alert(`Multiplayer Error: ${error}`)
     },
   })
+
+  // Add room scanning functionality
+  const scanAvailableRooms = useCallback(async () => {
+    const httpUrl = serverUrl.replace("wss://", "https://").replace("ws://", "http://")
+
+    try {
+      debugManager.logInfo("MatchmakingLobby", "Scanning for available rooms...")
+      const apiUrl = `${httpUrl}/api/rooms`
+
+      const response = await fetch(apiUrl)
+      if (response.ok) {
+        const rooms = await response.json()
+        debugManager.logInfo("MatchmakingLobby", `Found ${rooms.length} available rooms`)
+        // Filter for battle/lobby rooms that match our game type
+        const gameRooms = rooms.filter((room: any) => room.type === "lobby" || room.type === "battle")
+        // Update available lobbies if we have game rooms
+        if (gameRooms.length > 0) {
+          // Transform rooms to match expected lobby format
+          const transformedLobbies = gameRooms.map((room: any) => ({
+            id: room.roomId,
+            gameMode: room.metadata?.gameMode || "Unknown",
+            wager: room.metadata?.wager || 1,
+            players: room.clients,
+            maxPlayers: room.maxClients,
+            hostName: room.metadata?.hostName || "Unknown Host",
+            status: room.clients < room.maxClients ? "waiting" : "full",
+          }))
+          // This would need to be handled by the useColyseusLobby hook
+          // For now, we'll log the discovered rooms
+          debugManager.logInfo("MatchmakingLobby", "Discovered game rooms:", transformedLobbies)
+        }
+      }
+    } catch (error: any) {
+      debugManager.logError("MatchmakingLobby", "Room scan error:", error.message)
+    }
+  }, [serverUrl])
+
+  // Add periodic scanning
+  useEffect(() => {
+    if (isConnected && isInHub) {
+      // Initial scan
+      scanAvailableRooms()
+
+      // Set up periodic scanning
+      const scanInterval = setInterval(() => {
+        scanAvailableRooms()
+      }, 10000) // Every 10 seconds
+
+      return () => clearInterval(scanInterval)
+    }
+  }, [isConnected, isInHub, scanAvailableRooms])
 
   // Load selected game implementation
   useEffect(() => {
@@ -313,28 +368,21 @@ export default function MatchmakingLobby({
     }
   }, [publicKey, selectedGame])
 
-  // Auto-connect to Colyseus when component mounts
+  // Auto-connect and join lobby when component mounts
   useEffect(() => {
     if (!isConnected) {
       connect()
     }
   }, [isConnected, connect])
 
-  // Auto-join hub after connecting
+  // Auto-join hub and lobby after connecting
   useEffect(() => {
     if (isConnected && !isInHub && !isInLobby) {
-      joinHub()
+      joinHub().then(() => {
+        joinLobby()
+      })
     }
-  }, [isConnected, isInHub, isInLobby, joinHub])
-
-  // Open game pop-out when game starts
-  useEffect(() => {
-    if (gameState === "playing") {
-      setIsGamePopOutOpen(true)
-    } else {
-      setIsGamePopOutOpen(false)
-    }
-  }, [gameState])
+  }, [isConnected, isInHub, isInLobby, joinHub, joinLobby])
 
   const createLobby = async () => {
     if (!selectedMode || !selectedGameImpl) return
@@ -358,24 +406,21 @@ export default function MatchmakingLobby({
     })
 
     try {
-      await createColyseusLobby({
+      // Create a game within the CustomLobbyRoom
+      await createGame({
         gameMode: mode.name,
         wager: wagerAmount,
         maxPlayers: mode.players,
       })
 
-      // Track state transition
-      transitionDebugger.trackTransition("lobby", "waiting", "MatchmakingLobby")
-      setGameState("waiting")
-
-      debugManager.logInfo("MatchmakingLobby", "Created new Colyseus lobby")
+      debugManager.logInfo("MatchmakingLobby", "Created new game in lobby")
     } catch (error) {
-      debugManager.logError("MatchmakingLobby", "Failed to create lobby:", error)
-      alert("Failed to create lobby. Please try again.")
+      debugManager.logError("MatchmakingLobby", "Failed to create game:", error)
+      alert("Failed to create game. Please try again.")
     }
   }
 
-  const joinLobby = async (lobby: GameLobby) => {
+  const joinLobby = async (lobby: any) => {
     if (lobby.status !== "waiting") return
     if (lobby.wager > mutbBalance) {
       alert("You don't have enough MUTB tokens for this wager")
@@ -388,18 +433,27 @@ export default function MatchmakingLobby({
     })
 
     try {
-      await joinColyseusLobby(lobby.id)
+      // Join a specific game within the CustomLobbyRoom
+      await joinGame(lobby.id)
 
-      // Track state transition
-      transitionDebugger.trackTransition("lobby", "waiting", "MatchmakingLobby", { lobbyId: lobby.id })
-      setGameState("waiting")
+      // Select the game type to join the game session
+      await selectGameType("battle")
 
-      debugManager.logInfo("MatchmakingLobby", "Joined Colyseus lobby", lobby)
+      debugManager.logInfo("MatchmakingLobby", "Joined game in lobby", lobby)
     } catch (error) {
-      debugManager.logError("MatchmakingLobby", "Failed to join lobby:", error)
-      alert("Failed to join lobby. Please try again.")
+      debugManager.logError("MatchmakingLobby", "Failed to join game:", error)
+      alert("Failed to join game. Please try again.")
     }
   }
+
+  // Open game pop-out when game starts
+  useEffect(() => {
+    if (gameState === "playing") {
+      setIsGamePopOutOpen(true)
+    } else {
+      setIsGamePopOutOpen(false)
+    }
+  }, [gameState])
 
   const handleGameEnd = (winner: string | null) => {
     // Calculate rewards based on current lobby
@@ -664,11 +718,11 @@ export default function MatchmakingLobby({
               </TabsList>
 
               <TabsContent value="browse" className="space-y-4">
-                {availableLobbies.length > 0 ? (
+                {availableGames.length > 0 ? (
                   <div className="space-y-3">
-                    {availableLobbies.map((lobby) => (
+                    {availableGames.map((game) => (
                       <div
-                        key={lobby.id}
+                        key={game.id}
                         className="flex items-center justify-between p-3 border border-[#0ff]/30 rounded-md bg-[#0a0a24]/80 hover:bg-[#0a0a24] hover:border-[#0ff]/60 transition-colors"
                       >
                         <div className="flex items-center gap-3">
@@ -677,12 +731,12 @@ export default function MatchmakingLobby({
                           </div>
                           <div>
                             <div className="font-bold font-mono flex items-center gap-2 text-[#0ff]">
-                              {lobby.gameMode || "Unknown"}
+                              {game.gameMode || "Unknown"}
                               <CyberModeBadge variant="outline" className="font-normal text-xs">
-                                {lobby.players}/{lobby.maxPlayers}
+                                {game.currentPlayers}/{game.maxPlayers}
                               </CyberModeBadge>
                             </div>
-                            <div className="text-sm text-[#0ff]/70">Host: {lobby.hostName}</div>
+                            <div className="text-sm text-[#0ff]/70">Host: {game.hostName}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -690,10 +744,13 @@ export default function MatchmakingLobby({
                             <div className="text-sm font-medium text-[#0ff]/80">Wager</div>
                             <div className="font-mono flex items-center justify-center gap-1 text-[#0ff]">
                               <Image src="/images/mutable-token.png" alt="MUTB" width={12} height={12} />
-                              <span>{lobby.wager}</span>
+                              <span>{game.wager}</span>
                             </div>
                           </div>
-                          <CyberModeButton disabled={!isConnected || !isInHub} onClick={() => joinLobby(lobby)}>
+                          <CyberModeButton
+                            disabled={!isConnected || !isInLobby || game.status !== "waiting"}
+                            onClick={() => joinLobby(game)}
+                          >
                             JOIN
                           </CyberModeButton>
                         </div>
