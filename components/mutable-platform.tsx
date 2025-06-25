@@ -14,19 +14,13 @@ import { LiquidityPoolStatus } from "@/components/swap/liquidity-pool-status"
 import { TokenSwapForm } from "@/components/swap/token-swap-form"
 import { MarketOverview } from "@/components/swap/market-overview"
 import { TransactionHistory } from "@/components/swap/transaction-history"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import {
-  CyberpunkTabs,
-  CyberpunkTabsContent,
-  CyberpunkTabsList,
-  CyberpunkTabsTrigger,
-} from "@/components/cyberpunk-ui/cyberpunk-tabs"
+import { CyberpunkTabs } from "@/components/cyberpunk-ui/cyberpunk-tabs" // Removed CyberpunkTabsContent
 import { CyberpunkAlert } from "@/components/cyberpunk-ui/cyberpunk-alert"
 import { RefreshCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 interface MutablePlatformProps {
   publicKey: string
@@ -96,10 +90,62 @@ export default function MutablePlatform({
     setRefreshTradability((prev) => prev + 1)
   }, [])
 
+  // Define tabs content dynamically
+  const tabs = [
+    {
+      value: "games",
+      label: "Games",
+      content: (
+        <GameSelection
+          publicKey={publicKey}
+          balance={balance}
+          mutbBalance={playerState.mutbBalance}
+          onSelectGame={handleSelectGame}
+        />
+      ),
+    },
+    {
+      value: "marketplace",
+      label: "Marketplace",
+      content: <MutableMarketplace publicKey={publicKey} connection={connection} />,
+    },
+  ]
+
+  // Add swap tab only if in cyberpunk mode
+  if (isCyberpunk) {
+    tabs.push({
+      value: "swap",
+      label: "Swap",
+      content: (
+        <Card className="w-full !bg-black/80 !border-cyan-500/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-2xl font-bold text-cyan-400">Token Swap</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefreshTradability}
+              className="text-cyan-400 hover:text-cyan-200"
+              aria-label="Refresh Tradability"
+            >
+              <RefreshCcw className="h-5 w-5" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <LiquidityPoolStatus publicKey={publicKey} connection={connection} refreshKey={refreshTradability} />
+            <TokenSwapForm publicKey={publicKey} connection={connection} refreshKey={refreshTradability} />
+            <MarketOverview publicKey={publicKey} connection={connection} refreshKey={refreshTradability} />
+            <TransactionHistory publicKey={publicKey} connection={connection} />
+          </CardContent>
+        </Card>
+      ),
+    })
+  }
+
   const TabComponent = isCyberpunk ? CyberpunkTabs : Tabs
-  const TabListComponent = isCyberpunk ? CyberpunkTabsList : TabsList
-  const TabTriggerComponent = isCyberpunk ? CyberpunkTabsTrigger : TabsTrigger
-  const TabContentComponent = isCyberpunk ? CyberpunkTabsContent : TabsContent
+  // Note: TabListComponent and TabTriggerComponent are still used for direct rendering of TabsList/TabsTrigger
+  // if not using the full CyberpunkTabs wrapper. However, since we're passing `tabs` to TabComponent,
+  // the internal rendering of CyberpunkTabs will use its own styled TabsList/TabsTrigger.
+  // For simplicity and to avoid redundant logic, we'll just pass the `tabs` array to the main TabComponent.
 
   return (
     <div className="w-full">
@@ -119,48 +165,7 @@ export default function MutablePlatform({
           availableRooms={availableRooms}
         />
       ) : (
-        <TabComponent defaultValue="games" className="w-full">
-          <TabListComponent className={cn("grid w-full", isCyberpunk ? "grid-cols-3" : "grid-cols-2")}>
-            <TabTriggerComponent value="games">Games</TabTriggerComponent>
-            <TabTriggerComponent value="marketplace">Marketplace</TabTriggerComponent>
-            {isCyberpunk && <TabTriggerComponent value="swap">Swap</TabTriggerComponent>}
-          </TabListComponent>
-          <TabContentComponent value="games">
-            <GameSelection
-              publicKey={publicKey}
-              balance={balance}
-              mutbBalance={playerState.mutbBalance} // Pass mutbBalance from playerState
-              onSelectGame={handleSelectGame}
-            />
-          </TabContentComponent>
-          <TabContentComponent value="marketplace">
-            <MutableMarketplace publicKey={publicKey} connection={connection} />
-          </TabContentComponent>
-          {isCyberpunk && (
-            <TabContentComponent value="swap">
-              <Card className="w-full !bg-black/80 !border-cyan-500/50">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-2xl font-bold text-cyan-400">Token Swap</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleRefreshTradability}
-                    className="text-cyan-400 hover:text-cyan-200"
-                    aria-label="Refresh Tradability"
-                  >
-                    <RefreshCcw className="h-5 w-5" />
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <LiquidityPoolStatus publicKey={publicKey} connection={connection} refreshKey={refreshTradability} />
-                  <TokenSwapForm publicKey={publicKey} connection={connection} refreshKey={refreshTradability} />
-                  <MarketOverview publicKey={publicKey} connection={connection} refreshKey={refreshTradability} />
-                  <TransactionHistory publicKey={publicKey} connection={connection} />
-                </CardContent>
-              </Card>
-            </TabContentComponent>
-          )}
-        </TabComponent>
+        <TabComponent defaultValue="games" className="w-full" tabs={tabs} />
       )}
       {playerState.status.type === "error" && (
         <CyberpunkAlert title="Connection Error" description={playerState.status.text} className="mt-4" />
