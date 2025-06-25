@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import MultiWalletConnector from "@/components/multi-wallet-connector"
 import DemoWatermark from "@/components/demo-watermark"
@@ -25,12 +27,11 @@ import { ColyseusDebugWidget } from "@/components/colyseus-debug-widget"
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
 export default function Home() {
-  // Local states to track wallet connection directly from MultiWalletConnector
-  const [walletConnectedStatus, setWalletConnectedStatus] = useState(false)
-  const [walletPublicKey, setWalletPublicKey] = useState("")
-  const [walletProvider, setWalletProvider] = useState<any>(null)
-
-  const [availableRooms, setAvailableRooms] = useState<any[]>([])
+  // Wallet connection state
+  const [walletConnected, setWalletConnected] = useState(false)
+  const [publicKey, setPublicKey] = useState("")
+  const [balance, setBalance] = useState<number | null>(null)
+  const [provider, setProvider] = useState<any>(null)
 
   // Colyseus States and Refs
   const [colyseusLogs, setColyseusLogs] = useState<string[]>([])
@@ -39,98 +40,61 @@ export default function Home() {
   const { playerState, setPlayerState } = usePlayerState()
   const hubRoomRef = useRef<Room | null>(null)
 
+  // Log function for ColyseusDebugWidget
   const log = useCallback((message: string, type: "info" | "error" | "success" = "info") => {
     const timestamp = new Date().toLocaleTimeString()
-    setColyseusLogs((prevLogs) => [`[${timestamp}] [${type.toUpperCase()}] ${message}`, ...prevLogs.slice(0, 99)])
+    setColyseusLogs((prevLogs) => [`[${timestamp}] [${type.toUpperCase()}] ${message}`, ...prevLogs.slice(0, 99)]) // Keep last 100 logs
   }, [])
 
+  // Colyseus Room Hook for cleanup and error handling
   useColyseusRoom(hubRoomRef.current, setPlayerState, log, "Player Hub Room")
 
-  // connectAndJoinHub now uses playerState and setPlayerState from its closure
-  const connectAndJoinHub = useCallback(async () => {
-    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "ws://localhost:2567"
+  // Function to connect to Colyseus and join the hub
+  const connectAndJoinHub = useCallback(
+    async (
+      currentPlayerState: typeof playerState,
+      setCurrentPlayerState: typeof setPlayerState,
+      currentHubRoomRef: React.MutableRefObject<Room | null>,
+    ) => {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "ws://localhost:2567"
 
-    if (!colyseusClientRef.current) {
-      colyseusClientRef.current = new ColyseusClient(serverUrl)
-      log(`Colyseus Client initialized for ${serverUrl}`, "info")
-    }
-
-    // Crucial check: Only proceed if Colyseus is not already connected
-    // Use colyseusClientRef.current.connected for a more robust check
-    if (colyseusClientRef.current?.connected) {
-      // Changed here
-      log("Colyseus client already connected, skipping join.", "info")
-      return
-    }
-
-    setPlayerState((prev) => ({ ...prev, status: { text: "Connecting to Colyseus...", type: "info" } }))
-    log(`Attempting to connect to Colyseus server at ${serverUrl}`, "info")
-
-    try {
-      const hubRoom = await colyseusClientRef.current.joinOrCreate("hub", { username: playerState.username })
-      hubRoomRef.current = hubRoom
-      setPlayerState((prev) => ({ ...prev, isInHub: true, status: { text: "In Hub Room", type: "success" } }))
-      log(`Joined Hub Room: ${hubRoom.id}`, "success")
-
-      hubRoom.onStateChange((state) => {
-        setPlayerState((prev) => ({ ...prev, totalPlayers: state.totalPlayers }))
-      })
-      hubRoom.onMessage("hub_welcome", (message) => {
-        log(`Hub Welcome: ${message.message}. Total players: ${message.totalPlayers}`, "info")
-        setPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
-      })
-      hubRoom.onMessage("player_count_update", (message) => {
-        log(`Hub Player Count Update: ${message.totalPlayers}`, "info")
-        setPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
-      })
-      hubRoom.onMessage("hub_state_update", (message) => {
-        log(`Hub State Update: ${JSON.stringify(message)}`, "info")
-        setPlayerState((prev) => ({ ...prev, ...message }))
-      })
-      hubRoom.onMessage("lobbies_discovered", (message) => {
-        log(`Discovered Lobbies: ${message.lobbies?.length || 0} lobbies`, "info")
-        setPlayerState((prev) => ({ ...prev, availableRooms: message.lobbies }))
-        if (message.lobbies) {
-          setAvailableRooms(message.lobbies)
-        }
-      })
-    } catch (e: any) {
-      log(`Failed to join Hub Room: ${e.message}`, "error")
-      setPlayerState((prev) => ({
-        ...prev,
-        isInHub: false,
-        status: { text: `Hub Join Error: ${e.message}`, type: "error" },
-      }))
-    }
-  }, [log, setAvailableRooms, playerState.username, setPlayerState]) // Dependencies for useCallback
-
-  const scanAvailableRooms = useCallback(async () => {
-    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "ws://localhost:2567"
-    const httpUrl = serverUrl.replace("wss://", "https://").replace("ws://", "http://")
-
-    try {
-      log("🔍 Scanning for available rooms...", "info")
-      const apiUrl = `${httpUrl}/api/rooms`
-
-      const response = await fetch(apiUrl)
-      if (response.ok) {
-        const rooms = await response.json()
-        log(`✅ Found ${rooms.length} available rooms`, "success")
-        setAvailableRooms(rooms)
-      } else {
-        log(`❌ Room scan failed: ${response.status}`, "error")
+      if (!colyseusClientRef.current) {
+        colyseusClientRef.current = new ColyseusClient(serverUrl)
+        log(`Colyseus Client initialized for ${serverUrl}`, "info")
       }
-    } catch (error: any) {
-      log(`❌ Room scan error: ${error.message}`, "error")
-    }
-  }, [log])
 
-  const requestRoomsFromHub = useCallback(() => {
-    if (hubRoomRef.current && playerState.isInHub) {
-      log("🔍 Requesting active lobbies from hub...", "info")
-      hubRoomRef.current.send("get_lobbies")
-    }
-  }, [log, playerState.isInHub])
+      setCurrentPlayerState((prev) => ({ ...prev, isConnected: true, status: "Connecting to Colyseus..." }))
+      log(`Attempting to connect to Colyseus server at ${serverUrl}`, "info")
+
+      try {
+        const hubRoom = await colyseusClientRef.current.joinOrCreate("hub", { username: currentPlayerState.username })
+        currentHubRoomRef.current = hubRoom
+        setCurrentPlayerState((prev) => ({ ...prev, isInHub: true, status: "In Hub Room" }))
+        log(`Joined Hub Room: ${hubRoom.id}`, "success")
+
+        hubRoom.onStateChange((state) => {
+          setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: state.totalPlayers }))
+          // log(`Hub State: ${JSON.stringify(state.toJSON())}`, "info") // Too verbose for root page
+        })
+        hubRoom.onMessage("hub_welcome", (message) => {
+          log(`Hub Welcome: ${message.message}. Total players: ${message.totalPlayers}`, "info")
+          setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
+        })
+        hubRoom.onMessage("player_count_update", (message) => {
+          log(`Hub Player Count Update: ${message.totalPlayers}`, "info")
+          setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
+        })
+        hubRoom.onMessage("lobbies_discovered", (message) => {
+          // log(`Discovered Lobbies: ${JSON.stringify(message.lobbies)}`, "info") // Too verbose for root page
+          setCurrentPlayerState((prev) => ({ ...prev, availableRooms: message.lobbies }))
+        })
+      } catch (e: any) {
+        log(`Failed to join Hub Room: ${e.message}`, "error")
+        setCurrentPlayerState((prev) => ({ ...prev, isInHub: false, status: `Hub Join Error: ${e.message}` }))
+      }
+    },
+    [log],
+  )
 
   // Initialize Google Analytics
   useEffect(() => {
@@ -143,46 +107,22 @@ export default function Home() {
     initializeEnhancedRenderer()
   }, [])
 
-  // Effect to connect to Colyseus when wallet is connected
-  // This useEffect now depends on the local walletConnectedStatus and walletPublicKey
+  // Effect to connect to Colyseus and join hub when wallet is connected
   useEffect(() => {
-    if (walletConnectedStatus && walletPublicKey) {
-      // Only connect to Colyseus if not already connected
-      // Ensure colyseusClientRef.current exists before checking .connected
-      if (!colyseusClientRef.current || !colyseusClientRef.current.connected) {
-        // Changed here
-        connectAndJoinHub()
+    if (walletConnected && publicKey) {
+      if (!playerState.isConnected) {
+        connectAndJoinHub(playerState, setPlayerState, hubRoomRef)
       }
     } else {
       // Disconnect Colyseus if wallet disconnects
-      if (colyseusClientRef.current?.connected) {
-        // Changed here
+      if (colyseusClientRef.current) {
         colyseusClientRef.current.leave()
         colyseusClientRef.current = null
         log("Colyseus client disconnected due to wallet disconnect", "info")
       }
-      // Reset player state related to Colyseus connection
-      // This part should be safe as it's only triggered on wallet disconnect
-      if (playerState.isInHub || playerState.isInLobby || playerState.isInBattleRoom) {
-        setPlayerState((prev) => ({
-          ...prev,
-          isInHub: false,
-          isInLobby: false,
-          isInBattleRoom: false,
-          status: { text: "Disconnected", type: "info" },
-        }))
-      }
+      setPlayerState((prev) => ({ ...prev, isConnected: false, isInHub: false, status: "Disconnected" }))
     }
-  }, [
-    walletConnectedStatus,
-    walletPublicKey,
-    connectAndJoinHub,
-    log,
-    setPlayerState,
-    playerState.isInHub,
-    playerState.isInLobby,
-    playerState.isInBattleRoom,
-  ])
+  }, [walletConnected, publicKey, connectAndJoinHub, setPlayerState, log])
 
   // Cleanup Colyseus client on component unmount
   useEffect(() => {
@@ -195,59 +135,13 @@ export default function Home() {
     }
   }, [log])
 
-  // Add periodic room scanning
-  useEffect(() => {
-    // This effect now depends on playerState.isConnected, which is updated by handleWalletConnection
-    // and should be stable enough not to cause a loop here.
-    if (playerState.isConnected) {
-      // Initial scan
-      scanAvailableRooms()
-      requestRoomsFromHub()
-
-      // Set up periodic scanning
-      const scanInterval = setInterval(() => {
-        scanAvailableRooms()
-        requestRoomsFromHub()
-      }, 15000) // Every 15 seconds
-
-      return () => clearInterval(scanInterval)
-    }
-  }, [playerState.isConnected, scanAvailableRooms, requestRoomsFromHub])
-
-  const handleWalletConnection = useCallback(
-    (
-      connected: boolean,
-      newPublicKey: string,
-      newBalance: number | null,
-      newProvider: any,
-      newMutbBalance: number | null,
-    ) => {
-      console.log("Wallet connection changed:", {
-        connected,
-        newPublicKey,
-        newBalance,
-        newMutbBalance,
-      })
-      // Update local wallet states
-      setWalletConnectedStatus(connected)
-      setWalletPublicKey(newPublicKey)
-      setWalletProvider(newProvider)
-
-      // Update playerState with the new balances and connection status
-      setPlayerState((prev) => ({
-        ...prev,
-        isConnected: connected,
-        publicKey: newPublicKey,
-        solBalance: newBalance ?? 0,
-        mutbBalance: newMutbBalance ?? 0,
-        status: {
-          text: connected ? "Wallet Connected" : "Disconnected",
-          type: connected ? "success" : "info",
-        },
-      }))
-    },
-    [setPlayerState],
-  )
+  const handleWalletConnection = (connected: boolean, publicKey: string, balance: number | null, provider: any) => {
+    console.log("Wallet connection changed:", { connected, publicKey, balance })
+    setWalletConnected(connected)
+    setPublicKey(publicKey)
+    setBalance(balance)
+    setProvider(provider)
+  }
 
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
@@ -260,20 +154,20 @@ export default function Home() {
       {/* Wallet connector always positioned at top right when connected */}
       <div
         className={`fixed ${
-          walletConnectedStatus
+          walletConnected
             ? "top-2 right-2 sm:right-4 md:right-6"
             : "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-        } z-[100] ${!walletConnectedStatus ? "w-full max-w-md px-4 sm:px-0" : ""}`}
+        } z-[100] ${!walletConnected ? "w-full max-w-md px-4 sm:px-0" : ""}`}
       >
         <MultiWalletConnector
           onConnectionChange={handleWalletConnection}
-          compact={walletConnectedStatus}
-          className={`${!walletConnectedStatus ? "logo-glow" : ""} wallet-foreground`}
+          compact={walletConnected}
+          className={`${!walletConnected ? "logo-glow" : ""} wallet-foreground`}
         />
       </div>
 
       {/* Audio controls positioned at top right below wallet when connected */}
-      <div className={`fixed ${walletConnectedStatus ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90]`}>
+      <div className={`fixed ${walletConnected ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90]`}>
         <GlobalAudioControls />
       </div>
 
@@ -281,20 +175,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
           <DemoWatermark />
 
-          {walletConnectedStatus && walletPublicKey && (
+          {walletConnected && publicKey && (
             <div className="mt-16">
-              <MutablePlatform
-                publicKey={walletPublicKey}
-                balance={playerState.solBalance}
-                provider={walletProvider}
-                connection={connection}
-                colyseusClient={colyseusClientRef.current}
-                hubRoom={hubRoomRef.current}
-                playerState={playerState}
-                setPlayerState={setPlayerState}
-                log={log}
-                availableRooms={availableRooms}
-              />
+              <MutablePlatform publicKey={publicKey} balance={balance} provider={provider} connection={connection} />
             </div>
           )}
 

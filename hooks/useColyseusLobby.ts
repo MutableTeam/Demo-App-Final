@@ -22,8 +22,6 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
   const [maxPlayers, setMaxPlayers] = useState(2)
   const [isGameStarting, setIsGameStarting] = useState(false)
   const [availableLobbies, setAvailableLobbies] = useState<any[]>([])
-  const [gameSessionActive, setGameSessionActive] = useState(false)
-  const [gameSessionType, setGameSessionType] = useState<string | null>(null)
 
   const serviceRef = useRef<ColyseusIntegrationService | null>(null)
   const hubRoomRef = useRef<Room | null>(null)
@@ -57,26 +55,12 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       // Request initial lobby list immediately upon joining hub
       hubRoom.send("get_lobbies")
 
-      // Set up hub room listeners with all expected message types
+      // Set up hub room listeners
       hubRoom.onMessage("hub_welcome", (message) => {
         console.log("Hub welcome:", message)
       })
 
-      hubRoom.onMessage("player_count_update", (message) => {
-        console.log("Hub Player count update:", message)
-      })
-
-      hubRoom.onMessage("hub_state_update", (message) => {
-        console.log("Hub state update:", message)
-      })
-
       hubRoom.onMessage("lobbies_discovered", (message) => {
-        console.log("Lobbies discovered:", message)
-        setAvailableLobbies(message.lobbies || [])
-      })
-
-      hubRoom.onMessage("active_lobbies", (message) => {
-        console.log("Active lobbies:", message)
         setAvailableLobbies(message.lobbies || [])
       })
 
@@ -93,18 +77,12 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       hubRoom.onLeave(() => {
         setIsInHub(false)
         hubRoomRef.current = null
-        if (lobbyRefreshIntervalRef.current) {
-          clearInterval(lobbyRefreshIntervalRef.current)
-          lobbyRefreshIntervalRef.current = null
-        }
       })
 
       hubRoom.onError((code, message) => {
-        console.error("Hub room error:", code, message)
         onError?.(`Hub error: ${message}`)
       })
     } catch (error) {
-      console.error("Failed to join hub:", error)
       onError?.(`Failed to join hub: ${error}`)
     }
   }
@@ -126,7 +104,6 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       setGameMode(options.gameMode)
       setWager(options.wager)
       setMaxPlayers(options.maxPlayers)
-      setIsInLobby(true) // Explicitly set isInLobby to true here
     } catch (error) {
       onError?.(`Failed to create lobby: ${error}`)
     }
@@ -138,7 +115,6 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
 
       const lobbyRoom = await serviceRef.current.joinLobby(lobbyId, username)
       setupLobbyRoom(lobbyRoom)
-      setIsInLobby(true) // Explicitly set isInLobby to true here
     } catch (error) {
       onError?.(`Failed to join lobby: ${error}`)
     }
@@ -146,9 +122,9 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
 
   const setupLobbyRoom = (lobbyRoom: Room) => {
     lobbyRoomRef.current = lobbyRoom
-    // setIsInLobby(true) // This is now handled in createLobby/joinLobby
+    setIsInLobby(true)
 
-    // Set up lobby room listeners based on the CustomLobbyRoom implementation
+    // Set up lobby room listeners
     lobbyRoom.onStateChange((state) => {
       // Update players from lobby state
       const playerList: ColyseusPlayer[] = []
@@ -163,66 +139,24 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
         })
       }
       setPlayers(playerList)
+      setGameMode(state.gameMode || "")
+      setWager(state.wager || 0)
+      setMaxPlayers(state.maxPlayers || 2)
+      setIsGameStarting(state.isGameStarting || false)
     })
 
-    // Handle lobby welcome message
     lobbyRoom.onMessage("lobby_welcome", (message) => {
       console.log("Lobby welcome:", message)
     })
 
-    // Handle lobby state updates
-    lobbyRoom.onMessage("lobby_state", (message) => {
-      console.log("Lobby state:", message)
-      if (message.players) {
-        setPlayers(message.players)
-      }
-    })
-
-    // Handle lobby stats updates
-    lobbyRoom.onMessage("lobby_stats_update", (message) => {
-      console.log("Lobby stats update:", message)
-      setGameSessionActive(message.gameSessionActive || false)
-    })
-
-    // Handle player ready state changes
     lobbyRoom.onMessage("player_ready_changed", (message) => {
-      console.log("Player ready changed:", message)
       if (message.sessionId === lobbyRoom.sessionId) {
         setIsReady(message.ready)
       }
     })
 
-    // Handle game session updates
-    lobbyRoom.onMessage("game_session_update", (message) => {
-      console.log("Game session update:", message)
-      setGameSessionActive(!!message.gameType)
-      setGameSessionType(message.gameType)
-    })
-
-    // Handle joined game session message
-    lobbyRoom.onMessage("joined_game_session", (message) => {
-      console.log("Joined game session:", message)
-      setGameSessionActive(true)
-      setGameSessionType(message.gameType)
-    })
-
-    // Handle player count update (from lobby)
-    lobbyRoom.onMessage("player_count_update", (message) => {
-      console.log("Lobby Player count update:", message)
-      // This message might be redundant if lobby_stats_update covers totalPlayers
-      // but we'll handle it to prevent the "not registered" error.
-    })
-
-    // Handle ready updates
-    lobbyRoom.onMessage("lobby_ready_update", (message) => {
-      console.log("Lobby ready update:", message)
-      // Update ready count if needed
-    })
-
-    // CRITICAL: Handle automatic transition to Battle Room
-    lobbyRoom.onMessage("join_battle_room", async (message) => {
-      console.log("Lobby instructed to auto-join battle room!", message)
-      setIsGameStarting(true)
+    lobbyRoom.onMessage("join_battle_room", (message) => {
+      console.log("Joining battle room:", message)
       onGameStart?.(message.options)
     })
 
@@ -231,13 +165,10 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       setPlayers([])
       setIsReady(false)
       setIsGameStarting(false)
-      setGameSessionActive(false)
-      setGameSessionType(null)
       lobbyRoomRef.current = null
     })
 
     lobbyRoom.onError((code, message) => {
-      console.error("Lobby room error:", code, message)
       onError?.(`Lobby error: ${message}`)
     })
   }
@@ -289,8 +220,6 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       setPlayers([])
       setIsReady(false)
       setIsGameStarting(false)
-      setGameSessionActive(false)
-      setGameSessionType(null)
       if (lobbyRefreshIntervalRef.current) {
         clearInterval(lobbyRefreshIntervalRef.current)
         lobbyRefreshIntervalRef.current = null
@@ -312,8 +241,6 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
     maxPlayers,
     isGameStarting,
     availableLobbies,
-    gameSessionActive,
-    gameSessionType,
 
     // Actions
     connect,

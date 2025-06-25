@@ -45,19 +45,8 @@ export class ColyseusIntegrationService {
       throw new Error("Not connected to server")
     }
 
-    // Create a lobby room (not a battle room)
-    this.lobbyRoom = await this.client.create("lobby", {
-      username: options.username,
-      gameMode: options.gameMode,
-      wager: options.wager,
-      maxPlayers: options.maxPlayers,
-    })
-
+    this.lobbyRoom = await this.client.create("lobby", options)
     console.log("Created lobby room:", this.lobbyRoom.id)
-
-    // After creating lobby, select the game type to start a game session
-    this.lobbyRoom.send("select_game_type", { gameType: "battle" })
-
     return this.lobbyRoom
   }
 
@@ -68,10 +57,6 @@ export class ColyseusIntegrationService {
 
     this.lobbyRoom = await this.client.joinById(lobbyId, { username })
     console.log("Joined lobby room:", this.lobbyRoom.id)
-
-    // After joining lobby, select the game type to join the game session
-    this.lobbyRoom.send("select_game_type", { gameType: "battle" })
-
     return this.lobbyRoom
   }
 

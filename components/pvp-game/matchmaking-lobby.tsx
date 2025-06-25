@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -284,57 +284,6 @@ export default function MatchmakingLobby({
       alert(`Multiplayer Error: ${error}`)
     },
   })
-
-  // Add room scanning functionality
-  const scanAvailableRooms = useCallback(async () => {
-    const httpUrl = serverUrl.replace("wss://", "https://").replace("ws://", "http://")
-
-    try {
-      debugManager.logInfo("MatchmakingLobby", "Scanning for available rooms...")
-      const apiUrl = `${httpUrl}/api/rooms`
-
-      const response = await fetch(apiUrl)
-      if (response.ok) {
-        const rooms = await response.json()
-        debugManager.logInfo("MatchmakingLobby", `Found ${rooms.length} available rooms`)
-        // Filter for battle/lobby rooms that match our game type
-        const gameRooms = rooms.filter((room: any) => room.type === "lobby" || room.type === "battle")
-        // Update available lobbies if we have game rooms
-        if (gameRooms.length > 0) {
-          // Transform rooms to match expected lobby format
-          const transformedLobbies = gameRooms.map((room: any) => ({
-            id: room.roomId,
-            gameMode: room.metadata?.gameMode || "Unknown",
-            wager: room.metadata?.wager || 1,
-            players: room.clients,
-            maxPlayers: room.maxClients,
-            hostName: room.metadata?.hostName || "Unknown Host",
-            status: room.clients < room.maxClients ? "waiting" : "full",
-          }))
-          // This would need to be handled by the useColyseusLobby hook
-          // For now, we'll log the discovered rooms
-          debugManager.logInfo("MatchmakingLobby", "Discovered game rooms:", transformedLobbies)
-        }
-      }
-    } catch (error: any) {
-      debugManager.logError("MatchmakingLobby", "Room scan error:", error.message)
-    }
-  }, [serverUrl])
-
-  // Add periodic scanning
-  useEffect(() => {
-    if (isConnected && isInHub) {
-      // Initial scan
-      scanAvailableRooms()
-
-      // Set up periodic scanning
-      const scanInterval = setInterval(() => {
-        scanAvailableRooms()
-      }, 10000) // Every 10 seconds
-
-      return () => clearInterval(scanInterval)
-    }
-  }, [isConnected, isInHub, scanAvailableRooms])
 
   // Load selected game implementation
   useEffect(() => {

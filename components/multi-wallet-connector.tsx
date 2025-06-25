@@ -11,11 +11,17 @@ import SoundButton from "./sound-button"
 import { audioManager, playIntroSound, initializeAudio, loadAudioFiles } from "@/utils/audio-manager"
 import { LOGOS, TOKENS } from "@/utils/image-paths"
 
+// Add imports for the theme context
+// Remove this line:
+// import { useTheme } from "next-themes"
+// Keep only this import:
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 
+// Add this after the existing imports
 import { keyframes } from "@emotion/react"
 import styled from "@emotion/styled"
 
+// Add these styled components and keyframes after the imports and before the component definition
 const pulse = keyframes`
   0% {
     filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.7));
@@ -43,6 +49,7 @@ const blinkKeyframes = keyframes`
   50%, 100% { opacity: 0.5; }
 `
 
+// Add this CSS block right before the MultiWalletConnectorProps interface
 const StyledImage = styled(Image)`
   filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.7));
   animation: ${pulse} 3s infinite alternate;
@@ -287,18 +294,14 @@ const createMockProvider = () => {
   }
 }
 
+// Update the MultiWalletConnectorProps interface to include a compact prop
 interface MultiWalletConnectorProps {
-  onConnectionChange?: (
-    connected: boolean,
-    publicKey: string,
-    balance: number | null,
-    provider: any,
-    mutbBalance: number | null,
-  ) => void
+  onConnectionChange?: (connected: boolean, publicKey: string, balance: number | null, provider: any) => void
   compact?: boolean
   className?: string
 }
 
+// Update the function signature to include the compact prop with a default value
 export default function MultiWalletConnector({
   onConnectionChange,
   compact = false,
@@ -326,6 +329,7 @@ export default function MultiWalletConnector({
     },
   ])
 
+  // Wallet state
   const [provider, setProvider] = useState<PhantomProvider | SolflareProvider | any>(null)
   const [connected, setConnected] = useState(false)
   const [publicKey, setPublicKey] = useState<string>("")
@@ -334,15 +338,21 @@ export default function MultiWalletConnector({
   const [mutbBalance, setMutbBalance] = useState<number | null>(null)
   const [connectedWallet, setConnectedWallet] = useState<PhantomProvider | SolflareProvider | null>(null)
 
+  // UI state
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isAudioInitialized, setIsAudioInitialized] = useState(false)
 
+  // Add theme control
+  // Replace this line:
+  // const { setTheme } = useTheme()
+  // With this line:
   const { styleMode, toggleStyleMode } = useCyberpunkTheme()
 
   const testWalletAddress = "TestModeWallet1111111111111111111111111"
 
+  // Initialize audio manager (but don't load sounds yet)
   useEffect(() => {
     const initAudio = async () => {
       await initializeAudio()
@@ -352,53 +362,139 @@ export default function MultiWalletConnector({
     initAudio()
   }, [])
 
+  // Check for available wallets
   useEffect(() => {
     const solWindow = window as WindowWithSolana
 
-    const checkAndSetWallet = async (walletProvider: PhantomProvider | SolflareProvider, type: WalletType) => {
-      if (walletProvider.isConnected && walletProvider.publicKey) {
-        setProvider(walletProvider)
-        setConnected(true)
-        setPublicKey(walletProvider.publicKey.toString())
-        setActiveWallet(type)
-        setIsCollapsed(true)
-        setConnectedWallet(walletProvider)
+    // Check for Phantom
+    const phantomAvailable = "solana" in window && solWindow.solana?.isPhantom
 
-        try {
-          const publicKeyObj = new PublicKey(walletProvider.publicKey.toString())
-          const solBalance = await connection.getBalance(publicKeyObj)
-          setBalance(solBalance / 1e9)
-          setMutbBalance(50.0)
-        } catch (error) {
-          console.error("Error fetching balances for pre-connected wallet:", error)
-          setBalance(null)
-          setMutbBalance(null)
+    // Check for Solflare
+    const solflareAvailable = "solflare" in window && solWindow.solflare?.isSolflare
+
+    setWallets((prev) =>
+      prev.map((wallet) => {
+        if (wallet.type === "phantom") {
+          return { ...wallet, available: phantomAvailable }
+        } else if (wallet.type === "solflare") {
+          return { ...wallet, available: solflareAvailable }
         }
+        return wallet
+      }),
+    )
 
+    // Check if already connected to Phantom
+    if (phantomAvailable && solWindow.solana!.isConnected && solWindow.solana!.publicKey) {
+      setProvider(solWindow.solana!)
+      setConnected(true)
+      setPublicKey(solWindow.solana!.publicKey.toString())
+      setActiveWallet("phantom")
+      setIsCollapsed(true) // Minimize wallet by default for already connected wallets
+      setConnectedWallet(solWindow.solana!)
+
+      // Switch to dark mode after connection
+      // Replace this:
+      // setTheme("dark")
+      // With this:
+      // if (styleMode === "regular") {
+      //   toggleStyleMode()
+      // }
+
+      // Track already connected wallet
+      if (typeof window !== "undefined" && (window as any).gtag) {
+        ;(window as any).gtag("event", "phantom", {
+          event_category: "Wallet",
+          event_label: "Already Connected",
+        })
+      }
+    }
+
+    // Check if already connected to Solflare
+    else if (solflareAvailable && solWindow.solflare!.isConnected && solWindow.solflare!.publicKey) {
+      setProvider(solWindow.solflare!)
+      setConnected(true)
+      setPublicKey(solWindow.solflare!.publicKey.toString())
+      setActiveWallet("solflare")
+      setIsCollapsed(true) // Minimize wallet by default for already connected wallets
+      setConnectedWallet(solWindow.solflare!)
+
+      // Switch to dark mode after connection
+      // Replace this:
+      // setTheme("dark")
+      // With this:
+      // if (styleMode === "regular") {
+      //   toggleStyleMode()
+      // }
+
+      // Track already connected wallet
+      if (typeof window !== "undefined" && (window as any).gtag) {
+        ;(window as any).gtag("event", "solflare", {
+          event_category: "Wallet",
+          event_label: "Already Connected",
+        })
+      }
+    }
+
+    const checkForWallets = () => {
+      const solWindow = window as WindowWithSolana
+
+      // Check for Phantom
+      const phantomAvailable = "solana" in window && solWindow.solana?.isPhantom
+
+      // Check for Solflare
+      const solflareAvailable = "solflare" in window && solWindow.solflare?.isSolflare
+
+      setWallets((prev) =>
+        prev.map((wallet) => {
+          if (wallet.type === "phantom") {
+            return { ...wallet, available: phantomAvailable }
+          } else if (wallet.type === "solflare") {
+            return { ...wallet, available: solflareAvailable }
+          }
+          return wallet
+        }),
+      )
+
+      // Check if already connected to Phantom
+      if (phantomAvailable && solWindow.solana!.isConnected && solWindow.solana!.publicKey) {
+        setProvider(solWindow.solana!)
+        setConnected(true)
+        setPublicKey(solWindow.solana!.publicKey.toString())
+        setActiveWallet("phantom")
+        setIsCollapsed(true) // Minimize wallet by default for already connected wallets
+        setConnectedWallet(solWindow.solana!)
+
+        // Track already connected wallet
         if (typeof window !== "undefined" && (window as any).gtag) {
-          ;(window as any).gtag("event", type, {
+          ;(window as any).gtag("event", "phantom", {
+            event_category: "Wallet",
+            event_label: "Already Connected",
+          })
+        }
+      }
+
+      // Check if already connected to Solflare
+      else if (solflareAvailable && solWindow.solflare!.isConnected && solWindow.solflare!.publicKey) {
+        setProvider(solWindow.solflare!)
+        setConnected(true)
+        setPublicKey(solWindow.solflare!.publicKey.toString())
+        setActiveWallet("solflare")
+        setIsCollapsed(true) // Minimize wallet by default for already connected wallets
+        setConnectedWallet(solWindow.solflare!)
+
+        // Track already connected wallet
+        if (typeof window !== "undefined" && (window as any).gtag) {
+          ;(window as any).gtag("event", "solflare", {
             event_category: "Wallet",
             event_label: "Already Connected",
           })
         }
       }
     }
-
-    const phantomAvailable = "solana" in window && solWindow.solana?.isPhantom
-    if (phantomAvailable) {
-      setWallets((prev) => prev.map((w) => (w.type === "phantom" ? { ...w, available: true } : w)))
-      checkAndSetWallet(solWindow.solana!, "phantom")
-    }
-
-    const solflareAvailable = "solflare" in window && solWindow.solflare?.isSolflare
-    if (solflareAvailable) {
-      setWallets((prev) => prev.map((w) => (w.type === "solflare" ? { ...w, available: true } : w)))
-      if (!connected) {
-        checkAndSetWallet(solWindow.solflare!, "solflare")
-      }
-    }
+    checkForWallets()
   }, [])
 
+  // Set up wallet event listeners
   useEffect(() => {
     if (provider && !isTestMode) {
       provider.on("connect", () => {
@@ -412,7 +508,6 @@ export default function MultiWalletConnector({
         setConnected(false)
         setPublicKey("")
         setBalance(null)
-        setMutbBalance(null)
         setActiveWallet(null)
         setConnectedWallet(null)
       })
@@ -420,24 +515,10 @@ export default function MultiWalletConnector({
       provider.on("accountChanged", () => {
         if (provider.publicKey) {
           setPublicKey(provider.publicKey.toString())
-          const getBalancesOnAccountChange = async () => {
-            try {
-              const publicKeyObj = new PublicKey(provider.publicKey.toString())
-              const solBalance = await connection.getBalance(publicKeyObj)
-              setBalance(solBalance / 1e9)
-              setMutbBalance(50.0)
-            } catch (error) {
-              console.error("Error fetching balances on account change:", error)
-              setBalance(null)
-              setMutbBalance(null)
-            }
-          }
-          getBalancesOnAccountChange()
         } else {
           setConnected(false)
           setPublicKey("")
           setBalance(null)
-          setMutbBalance(null)
           setActiveWallet(null)
           setConnectedWallet(null)
         }
@@ -445,13 +526,24 @@ export default function MultiWalletConnector({
     }
   }, [provider, isTestMode])
 
+  // Fetch SOL and MUTB balances when connected
   useEffect(() => {
     const getBalances = async () => {
-      if (connected && publicKey && !isTestMode) {
+      if (connected && publicKey) {
+        if (isTestMode) {
+          // Set mock balances for test mode
+          setBalance(5.0)
+          setMutbBalance(100.0)
+          return
+        }
+
         try {
           const publicKeyObj = new PublicKey(publicKey)
           const solBalance = await connection.getBalance(publicKeyObj)
-          setBalance(solBalance / 1e9)
+          setBalance(solBalance / 1e9) // Convert lamports to SOL
+
+          // In a real app, you would fetch the MUTB token balance here
+          // For now, we'll use a mock value for all wallets
           setMutbBalance(50.0)
         } catch (error) {
           console.error("Error fetching balances:", error)
@@ -464,18 +556,22 @@ export default function MultiWalletConnector({
     getBalances()
   }, [connected, publicKey, isTestMode])
 
+  // Notify parent component when connection state changes
   useEffect(() => {
     if (onConnectionChange) {
       console.log("Notifying parent of connection change:", { connected, publicKey, balance, mutbBalance })
-      onConnectionChange(connected, publicKey, balance, provider, mutbBalance)
+      onConnectionChange(connected, publicKey, balance, provider)
     }
   }, [connected, publicKey, balance, mutbBalance, provider, onConnectionChange])
 
+  // Connect to wallet
   const connectWallet = async (walletType: WalletType) => {
+    // Initialize and load audio files on first interaction
     if (isAudioInitialized && !audioManager.isSoundMuted()) {
       await loadAudioFiles()
     }
 
+    // Handle test mode
     if (walletType === "test") {
       const mockProvider = createMockProvider()
       setProvider(mockProvider)
@@ -483,22 +579,32 @@ export default function MultiWalletConnector({
       setConnected(true)
       setActiveWallet("test")
       setIsTestMode(true)
-      setBalance(5.0)
-      setMutbBalance(100.0)
-      setIsCollapsed(true)
+      setBalance(5.0) // Set mock balance
+      setIsCollapsed(true) // Minimize wallet by default after connection
+
+      // Switch to dark mode after connection
+      // Replace this:
+      // setTheme("dark")
+      // With this:
+      // if (styleMode === "regular") {
+      //   toggleStyleMode()
+      // }
 
       setConnectedWallet(mockProvider)
 
+      // Play intro sound when wallet is connected (if not muted)
       if (!audioManager.isSoundMuted()) {
         playIntroSound()
       }
 
+      // Track test wallet connection in Google Analytics
       if (typeof window !== "undefined" && (window as any).gtag) {
         ;(window as any).gtag("event", "testwallet", {
           event_category: "Wallet",
           event_label: "Connected",
         })
       }
+
       return
     }
 
@@ -532,11 +638,21 @@ export default function MultiWalletConnector({
         setIsTestMode(false)
         setConnectedWallet(walletProvider)
 
+        // Switch to dark mode after connection
+        // Replace this:
+        // setTheme("dark")
+        // With this:
+        // if (styleMode === "regular") {
+        //   toggleStyleMode()
+        // }
+
+        // Play intro sound when wallet is connected (if not muted)
         if (!audioManager.isSoundMuted()) {
           playIntroSound()
         }
-        setIsCollapsed(true)
+        setIsCollapsed(true) // Minimize wallet by default after connection
 
+        // Track wallet connection in Google Analytics
         if (typeof window !== "undefined" && (window as any).gtag) {
           ;(window as any).gtag("event", walletType, {
             event_category: "Wallet",
@@ -545,6 +661,7 @@ export default function MultiWalletConnector({
         }
       } else {
         console.log(`Already connected to ${walletType} Wallet`)
+        // Make sure we have the publicKey even if already connected
         if (walletProvider.publicKey) {
           setPublicKey(walletProvider.publicKey.toString())
           setConnected(true)
@@ -553,11 +670,21 @@ export default function MultiWalletConnector({
           setIsTestMode(false)
           setConnectedWallet(walletProvider)
 
+          // Switch to dark mode after connection
+          // Replace this:
+          // setTheme("dark")
+          // With this:
+          // if (styleMode === "regular") {
+          //   toggleStyleMode()
+          // }
+
+          // Play intro sound when wallet is connected (if not muted)
           if (!audioManager.isSoundMuted()) {
             playIntroSound()
           }
-          setIsCollapsed(true)
+          setIsCollapsed(true) // Minimize wallet by default after connection
 
+          // Track wallet connection in Google Analytics
           if (typeof window !== "undefined" && (window as any).gtag) {
             ;(window as any).gtag("event", walletType, {
               event_category: "Wallet",
@@ -574,6 +701,7 @@ export default function MultiWalletConnector({
         )
       }
 
+      // Track failed wallet connection
       if (typeof window !== "undefined" && (window as any).gtag) {
         ;(window as any).gtag("event", `${walletType}_failed`, {
           event_category: "Wallet",
@@ -586,7 +714,9 @@ export default function MultiWalletConnector({
     }
   }
 
+  // Disconnect from wallet
   const disconnectWallet = async () => {
+    // Track wallet disconnection
     if (typeof window !== "undefined" && (window as any).gtag && activeWallet) {
       ;(window as any).gtag("event", `${activeWallet}_disconnected`, {
         event_category: "Wallet",
@@ -595,6 +725,7 @@ export default function MultiWalletConnector({
     }
 
     if (isTestMode) {
+      // Just reset state for test mode
       setConnected(false)
       setPublicKey("")
       setBalance(null)
@@ -602,7 +733,6 @@ export default function MultiWalletConnector({
       setIsTestMode(false)
       setProvider(null)
       setConnectedWallet(null)
-      setMutbBalance(null)
       return
     }
 
@@ -615,6 +745,7 @@ export default function MultiWalletConnector({
     }
   }
 
+  // Copy address to clipboard
   const copyAddress = async () => {
     if (publicKey) {
       await navigator.clipboard.writeText(publicKey)
@@ -623,10 +754,12 @@ export default function MultiWalletConnector({
     }
   }
 
+  // Shorten address for display
   const shortenAddress = (address: string) => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`
   }
 
+  // Toggle wallet collapse state
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed)
   }
@@ -643,6 +776,7 @@ export default function MultiWalletConnector({
     return ""
   }
 
+  // Render the collapsed wallet view when connected
   const renderCollapsedWallet = () => {
     return (
       <div className="flex items-center justify-between bg-[#fbf3de] dark:bg-[#0a0a24] rounded-full px-3 py-1.5 shadow-md border-2 border-black dark:border dark:border-cyan-400/50 ml-auto backdrop-blur-sm w-full sm:w-auto dark:text-white">
@@ -675,7 +809,7 @@ export default function MultiWalletConnector({
                 height={12}
                 className="rounded-full w-3 h-3"
               />
-              {isTestMode ? "100.0 MUTB" : mutbBalance !== null ? `${mutbBalance.toFixed(2)} MUTB` : "..."}
+              {isTestMode ? "100.0 MUTB" : mutbBalance !== null ? `${mutbBalance} MUTB` : "..."}
             </Badge>
           </div>
         </div>
@@ -693,6 +827,7 @@ export default function MultiWalletConnector({
     )
   }
 
+  // Update the return statement to conditionally render based on compact mode
   return (
     <div className={`${compact && connected ? "flex justify-end w-full" : "w-full space-y-6"} ${className}`}>
       {!connected && !compact && (
@@ -708,10 +843,12 @@ export default function MultiWalletConnector({
       )}
 
       {connected && isCollapsed && compact ? (
+        // Compact collapsed view for header
         <div className="wallet-compact-header wallet-foreground-element w-full sm:w-auto">
           {renderCollapsedWallet()}
         </div>
       ) : (
+        // Regular card view
         <Card
           className={`${compact ? "w-full" : "w-full max-w-md mx-auto"} relative overflow-hidden ${
             connected && !isCollapsed
@@ -823,7 +960,7 @@ export default function MultiWalletConnector({
                             className="rounded-full"
                           />
                           {balance !== null ? (
-                            <span className="font-mono text-gray-800 dark:text-[#0ff]">{balance.toFixed(4)} SOL</span>
+                            <span className="font-mono text-gray-800 dark:text-[#0ff]">{balance} SOL</span>
                           ) : (
                             <Skeleton className="h-4 w-20 bg-cyan-400/10" />
                           )}
@@ -837,9 +974,7 @@ export default function MultiWalletConnector({
                             className="rounded-full"
                           />
                           {mutbBalance !== null ? (
-                            <span className="font-mono text-gray-800 dark:text-[#0ff]">
-                              {mutbBalance.toFixed(2)} MUTB
-                            </span>
+                            <span className="font-mono text-gray-800 dark:text-[#0ff]">{mutbBalance} MUTB</span>
                           ) : (
                             <Skeleton className="h-4 w-20 bg-cyan-400/10" />
                           )}
@@ -964,3 +1099,5 @@ export default function MultiWalletConnector({
     </div>
   )
 }
+
+// Add a named export at the end
