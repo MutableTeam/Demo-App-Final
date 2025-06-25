@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { PlayerState } from "@/schemas/Player" // Assuming PlayerState is defined here
+import type { PlayerState } from "@/schemas/Player"
 
-// Helper to generate a random username
 const generateRandomUsername = () => {
   const adjectives = ["Cyber", "Neo", "Arcade", "Pixel", "Quantum", "Digital", "Synth", "Vapor", "Neon", "Retro"]
   const nouns = ["Knight", "Racer", "Hunter", "Pilot", "Glitch", "Specter", "Droid", "Echo", "Phantom", "Byte"]
@@ -29,9 +28,9 @@ const initialPlayerState: PlayerState = {
   battleRoomReadyCount: 0,
   gameSessionActive: false,
   gameSessionType: null,
-  username: "", // This will be generated
-  solBalance: 0, // Initialize to 0
-  mutbBalance: 0, // Initialize to 0
+  username: "",
+  solBalance: 0,
+  mutbBalance: 0,
 }
 
 export function usePlayerState() {
@@ -44,7 +43,6 @@ export function usePlayerState() {
     (updates: Partial<PlayerState>, source = "unknown") => {
       setPlayerState((prev) => {
         const newState = { ...prev, ...updates }
-        // console.log(`PlayerState update from ${source}:`, newState)
         return newState
       })
     },
@@ -86,13 +84,13 @@ export function usePlayerState() {
   const resetPlayerState = useCallback(() => {
     setPlayerState(() => ({
       ...initialPlayerState,
-      username: generateRandomUsername(), // Regenerate username on reset
+      username: generateRandomUsername(),
     }))
   }, [setPlayerState])
 
   return {
     playerState,
-    setPlayerState, // Expose the direct setter for more granular control if needed
+    setPlayerState,
     updatePlayerState,
     setConnectionStatus,
     setRoomState,
