@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
-import type { PlayerState } from "@/hooks/usePlayerState"
-import { ChevronDown, ChevronUp, Wifi, WifiOff, MessageSquareText } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ChevronUp, ChevronDown } from "lucide-react"
+import type { PlayerState } from "@/hooks/usePlayerState" // Assuming PlayerState is exported from here
 
 interface ColyseusDebugWidgetProps {
   playerState: PlayerState
@@ -13,93 +13,105 @@ interface ColyseusDebugWidgetProps {
 }
 
 export function ColyseusDebugWidget({ playerState, colyseusLogs }: ColyseusDebugWidgetProps) {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
+  const logsEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [colyseusLogs])
+
+  const getStatusColor = (type: string) => {
+    switch (type) {
+      case "success":
+        return "text-green-500"
+      case "error":
+        return "text-red-500"
+      case "warning":
+        return "text-yellow-500"
+      case "info":
+      default:
+        return "text-blue-400"
+    }
+  }
 
   return (
-    <Card className="fixed bottom-4 right-4 w-80 bg-white text-gray-900 shadow-lg z-[1000]">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 border-b border-gray-200">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-800">
-          <Wifi className={cn("h-4 w-4", playerState.isConnected ? "text-green-500" : "text-red-500")} />
-          Colyseus Status
-        </CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsOpen(!isOpen)}
-          className="h-6 w-6 text-gray-500 hover:text-gray-700"
-        >
-          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          <span className="sr-only">{isOpen ? "Collapse" : "Expand"}</span>
-        </Button>
-      </CardHeader>
-      {isOpen && (
-        <CardContent className="p-3 text-xs">
-          <div className="mb-2 text-black">
-            {" "}
-            {/* Ensure all text here is black */}
-            <p>
-              <strong>Player:</strong> {playerState.username}
-            </p>
-            <p className="flex items-center gap-1">
-              <strong>Connection:</strong>{" "}
-              {playerState.isConnected ? (
-                <span className="text-green-500 flex items-center">
-                  <Wifi className="h-3 w-3 mr-1" /> Connected
-                </span>
-              ) : (
-                <span className="text-red-500 flex items-center">
-                  <WifiOff className="h-3 w-3 mr-1" /> Disconnected
-                </span>
-              )}
-            </p>
-            <p>
-              <strong>Current Status:</strong> {playerState.status}
-            </p>
-            <div className="flex gap-2 mt-1">
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-xs text-white",
-                  playerState.isInHub ? "bg-blue-600" : "bg-gray-600",
-                )}
-              >
-                Hub: {playerState.isInHub ? `Yes (${playerState.totalPlayers} players)` : "No"}
-              </span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-xs text-white",
-                  playerState.isInLobby ? "bg-blue-600" : "bg-gray-600",
-                )}
-              >
-                Lobby: {playerState.isInLobby ? "Yes" : "No"}
-              </span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-xs text-white",
-                  playerState.isInBattleRoom ? "bg-blue-600" : "bg-gray-600",
-                )}
-              >
-                Battle: {playerState.isInBattleRoom ? "Yes" : "No"}
-              </span>
+    <div className="fixed bottom-4 right-4 z-50">
+      <Card className="w-80 bg-gray-900 text-white border border-gray-700 shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between p-3 pb-2">
+          <CardTitle className="text-sm font-bold text-cyan-400">Colyseus Debug</CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(!isOpen)}
+            className="h-6 w-6 text-gray-400 hover:text-white"
+          >
+            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
+        </CardHeader>
+        {isOpen && (
+          <CardContent className="p-3 pt-0 text-xs">
+            <div className="mb-2">
+              <p>
+                <span className="font-semibold">Status:</span>{" "}
+                <span className={getStatusColor(playerState.status.type)}>{playerState.status.text}</span>{" "}
+                {/* FIX: Render .text property */}
+              </p>
+              <p>
+                <span className="font-semibold">Connected:</span> {playerState.isConnected ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-semibold">In Hub:</span> {playerState.isInHub ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-semibold">In Lobby:</span> {playerState.isInLobby ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-semibold">In Battle Room:</span> {playerState.isInBattleRoom ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-semibold">Ready:</span> {playerState.isReady ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-semibold">Total Players (Hub):</span> {playerState.totalPlayers}
+              </p>
+              <p>
+                <span className="font-semibold">Lobby Players:</span> {playerState.battleRoomPlayers}
+              </p>
+              <p>
+                <span className="font-semibold">Lobby Ready:</span> {playerState.battleRoomReadyCount}
+              </p>
+              <p>
+                <span className="font-semibold">Game Session:</span>{" "}
+                {playerState.gameSessionActive ? playerState.gameSessionType : "None"}
+              </p>
+              <p>
+                <span className="font-semibold">Username:</span> {playerState.username}
+              </p>
+              <p>
+                <span className="font-semibold">SOL Balance:</span> {playerState.solBalance?.toFixed(4) ?? "N/A"}
+              </p>
+              <p>
+                <span className="font-semibold">MUTB Balance:</span> {playerState.mutbBalance?.toFixed(2) ?? "N/A"}
+              </p>
             </div>
-          </div>
-          <div className="border-t border-gray-200 pt-2 mt-2">
-            <h4 className="font-semibold mb-1 flex items-center gap-1 text-gray-800">
-              <MessageSquareText className="h-3 w-3" /> Logs:
-            </h4>
-            <div className="h-24 overflow-y-auto bg-gray-800 p-2 rounded">
+            <h4 className="font-semibold mb-1 text-cyan-400">Logs:</h4>
+            <ScrollArea className="h-32 w-full rounded-md border border-gray-700 p-2 bg-gray-800">
               {colyseusLogs.length === 0 ? (
-                <p className="text-gray-400">No logs yet.</p>
+                <p className="text-gray-500">No logs yet.</p>
               ) : (
-                colyseusLogs.map((logEntry, index) => (
-                  <p key={index} className="text-[0.65rem] leading-tight mb-0.5 break-words text-gray-100">
-                    {logEntry}
+                colyseusLogs.map((log, index) => (
+                  <p key={index} className="text-gray-300 break-words text-[0.6rem] leading-tight mb-1">
+                    {log}
                   </p>
                 ))
               )}
-            </div>
-          </div>
-        </CardContent>
-      )}
-    </Card>
+              <div ref={logsEndRef} />
+            </ScrollArea>
+          </CardContent>
+        )}
+      </Card>
+    </div>
   )
 }
