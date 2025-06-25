@@ -346,7 +346,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                 height={16}
                 className="rounded-full"
               />
-              {mutbBalance.toFixed(2)} MUTB
+              {mutbBalance?.toFixed(2) || "0.00"} MUTB
             </Badge>
             <Badge
               variant="outline"
