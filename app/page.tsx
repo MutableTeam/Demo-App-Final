@@ -192,12 +192,25 @@ export default function Home() {
     }
   }, [walletConnected, playerState.isConnected, scanAvailableRooms, requestRoomsFromHub])
 
-  const handleWalletConnection = (connected: boolean, publicKey: string, balance: number | null, provider: any) => {
-    console.log("Wallet connection changed:", { connected, publicKey, balance })
+  const handleWalletConnection = (
+    connected: boolean,
+    publicKey: string,
+    balance: number | null,
+    provider: any,
+    mutbBalance: number | null,
+  ) => {
+    console.log("Wallet connection changed:", { connected, publicKey, balance, mutbBalance })
     setWalletConnected(connected)
     setPublicKey(publicKey)
-    setBalance(balance)
-    setProvider(provider)
+    setBalance(balance) // This is the local balance state
+
+    // Update playerState with the new balances
+    setPlayerState((prev) => ({
+      ...prev,
+      solBalance: balance ?? 0, // Use 0 if null
+      mutbBalance: mutbBalance ?? 0, // Use 0 if null
+    }))
+    setProvider(provider) // Keep this here
   }
 
   // Create a connection object for Solana
