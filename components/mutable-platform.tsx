@@ -23,8 +23,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { useColyseus } from "@/hooks/use-colyseus"
-import { useColyseusLobby } from "@/hooks/use-colyseus-lobby"
+import { useColyseusLobby } from "@/hooks/useColyseusLobby"
 
 // Define the schema for creating a new game
 const formSchema = z.object({
@@ -46,17 +45,35 @@ interface Game {
 }
 
 interface MutablePlatformProps {
-  onGameStart: (gameId: string) => void
+  publicKey: string
+  balance: number | null
+  provider: any
+  connection: any
 }
 
-const MutablePlatform: React.FC<MutablePlatformProps> = ({ onGameStart }) => {
-  const { client } = useColyseus()
-  const { rooms, createRoom } = useColyseusLobby()
+const MutablePlatform: React.FC<MutablePlatformProps> = ({ publicKey, balance, provider, connection }) => {
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "ws://localhost:2567"
+  const username = publicKey ? `Player_${publicKey.substring(0, 4)}` : "Guest"
+
+  const { isConnected, isInLobby, availableGames, createGame, joinGame, connect, joinLobby, disconnect } =
+    useColyseusLobby({
+      serverUrl,
+      username,
+      onGameStart: (options) => {
+        console.log("Game starting with options:", options)
+        // Handle game start
+      },
+      onError: (error) => {
+        toast({
+          title: "Connection Error",
+          description: error,
+          variant: "destructive",
+        })
+      },
+    })
   const { toast } = useToast()
 
   // State variables
-  const [games, setGames] = useState<Game[]>([])
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [currentView, setCurrentView] = useState<"platform" | "game">("platform")
 
@@ -70,32 +87,34 @@ const MutablePlatform: React.FC<MutablePlatformProps> = ({ onGameStart }) => {
     },
   })
 
-  // Function to handle game selection
-  const handleGameSelect = (game: Game) => {
-    setSelectedGame(game)
-  }
-
   // Function to handle creating a new game
   const handleCreateGame = async (values: FormValues) => {
     try {
       setIsLoading(true)
 
-      // Create a new game using the form values
-      const newGame: Game = {
-        id: Math.random().toString(36).substring(7), // Generate a random ID
-        name: values.name,
-        description: values.description || "",
-        maxPlayers: values.maxPlayers,
+      if (!isConnected) {
+        await connect()
       }
 
-      // Update the games state with the new game
-      setGames([...games, newGame])
+      if (!isInLobby) {
+        await joinLobby()
+      }
+
+      // Create game using Colyseus lobby system
+      await createGame({
+        gameMode: values.name,
+        wager: 0,
+        maxPlayers: values.maxPlayers,
+      })
 
       // Show a success toast
       toast({
         title: "Success",
         description: "Game created successfully!",
       })
+
+      // Reset form
+      form.reset()
     } catch (error) {
       console.error("Failed to create game:", error)
       toast({
@@ -108,24 +127,30 @@ const MutablePlatform: React.FC<MutablePlatformProps> = ({ onGameStart }) => {
     }
   }
 
-  // Update the handlePlayNow function to use the new lobby system
-  const handlePlayNow = async () => {
-    if (!selectedGame) return
-
+  const handlePlayNow = async (gameId: string) => {
     try {
       setIsLoading(true)
 
-      // Use the Colyseus lobby system instead of direct room creation
-      // This should integrate with the useColyseusLobby hook
-      console.log("Starting game:", selectedGame.name)
+      if (!isConnected) {
+        await connect()
+      }
 
-      // Set the current view to show the game
-      setCurrentView("game")
+      if (!isInLobby) {
+        await joinLobby()
+      }
+
+      // Join the selected game
+      await joinGame(gameId)
+
+      toast({
+        title: "Success",
+        description: "Joined game successfully!",
+      })
     } catch (error) {
-      console.error("Failed to start game:", error)
+      console.error("Failed to join game:", error)
       toast({
         title: "Error",
-        description: "Failed to start the game. Please try again.",
+        description: "Failed to join the game. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -151,27 +176,35 @@ const MutablePlatform: React.FC<MutablePlatformProps> = ({ onGameStart }) => {
               {/* Game List */}
               <div>
                 <h3 className="text-lg font-semibold mb-2">Available Games</h3>
-                {games.length === 0 ? (
+                {availableGames.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No games available. Create one to get started!</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Max Players</TableHead>
+                        <TableHead>Game Mode</TableHead>
+                        <TableHead>Host</TableHead>
+                        <TableHead>Players</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {games.map((game) => (
+                      {availableGames.map((game) => (
                         <TableRow key={game.id}>
-                          <TableCell>{game.name}</TableCell>
-                          <TableCell>{game.description}</TableCell>
-                          <TableCell>{game.maxPlayers}</TableCell>
+                          <TableCell>{game.gameMode}</TableCell>
+                          <TableCell>{game.hostName}</TableCell>
                           <TableCell>
-                            <Button variant="outline" onClick={() => handleGameSelect(game)}>
-                              Select
+                            {game.currentPlayers}/{game.maxPlayers}
+                          </TableCell>
+                          <TableCell>{game.status}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              onClick={() => handlePlayNow(game.id)}
+                              disabled={isLoading || game.currentPlayers >= game.maxPlayers}
+                            >
+                              {isLoading ? "Joining..." : "Join Game"}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -182,16 +215,6 @@ const MutablePlatform: React.FC<MutablePlatformProps> = ({ onGameStart }) => {
               </div>
 
               <Separator className="my-4" />
-
-              {/* Selected Game Actions */}
-              {selectedGame && (
-                <div className="mt-4">
-                  <h3 className="text-lg font-semibold mb-2">Selected Game: {selectedGame.name}</h3>
-                  <Button onClick={handlePlayNow} disabled={isLoading}>
-                    {isLoading ? "Loading..." : "Play Now"}
-                  </Button>
-                </div>
-              )}
 
               <Separator className="my-4" />
 
@@ -276,7 +299,6 @@ const MutablePlatform: React.FC<MutablePlatformProps> = ({ onGameStart }) => {
         <div>
           {/* Game View */}
           <h1>Game Started!</h1>
-          <p>Game ID: {selectedGame?.id}</p>
           {/* Add your game component here */}
         </div>
       )}
