@@ -56,7 +56,9 @@ export default function Home() {
     }
 
     // Crucial check: Only proceed if Colyseus is not already connected
-    if (colyseusClientRef.current && colyseusClientRef.current.connection.isOpen) {
+    // Use colyseusClientRef.current.connected for a more robust check
+    if (colyseusClientRef.current?.connected) {
+      // Changed here
       log("Colyseus client already connected, skipping join.", "info")
       return
     }
@@ -146,12 +148,15 @@ export default function Home() {
   useEffect(() => {
     if (walletConnectedStatus && walletPublicKey) {
       // Only connect to Colyseus if not already connected
-      if (!colyseusClientRef.current || !colyseusClientRef.current.connection.isOpen) {
+      // Ensure colyseusClientRef.current exists before checking .connected
+      if (!colyseusClientRef.current || !colyseusClientRef.current.connected) {
+        // Changed here
         connectAndJoinHub()
       }
     } else {
       // Disconnect Colyseus if wallet disconnects
-      if (colyseusClientRef.current && colyseusClientRef.current.connection.isOpen) {
+      if (colyseusClientRef.current?.connected) {
+        // Changed here
         colyseusClientRef.current.leave()
         colyseusClientRef.current = null
         log("Colyseus client disconnected due to wallet disconnect", "info")
