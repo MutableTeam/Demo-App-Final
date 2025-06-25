@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState, useEffect, useRef, useCallback } from "react"
 import MultiWalletConnector from "@/components/multi-wallet-connector"
 import DemoWatermark from "@/components/demo-watermark"
 import PromoWatermark from "@/components/promo-watermark"
@@ -15,6 +17,12 @@ import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { SignUpBanner } from "@/components/signup-banner"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 
+// Colyseus Imports
+import { Client as ColyseusClient, type Room } from "colyseus.js"
+import { usePlayerState } from "@/hooks/usePlayerState"
+import { useColyseusRoom } from "@/hooks/useColyseusRoom"
+import { ColyseusDebugWidget } from "@/components/colyseus-debug-widget"
+
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
@@ -25,18 +33,107 @@ export default function Home() {
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
 
+  // Colyseus States and Refs
+  const [colyseusLogs, setColyseusLogs] = useState<string[]>([])
+  const colyseusClientRef = useRef<ColyseusClient | null>(null)
+
+  const { playerState, setPlayerState } = usePlayerState()
+  const hubRoomRef = useRef<Room | null>(null)
+
+  // Log function for ColyseusDebugWidget
+  const log = useCallback((message: string, type: "info" | "error" | "success" = "info") => {
+    const timestamp = new Date().toLocaleTimeString()
+    setColyseusLogs((prevLogs) => [`[${timestamp}] [${type.toUpperCase()}] ${message}`, ...prevLogs.slice(0, 99)]) // Keep last 100 logs
+  }, [])
+
+  // Colyseus Room Hook for cleanup and error handling
+  useColyseusRoom(hubRoomRef.current, setPlayerState, log, "Player Hub Room")
+
+  // Function to connect to Colyseus and join the hub
+  const connectAndJoinHub = useCallback(
+    async (
+      currentPlayerState: typeof playerState,
+      setCurrentPlayerState: typeof setPlayerState,
+      currentHubRoomRef: React.MutableRefObject<Room | null>,
+    ) => {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "ws://localhost:2567"
+
+      if (!colyseusClientRef.current) {
+        colyseusClientRef.current = new ColyseusClient(serverUrl)
+        log(`Colyseus Client initialized for ${serverUrl}`, "info")
+      }
+
+      setCurrentPlayerState((prev) => ({ ...prev, isConnected: true, status: "Connecting to Colyseus..." }))
+      log(`Attempting to connect to Colyseus server at ${serverUrl}`, "info")
+
+      try {
+        const hubRoom = await colyseusClientRef.current.joinOrCreate("hub", { username: currentPlayerState.username })
+        currentHubRoomRef.current = hubRoom
+        setCurrentPlayerState((prev) => ({ ...prev, isInHub: true, status: "In Hub Room" }))
+        log(`Joined Hub Room: ${hubRoom.id}`, "success")
+
+        hubRoom.onStateChange((state) => {
+          setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: state.totalPlayers }))
+          // log(`Hub State: ${JSON.stringify(state.toJSON())}`, "info") // Too verbose for root page
+        })
+        hubRoom.onMessage("hub_welcome", (message) => {
+          log(`Hub Welcome: ${message.message}. Total players: ${message.totalPlayers}`, "info")
+          setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
+        })
+        hubRoom.onMessage("player_count_update", (message) => {
+          log(`Hub Player Count Update: ${message.totalPlayers}`, "info")
+          setCurrentPlayerState((prev) => ({ ...prev, totalPlayers: message.totalPlayers }))
+        })
+        hubRoom.onMessage("lobbies_discovered", (message) => {
+          // log(`Discovered Lobbies: ${JSON.stringify(message.lobbies)}`, "info") // Too verbose for root page
+          setCurrentPlayerState((prev) => ({ ...prev, availableRooms: message.lobbies }))
+        })
+      } catch (e: any) {
+        log(`Failed to join Hub Room: ${e.message}`, "error")
+        setCurrentPlayerState((prev) => ({ ...prev, isInHub: false, status: `Hub Join Error: ${e.message}` }))
+      }
+    },
+    [log],
+  )
+
   // Initialize Google Analytics
   useEffect(() => {
     initializeGoogleAnalytics(GA_MEASUREMENT_ID)
   }, [])
 
-  // Initialize games registry
+  // Initialize games registry and enhanced renderer
   useEffect(() => {
     registerGames()
-
-    // Initialize enhanced renderer
     initializeEnhancedRenderer()
   }, [])
+
+  // Effect to connect to Colyseus and join hub when wallet is connected
+  useEffect(() => {
+    if (walletConnected && publicKey) {
+      if (!playerState.isConnected) {
+        connectAndJoinHub(playerState, setPlayerState, hubRoomRef)
+      }
+    } else {
+      // Disconnect Colyseus if wallet disconnects
+      if (colyseusClientRef.current) {
+        colyseusClientRef.current.leave()
+        colyseusClientRef.current = null
+        log("Colyseus client disconnected due to wallet disconnect", "info")
+      }
+      setPlayerState((prev) => ({ ...prev, isConnected: false, isInHub: false, status: "Disconnected" }))
+    }
+  }, [walletConnected, publicKey, connectAndJoinHub, setPlayerState, log])
+
+  // Cleanup Colyseus client on component unmount
+  useEffect(() => {
+    return () => {
+      if (colyseusClientRef.current) {
+        colyseusClientRef.current.leave()
+        colyseusClientRef.current = null
+        log("Colyseus client disconnected on unmount", "info")
+      }
+    }
+  }, [log])
 
   const handleWalletConnection = (connected: boolean, publicKey: string, balance: number | null, provider: any) => {
     console.log("Wallet connection changed:", { connected, publicKey, balance })
@@ -87,6 +184,10 @@ export default function Home() {
           <DebugOverlay initiallyVisible={false} position="bottom-right" />
         </div>
       </RetroArcadeBackground>
+      <SignUpBanner />
+
+      {/* Colyseus Debug Widget */}
+      <ColyseusDebugWidget playerState={playerState} colyseusLogs={colyseusLogs} />
     </main>
   )
 }
