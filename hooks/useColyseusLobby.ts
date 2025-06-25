@@ -63,7 +63,7 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       })
 
       hubRoom.onMessage("player_count_update", (message) => {
-        console.log("Player count update:", message)
+        console.log("Hub Player count update:", message)
       })
 
       hubRoom.onMessage("hub_state_update", (message) => {
@@ -126,6 +126,7 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       setGameMode(options.gameMode)
       setWager(options.wager)
       setMaxPlayers(options.maxPlayers)
+      setIsInLobby(true) // Explicitly set isInLobby to true here
     } catch (error) {
       onError?.(`Failed to create lobby: ${error}`)
     }
@@ -137,6 +138,7 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
 
       const lobbyRoom = await serviceRef.current.joinLobby(lobbyId, username)
       setupLobbyRoom(lobbyRoom)
+      setIsInLobby(true) // Explicitly set isInLobby to true here
     } catch (error) {
       onError?.(`Failed to join lobby: ${error}`)
     }
@@ -144,7 +146,7 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
 
   const setupLobbyRoom = (lobbyRoom: Room) => {
     lobbyRoomRef.current = lobbyRoom
-    setIsInLobby(true)
+    // setIsInLobby(true) // This is now handled in createLobby/joinLobby
 
     // Set up lobby room listeners based on the CustomLobbyRoom implementation
     lobbyRoom.onStateChange((state) => {
@@ -195,6 +197,20 @@ export function useColyseusLobby({ serverUrl, username, onGameStart, onError }: 
       console.log("Game session update:", message)
       setGameSessionActive(!!message.gameType)
       setGameSessionType(message.gameType)
+    })
+
+    // Handle joined game session message
+    lobbyRoom.onMessage("joined_game_session", (message) => {
+      console.log("Joined game session:", message)
+      setGameSessionActive(true)
+      setGameSessionType(message.gameType)
+    })
+
+    // Handle player count update (from lobby)
+    lobbyRoom.onMessage("player_count_update", (message) => {
+      console.log("Lobby Player count update:", message)
+      // This message might be redundant if lobby_stats_update covers totalPlayers
+      // but we'll handle it to prevent the "not registered" error.
     })
 
     // Handle ready updates

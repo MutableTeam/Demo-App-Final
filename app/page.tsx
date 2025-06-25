@@ -234,7 +234,18 @@ export default function Home() {
 
           {walletConnected && publicKey && (
             <div className="mt-16">
-              <MutablePlatform publicKey={publicKey} balance={balance} provider={provider} connection={connection} />
+              <MutablePlatform
+                publicKey={publicKey}
+                balance={balance}
+                provider={provider}
+                connection={connection}
+                colyseusClient={colyseusClientRef.current} // Pass client
+                hubRoom={hubRoomRef.current} // Pass hub room
+                playerState={playerState} // Pass player state
+                setPlayerState={setPlayerState} // Pass state setter
+                log={log} // Pass logger
+                availableRooms={availableRooms} // Pass available rooms
+              />
             </div>
           )}
 
