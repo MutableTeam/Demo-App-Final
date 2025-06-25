@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GameSelection } from "@/components/pvp-game/game-selection"
-import { MutableMarketplace } from "@/components/mutable-marketplace"
+import MutableMarketplace from "@/components/mutable-marketplace"
 import { LiquidityPoolStatus } from "@/components/swap/liquidity-pool-status"
 import { TokenSwapForm } from "@/components/swap/token-swap-form"
 import { MarketOverview } from "@/components/swap/market-overview"
@@ -23,178 +23,178 @@ import { keyframes } from "@emotion/react"
 
 // Cyberpunk styled components
 const glitchAnim1 = keyframes`
-  0% {
-    clip-path: inset(40% 0 61% 0);
-    transform: translate(-2px, 2px);
-  }
-  20% {
-    clip-path: inset(92% 0 1% 0);
-    transform: translate(1px, 3px);
-  }
-  40% {
-    clip-path: inset(43% 0 1% 0);
-    transform: translate(-1px, -3px);
-  }
-  60% {
-    clip-path: inset(25% 0 58% 0);
-    transform: translate(3px, 1px);
-  }
-  80% {
-    clip-path: inset(54% 0 7% 0);
-    transform: translate(-3px, -2px);
-  }
-  100% {
-    clip-path: inset(58% 0 43% 0);
-    transform: translate(2px, -1px);
-  }
+0% {
+  clip-path: inset(40% 0 61% 0);
+  transform: translate(-2px, 2px);
+}
+20% {
+  clip-path: inset(92% 0 1% 0);
+  transform: translate(1px, 3px);
+}
+40% {
+  clip-path: inset(43% 0 1% 0);
+  transform: translate(-1px, -3px);
+}
+60% {
+  clip-path: inset(25% 0 58% 0);
+  transform: translate(3px, 1px);
+}
+80% {
+  clip-path: inset(54% 0 7% 0);
+  transform: translate(-3px, -2px);
+}
+100% {
+  clip-path: inset(58% 0 43% 0);
+  transform: translate(2px, -1px);
+}
 `
 
 const glitchAnim2 = keyframes`
-  0% {
-    clip-path: inset(24% 0 29% 0);
-    transform: translate(2px, -2px);
-  }
-  20% {
-    clip-path: inset(54% 0 26% 0);
-    transform: translate(-3px, 1px);
-  }
-  40% {
-    clip-path: inset(9% 0 38% 0);
-    transform: translate(1px, 3px);
-  }
-  60% {
-    clip-path: inset(23% 0 75% 0);
-    transform: translate(3px, -1px);
-  }
-  80% {
-    clip-path: inset(74% 0 26% 0);
-    transform: translate(-2px, 2px);
-  }
-  100% {
-    clip-path: inset(46% 0 11% 0);
-    transform: translate(2px, -2px);
-  }
+0% {
+  clip-path: inset(24% 0 29% 0);
+  transform: translate(2px, -2px);
+}
+20% {
+  clip-path: inset(54% 0 26% 0);
+  transform: translate(-3px, 1px);
+}
+40% {
+  clip-path: inset(9% 0 38% 0);
+  transform: translate(1px, 3px);
+}
+60% {
+  clip-path: inset(23% 0 75% 0);
+  transform: translate(3px, -1px);
+}
+80% {
+  clip-path: inset(74% 0 26% 0);
+  transform: translate(-2px, 2px);
+}
+100% {
+  clip-path: inset(46% 0 11% 0);
+  transform: translate(2px, -2px);
+}
 `
 
 const flickerAnim = keyframes`
-  0% {
-    opacity: 0.1;
-  }
-  2% {
-    opacity: 0.9;
-  }
-  4% {
-    opacity: 0.3;
-  }
-  8% {
-    opacity: 0.8;
-  }
-  70% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 1;
-  }
+0% {
+  opacity: 0.1;
+}
+2% {
+  opacity: 0.9;
+}
+4% {
+  opacity: 0.3;
+}
+8% {
+  opacity: 0.8;
+}
+70% {
+  opacity: 0.7;
+}
+100% {
+  opacity: 1;
+}
 `
 
 const CyberTabsList = styled(TabsList)`
-  background: rgba(10, 10, 40, 0.8);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 1.5rem;
+background: rgba(10, 10, 40, 0.8);
+border: 1px solid rgba(0, 255, 255, 0.3);
+position: relative;
+overflow: hidden;
+margin-bottom: 1.5rem;
+
+&::before, &::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 1;
+}
+
+&::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), transparent);
+  animation: ${flickerAnim} 4s linear infinite;
+}
+
+&::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 0, 255, 0.2), transparent);
+  animation: ${flickerAnim} 7s linear infinite reverse;
+}
+`
+
+const CyberTabsTrigger = styled(TabsTrigger)`
+color: rgba(150, 200, 255, 0.7);
+position: relative;
+transition: all 0.3s ease;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+
+&[data-state="active"] {
+  color: rgba(0, 255, 255, 0.9);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  background: transparent;
   
-  &::before, &::after {
+  &::after {
     content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  }
+  
+  // Glitch effect for active tab
+  &::before {
+    content: attr(data-value);
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    opacity: 0.2;
-    pointer-events: none;
-    z-index: 1;
-  }
-  
-  &::before {
-    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), transparent);
-    animation: ${flickerAnim} 4s linear infinite;
-  }
-  
-  &::after {
-    background: linear-gradient(90deg, transparent, rgba(255, 0, 255, 0.2), transparent);
-    animation: ${flickerAnim} 7s linear infinite reverse;
-  }
-`
-
-const CyberTabsTrigger = styled(TabsTrigger)`
-  color: rgba(150, 200, 255, 0.7);
-  position: relative;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  
-  &[data-state="active"] {
-    color: rgba(0, 255, 255, 0.9);
-    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
     background: transparent;
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: rgba(0, 255, 255, 0.8);
-      box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
-    }
-    
-    // Glitch effect for active tab
-    &::before {
-      content: attr(data-value);
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      color: rgba(255, 0, 255, 0.8);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      animation: ${glitchAnim1} 4s infinite linear alternate-reverse;
-      z-index: -1;
-      opacity: 0.5;
-    }
+    color: rgba(255, 0, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: ${glitchAnim1} 4s infinite linear alternate-reverse;
+    z-index: -1;
+    opacity: 0.5;
   }
+}
+
+&:hover:not([data-state="active"]) {
+  color: rgba(150, 220, 255, 0.9);
+  background: rgba(0, 100, 200, 0.1);
   
-  &:hover:not([data-state="active"]) {
-    color: rgba(150, 220, 255, 0.9);
-    background: rgba(0, 100, 200, 0.1);
-    
-    // Glitch effect on hover
-    &::before {
-      content: attr(data-value);
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      color: rgba(0, 255, 255, 0.5);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      animation: ${glitchAnim2} 3s infinite linear alternate-reverse;
-      z-index: -1;
-      opacity: 0.3;
-    }
+  // Glitch effect on hover
+  &::before {
+    content: attr(data-value);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    color: rgba(0, 255, 255, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: ${glitchAnim2} 3s infinite linear alternate-reverse;
+    z-index: -1;
+    opacity: 0.3;
   }
+}
 `
 
 // Add responsive styles for tabs
