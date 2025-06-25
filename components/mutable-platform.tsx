@@ -6,7 +6,7 @@ import { useState, useCallback } from "react"
 import type { Connection } from "@solana/web3.js"
 import type { Client as ColyseusClient, Room } from "colyseus.js"
 import { GameSelection } from "@/components/pvp-game/game-selection"
-import { MatchmakingLobby } from "@/components/pvp-game/matchmaking-lobby"
+import MatchmakingLobby from "@/components/pvp-game/matchmaking-lobby" // Changed to default import
 import type { PlayerState } from "@/schemas/Player"
 import { gameRegistry } from "@/types/game-registry"
 import { MutableMarketplace } from "@/components/mutable-marketplace"
@@ -17,7 +17,7 @@ import { TransactionHistory } from "@/components/swap/transaction-history"
 import { Tabs } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import { CyberpunkTabs } from "@/components/cyberpunk-ui/cyberpunk-tabs" // Removed CyberpunkTabsContent
+import { CyberpunkTabs } from "@/components/cyberpunk-ui/cyberpunk-tabs"
 import { CyberpunkAlert } from "@/components/cyberpunk-ui/cyberpunk-alert"
 import { RefreshCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -142,10 +142,6 @@ export default function MutablePlatform({
   }
 
   const TabComponent = isCyberpunk ? CyberpunkTabs : Tabs
-  // Note: TabListComponent and TabTriggerComponent are still used for direct rendering of TabsList/TabsTrigger
-  // if not using the full CyberpunkTabs wrapper. However, since we're passing `tabs` to TabComponent,
-  // the internal rendering of CyberpunkTabs will use its own styled TabsList/TabsTrigger.
-  // For simplicity and to avoid redundant logic, we'll just pass the `tabs` array to the main TabComponent.
 
   return (
     <div className="w-full">
