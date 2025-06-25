@@ -6,10 +6,10 @@ import { useState, useCallback } from "react"
 import type { Connection } from "@solana/web3.js"
 import type { Client as ColyseusClient, Room } from "colyseus.js"
 import { GameSelection } from "@/components/pvp-game/game-selection"
-import MatchmakingLobby from "@/components/pvp-game/matchmaking-lobby" // Changed to default import
+import MatchmakingLobby from "@/components/pvp-game/matchmaking-lobby"
 import type { PlayerState } from "@/schemas/Player"
 import { gameRegistry } from "@/types/game-registry"
-import { MutableMarketplace } from "@/components/mutable-marketplace"
+import MutableMarketplace from "@/components/mutable-marketplace" // Changed to default import
 import { LiquidityPoolStatus } from "@/components/swap/liquidity-pool-status"
 import { TokenSwapForm } from "@/components/swap/token-swap-form"
 import { MarketOverview } from "@/components/swap/market-overview"
