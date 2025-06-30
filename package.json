@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@colyseus/schema": "latest",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "latest",
     "@emotion/styled": "latest",
@@ -50,6 +51,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
+    "colyseus.js": "latest",
     "date-fns": "4.1.0",
     "embla-carousel-react": "latest",
     "framer-motion": "latest",
