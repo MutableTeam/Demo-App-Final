@@ -9,6 +9,9 @@ export interface GameMode {
   players: number
   icon: ReactNode
   minWager: number
+  entryFee?: number // For PvE modes
+  duration?: number // For PvE modes
+  leaderboardRefresh?: string // For PvE modes
 }
 
 // Game configuration
@@ -21,7 +24,7 @@ export interface GameConfig {
   status: "live" | "coming-soon"
   minWager: number
   maxPlayers: number
-  gameType: string
+  gameType: "pvp" | "pve" // Make this specific
   modes: GameMode[]
   useEnhancedRenderer?: boolean
 }
@@ -72,7 +75,7 @@ class GameRegistry {
   }
 
   // Get games by type
-  getGamesByType(type: string): GameImplementation[] {
+  getGamesByType(type: "pvp" | "pve"): GameImplementation[] {
     return this.getAllGames().filter((game) => game.config.gameType === type)
   }
 }

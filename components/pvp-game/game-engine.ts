@@ -675,7 +675,7 @@ export const updateGameState = (
       }
 
       // Handle explosive arrow cooldown
-      if (player.explosiveArrowCooldown > 0) {
+      if (player.controls.explosiveArrowCooldown > 0) {
         player.explosiveArrowCooldown -= deltaTime
       }
 
@@ -683,18 +683,19 @@ export const updateGameState = (
       if (player.controls.explosiveArrow && player.explosiveArrowCooldown <= 0 && !player.isDrawingBow) {
         // Fire explosive arrow
         const arrowSpeed = 400 // Slightly slower than regular arrows
+        const angle = player.rotation // Declare the angle variable
         const arrowVelocity = {
-          x: Math.cos(player.rotation) * arrowSpeed,
-          y: Math.sin(player.rotation) * arrowSpeed,
+          x: Math.cos(angle) * arrowSpeed,
+          y: Math.sin(angle) * arrowSpeed,
         }
 
         const arrowPosition = {
-          x: player.position.x + Math.cos(player.rotation) * (player.size + 5),
-          y: player.position.y + Math.sin(player.rotation) * (player.size + 5),
+          x: player.position.x + Math.cos(angle) * (player.size + 5),
+          y: player.position.y + Math.sin(angle) * (player.size + 5),
         }
 
         // Create the explosive arrow
-        const explosiveArrow = createArrow(arrowPosition, arrowVelocity, player.rotation, player.id, 20)
+        const explosiveArrow = createArrow(arrowPosition, arrowVelocity, angle, player.id, 20)
 
         // Add custom properties for explosive arrow
         // @ts-ignore - Adding custom property
@@ -836,9 +837,6 @@ export const updateGameState = (
             }
 
             // Call the onPlayerDeath callback if provided
-            if (onPlayerDeath) {
-              onPlayerDeath(playerId)
-            }
           }
 
           // @ts-ignore - Custom property

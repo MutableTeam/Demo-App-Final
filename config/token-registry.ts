@@ -42,3 +42,15 @@ export function getTokenByMint(mintAddress: string): TokenConfig | undefined {
 export function getTokenBySymbol(symbol: string): TokenConfig | undefined {
   return SUPPORTED_TOKENS.find((token) => token.symbol === symbol)
 }
+
+export type Token = {
+  id: string
+  name: string
+  symbol: string
+  mintAddress: string
+  decimals: number
+  logoURI: string
+  isNative?: boolean
+  coingeckoId?: string
+  fixedPrice?: number
+}
