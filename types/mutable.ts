@@ -1,16 +1,4 @@
 // Token types
-export interface Token {
-  id: string
-  name: string
-  symbol: string
-  mintAddress: string
-  decimals: number
-  logoURI: string
-  isNative?: boolean
-  coingeckoId?: string
-  fixedPrice?: number
-}
-
 export interface GameToken {
   id: string
   name: string

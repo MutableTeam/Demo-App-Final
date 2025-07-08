@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Gamepad2 } from "lucide-react"
 import Image from "next/image"
-import SoundButton from "./sound-button"
+import SoundButton from "../sound-button"
 import { gameRegistry } from "@/types/game-registry"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Button } from "@/components/ui/button"
@@ -12,10 +12,19 @@ import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { ResponsiveGrid } from "@/components/mobile-optimized-container"
-import { TOKENS } from "@/utils/image-paths"
+import { GAME_IMAGES, TOKENS } from "@/utils/image-paths"
+import { useState } from "react"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { SUPPORTED_TOKENS, type Token } from "@/config/token-registry"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Define breakpoints locally to avoid import issues
 const breakpoints = {
@@ -211,56 +220,97 @@ interface GameSelectionProps {
   balance: number | null
   mutbBalance: number
   onSelectGame: (gameId: string) => void
-  selectedToken: Token
-  onTokenChange: (token: Token) => void
 }
 
-export default function GameSelection({
-  publicKey,
-  balance,
-  mutbBalance,
-  onSelectGame,
-  selectedToken,
-  onTokenChange,
-}: GameSelectionProps) {
+export default function GameSelection({ publicKey, balance, mutbBalance, onSelectGame }: GameSelectionProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
   const isMobile = useIsMobile()
 
-  const games = gameRegistry.getAllGames().sort((a, b) => {
-    if (a.config.status === "live" && b.config.status !== "live") return -1
-    if (a.config.status !== "live" && b.config.status === "live") return 1
-    return a.config.name.localeCompare(b.config.name)
+  // Get all games from registry
+  const allGames = gameRegistry.getAllGames().map((game) => ({
+    id: game.config.id,
+    name: game.config.name,
+    description: game.config.description,
+    image: game.config.image,
+    icon: game.config.icon,
+    status: game.config.status,
+    minWager: game.config.minWager,
+    originalName: game.config.name, // Store original name for reference
+  }))
+
+  const [wagerToken, setWagerToken] = useState<"MUTB" | "SOL">("MUTB")
+  const [showSolWarning, setShowSolWarning] = useState(false)
+
+  // Modify the name for Archer Arena: Last Stand
+  const processedGames = allGames.map((game) => {
+    if (game.name === "Archer Arena: Last Stand") {
+      return {
+        ...game,
+        name: "Archer Arena: LS",
+        description: "Archer Arena: Last Stand - " + game.description,
+        // Add a custom icon flag to identify this game for special icon treatment
+        hasCustomIcon: true,
+      }
+    }
+    return game
   })
 
+  // Sort games: available games first, then put "AA: Last Stand" next to "Archer Arena"
+  const games = processedGames.sort((a, b) => {
+    // First, sort by status (live games first)
+    if (a.status === "live" && b.status !== "live") return -1
+    if (a.status !== "live" && b.status === "live") return 1
+
+    // Then, ensure "AA: Last Stand" is next to "Archer Arena"
+    if (a.name === "Archer Arena" && b.name === "AA: Last Stand") return -1
+    if (a.name === "AA: Last Stand" && b.name === "Archer Arena") return 1
+
+    // Default sort by name
+    return a.name.localeCompare(b.name)
+  })
+
+  // Custom image override for Last Stand
+  const getGameImage = (game) => {
+    if (game.originalName === "Archer Arena: Last Stand" || game.name === "AA: Last Stand") {
+      return GAME_IMAGES.LAST_STAND
+    }
+    if (game.id === "archer-arena") {
+      return GAME_IMAGES.ARCHER
+    }
+    if (game.id === "pixel-pool") {
+      return GAME_IMAGES.PIXEL_POOL
+    }
+    return game.image || "/placeholder.svg"
+  }
+
+  // Handle game selection with Google Analytics tracking
   const handleGameSelect = (gameId: string) => {
-    const game = games.find((g) => g.config.id === gameId)
+    // Check if SOL is selected and show popup
+    if (wagerToken === "SOL") {
+      setShowSolWarning(true)
+      return
+    }
+
+    // Get the game name for tracking
+    const game = games.find((g) => g.id === gameId)
+
     if (game) {
-      const eventName = game.config.name.toLowerCase().replace(/\s+/g, "-")
+      // Convert game name to kebab case for analytics
+      const eventName = game.name.toLowerCase().replace(/\s+/g, "-")
+
+      // Track the game selection in Google Analytics
       if (typeof window !== "undefined" && (window as any).gtag) {
         ;(window as any).gtag("event", eventName, {
           event_category: "Games",
-          event_label: game.config.name,
-          wager_token: selectedToken.symbol,
+          event_label: game.name,
+          wager_token: wagerToken,
         })
       }
     }
+
+    // Call the original onSelectGame handler
     onSelectGame(gameId)
-  }
-
-  const getTokenBalance = (token: Token) => {
-    if (token.symbol === "SOL") {
-      return balance || 0
-    }
-    return mutbBalance
-  }
-
-  const formatTokenBalance = (token: Token) => {
-    const tokenBalance = getTokenBalance(token)
-    if (token.symbol === "SOL") {
-      return tokenBalance.toFixed(4)
-    }
-    return tokenBalance.toFixed(2)
   }
 
   return (
@@ -323,85 +373,74 @@ export default function GameSelection({
             >
               Wager Token:
             </span>
-            {isCyberpunk ? (
-              <Select
-                value={selectedToken.symbol}
-                onValueChange={(value) => {
-                  const token = SUPPORTED_TOKENS.find((t) => t.symbol === value)
-                  if (token) onTokenChange(token)
-                }}
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "text-sm font-mono",
+                  wagerToken === "MUTB"
+                    ? isCyberpunk
+                      ? "text-cyan-400 font-bold"
+                      : "text-black dark:text-white font-bold"
+                    : "text-gray-500",
+                )}
               >
-                <SelectTrigger className="w-[140px] bg-black/50 border-cyan-500/50 text-cyan-400">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 border-cyan-500/50">
-                  {SUPPORTED_TOKENS.map((token) => (
-                    <SelectItem
-                      key={token.symbol}
-                      value={token.symbol}
-                      className="text-cyan-400 hover:bg-cyan-900/30 focus:bg-cyan-900/30"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Image
-                          src={token.logoURI || "/placeholder.svg"}
-                          alt={token.symbol}
-                          width={16}
-                          height={16}
-                          className="rounded-full"
-                        />
-                        <span className="font-mono">{token.symbol}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Select
-                value={selectedToken.symbol}
-                onValueChange={(value) => {
-                  const token = SUPPORTED_TOKENS.find((t) => t.symbol === value)
-                  if (token) onTokenChange(token)
-                }}
+                MUTB
+              </span>
+              <Switch
+                checked={wagerToken === "SOL"}
+                onCheckedChange={(checked) => setWagerToken(checked ? "SOL" : "MUTB")}
+                className={isCyberpunk ? "data-[state=checked]:bg-cyan-500" : ""}
+              />
+              <span
+                className={cn(
+                  "text-sm font-mono",
+                  wagerToken === "SOL"
+                    ? isCyberpunk
+                      ? "text-cyan-400 font-bold"
+                      : "text-black dark:text-white font-bold"
+                    : "text-gray-500",
+                )}
               >
-                <SelectTrigger className="w-[140px] border-2 border-black">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPPORTED_TOKENS.map((token) => (
-                    <SelectItem key={token.symbol} value={token.symbol}>
-                      <div className="flex items-center gap-2">
-                        <Image
-                          src={token.logoURI || "/placeholder.svg"}
-                          alt={token.symbol}
-                          width={16}
-                          height={16}
-                          className="rounded-full"
-                        />
-                        <span className="font-mono">{token.symbol}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+                SOL
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-400")}>
               Selected Balance:
             </span>
             <div className="flex items-center gap-1">
-              <Image
-                src={selectedToken.logoURI || "/placeholder.svg"}
-                alt={selectedToken.symbol}
-                width={16}
-                height={16}
-                className="rounded-full"
-              />
-              <span
-                className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
-              >
-                {formatTokenBalance(selectedToken)} {selectedToken.symbol}
-              </span>
+              {wagerToken === "MUTB" ? (
+                <>
+                  <Image
+                    src={TOKENS.MUTABLE || "/placeholder.svg"}
+                    alt="MUTB"
+                    width={16}
+                    height={16}
+                    className="rounded-full"
+                  />
+                  <span
+                    className={cn(
+                      "font-medium font-mono",
+                      isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
+                    )}
+                  >
+                    {mutbBalance.toFixed(2)} MUTB
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
+                  <span
+                    className={cn(
+                      "font-medium font-mono",
+                      isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
+                    )}
+                  >
+                    {balance?.toFixed(4) || "0.0000"} SOL
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -415,12 +454,12 @@ export default function GameSelection({
           }}
           gap={isMobile ? "0.75rem" : "1rem"}
         >
-          {games.map(({ config: game }) =>
+          {games.map((game) =>
             isCyberpunk ? (
               <CyberGameCard key={game.id} className="flex flex-col h-[420px]">
                 <div className="relative">
                   <Image
-                    src={game.image || "/placeholder.svg"}
+                    src={getGameImage(game) || "/placeholder.svg"}
                     alt={game.name}
                     width={400}
                     height={240}
@@ -435,7 +474,27 @@ export default function GameSelection({
                 </div>
                 <CardHeader className={isMobile ? "p-2" : "p-3"}>
                   <div className="flex items-center gap-2">
-                    <div className="bg-[#0a0a24] p-1 rounded-md border border-[#0ff]/50 text-[#0ff]">{game.icon}</div>
+                    <div className="bg-[#0a0a24] p-1 rounded-md border border-[#0ff]/50 text-[#0ff]">
+                      {game.hasCustomIcon ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-[#0ff]"
+                        >
+                          <path d="M3 8a7 7 0 0 1 14 0a6.97 6.97 0 0 1-2 4.9V22h-3v-3h-4v3h-3v-9.1A6.97 6.97 0 0 1 3 8z" />
+                          <path d="M19 8a3 3 0 0 1 6 0c0 3-2 4-2 9h-4c0-5-2-6-2-9a3 3 0 0 1 2-3z" />
+                        </svg>
+                      ) : (
+                        game.icon
+                      )}
+                    </div>
                     <CardTitle className={`text-base font-mono ${isMobile ? "text-sm" : ""}`}>{game.name}</CardTitle>
                   </div>
                 </CardHeader>
@@ -444,17 +503,17 @@ export default function GameSelection({
                   <div className={`mt-2 ${isMobile ? "text-xs" : "text-sm"} flex items-center gap-1 text-[#0ff]/80`}>
                     <span className="font-medium">Min Wager:</span>
                     <div className="flex items-center">
-                      <Image
-                        src={selectedToken.logoURI || "/placeholder.svg"}
-                        alt={selectedToken.symbol}
-                        width={12}
-                        height={12}
-                        className="rounded-full"
-                      />
-                      <span>
-                        {selectedToken.symbol === "SOL" ? ((game.minWager * 0.01) / 150).toFixed(4) : game.minWager}{" "}
-                        {selectedToken.symbol}
-                      </span>
+                      {wagerToken === "MUTB" ? (
+                        <>
+                          <Image src={TOKENS.MUTABLE || "/placeholder.svg"} alt="MUTB" width={12} height={12} />
+                          <span>{game.minWager} MUTB</span>
+                        </>
+                      ) : (
+                        <>
+                          <Image src="/solana-logo.png" alt="SOL" width={12} height={12} />
+                          <span>{((game.minWager * 0.01) / 150).toFixed(4)} SOL</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -472,13 +531,11 @@ export default function GameSelection({
             ) : (
               <Card
                 key={game.id}
-                className={`border-2 ${
-                  game.status === "live" ? "border-black" : "border-gray-300"
-                } overflow-hidden flex flex-col h-[420px]`}
+                className={`border-2 ${game.status === "live" ? "border-black" : "border-gray-300"} overflow-hidden flex flex-col h-[420px]`}
               >
                 <div className="relative">
                   <Image
-                    src={game.image || "/placeholder.svg"}
+                    src={getGameImage(game) || "/placeholder.svg"}
                     alt={game.name}
                     width={400}
                     height={240}
@@ -495,26 +552,46 @@ export default function GameSelection({
                 </div>
                 <CardHeader className={isMobile ? "p-2" : "p-3"}>
                   <div className="flex items-center gap-2">
-                    <div className="bg-[#FFD54F] p-1 rounded-md border border-black">{game.icon}</div>
+                    <div className="bg-[#FFD54F] p-1 rounded-md border border-black">
+                      {game.hasCustomIcon ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-amber-700"
+                        >
+                          <path d="M3 8a7 7 0 0 1 14 0a6.97 6.97 0 0 1-2 4.9V22h-3v-3h-4v3h-3v-9.1A6.97 6.97 0 0 1 3 8z" />
+                          <path d="M19 8a3 3 0 0 1 6 0c0 3-2 4-2 9h-4c0-5-2-6-2-9a3 3 0 0 1 2-3z" />
+                        </svg>
+                      ) : (
+                        game.icon
+                      )}
+                    </div>
                     <CardTitle className={`text-base font-mono ${isMobile ? "text-sm" : ""}`}>{game.name}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className={`${isMobile ? "p-2" : "p-3"} pt-0 flex-grow`}>
                   <p className={`${isMobile ? "text-xs" : "text-sm"} text-muted-foreground`}>{game.description}</p>
-                  <div className={`mt-2 ${isMobile ? "text-xs" : "text-sm"} flex items-center gap-1`}>
+                  <div className={`mt-2 ${isMobile ? "text-xs" : "text-xs"} flex items-center gap-1`}>
                     <span className="font-medium">Min Wager:</span>
                     <div className="flex items-center">
-                      <Image
-                        src={selectedToken.logoURI || "/placeholder.svg"}
-                        alt={selectedToken.symbol}
-                        width={12}
-                        height={12}
-                        className="rounded-full"
-                      />
-                      <span>
-                        {selectedToken.symbol === "SOL" ? ((game.minWager * 0.01) / 150).toFixed(4) : game.minWager}{" "}
-                        {selectedToken.symbol}
-                      </span>
+                      {wagerToken === "MUTB" ? (
+                        <>
+                          <Image src={TOKENS.MUTABLE || "/placeholder.svg"} alt="MUTB" width={12} height={12} />
+                          <span>{game.minWager} MUTB</span>
+                        </>
+                      ) : (
+                        <>
+                          <Image src="/solana-logo.png" alt="SOL" width={12} height={12} />
+                          <span>{((game.minWager * 0.01) / 150).toFixed(4)} SOL</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -533,6 +610,29 @@ export default function GameSelection({
           )}
         </ResponsiveGrid>
       </CardContent>
+
+      {/* SOL Warning Dialog */}
+      <AlertDialog open={showSolWarning} onOpenChange={setShowSolWarning}>
+        <AlertDialogContent className={isCyberpunk ? "bg-black/90 border-cyan-500/50" : ""}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className={isCyberpunk ? "text-cyan-400" : ""}>SOL Wagering Coming Soon</AlertDialogTitle>
+            <AlertDialogDescription className={isCyberpunk ? "text-cyan-300/70" : ""}>
+              SOL wagering functionality is currently in development and will be available soon. Please switch to MUTB
+              to play games in this demo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setShowSolWarning(false)}
+              className={isCyberpunk ? "bg-cyan-500 hover:bg-cyan-600 text-black" : ""}
+            >
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
+
+export { GameSelection }

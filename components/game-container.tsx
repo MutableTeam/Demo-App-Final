@@ -8,6 +8,7 @@ import { debugManager } from "@/utils/debug-utils"
 import { cyberpunkColors } from "@/styles/cyberpunk-theme"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
+import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -174,19 +175,30 @@ interface GameContainerProps {
 }
 
 export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
-  const [gameStatus, setGameStatus] = useState<"loading" | "playing" | "ended">("loading")
+  const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
   const { toast } = useToast()
 
+  // Get the game from registry
   const game = gameRegistry.getGame(gameId)
 
   useEffect(() => {
-    debugManager.logInfo("GameContainer", "Initializing game container", { gameId, playerId, gameMode })
+    // Log initialization for debugging
+    debugManager.logInfo("GameContainer", "Initializing game container", {
+      gameId,
+      playerId,
+      playerName,
+      isHost,
+      gameMode,
+    })
+
+    // Set game to playing state after a short delay to ensure proper initialization
     const timer = setTimeout(() => {
-      setGameStatus("playing")
+      setGameState("playing")
       debugManager.logInfo("GameContainer", "Game state set to playing")
     }, 500)
+
     return () => clearTimeout(timer)
-  }, [gameId, playerId, gameMode])
+  }, [gameId, playerId, playerName, isHost, gameMode])
 
   if (!game) {
     return (
@@ -207,15 +219,23 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     })
   }
 
+  // Initialize game state
   const initialGameState = game.initializeGameState({
     playerId,
     playerName,
     isHost,
     gameMode,
-    players: [{ id: playerId, name: playerName, isHost }],
+    players: [
+      { id: playerId, name: playerName, isHost },
+      // Mock players for testing
+      { id: "ai-1", name: "AI Player 1", isHost: false },
+      { id: "ai-2", name: "AI Player 2", isHost: false },
+      { id: "ai-3", name: "AI Player 3", isHost: false },
+    ],
   })
 
-  if (gameStatus === "loading") {
+  // Cyberpunk styled loading state
+  if (gameState === "loading") {
     return (
       <CyberpunkLoadingContainer>
         <CyberpunkSpinner />
@@ -224,19 +244,32 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     )
   }
 
+  // Cyberpunk styled game container
   return (
     <CyberpunkGameContainer>
-      <CyberpunkDevBanner>External Game Engine Placeholder</CyberpunkDevBanner>
+      {/* Development Banner */}
+      <CyberpunkDevBanner>Demo Game : Does Not Represent Final Product</CyberpunkDevBanner>
+
       <GameErrorBoundary>
-        <GameComponent
-          playerId={playerId}
-          playerName={playerName}
-          isHost={isHost}
-          gameMode={gameMode}
-          initialGameState={initialGameState}
-          onGameEnd={onGameEnd}
-          onError={handleError}
-        />
+        {game.id === "archer-arena" || game.id === "last-stand" ? (
+          <GameControllerEnhanced
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            onGameEnd={onGameEnd}
+          />
+        ) : (
+          <GameComponent
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            initialGameState={initialGameState}
+            onGameEnd={onGameEnd}
+            onError={handleError}
+          />
+        )}
       </GameErrorBoundary>
     </CyberpunkGameContainer>
   )

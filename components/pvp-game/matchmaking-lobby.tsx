@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Gamepad2 } from "lucide-react"
 import Image from "next/image"
 import WaitingRoom from "./waiting-room"
+import { loadAudioFiles } from "@/utils/audio-manager"
 import SoundButton from "../sound-button"
 import { withClickSound } from "@/utils/sound-utils"
 import GameErrorBoundary from "@/components/game-error-boundary"
@@ -21,8 +22,6 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Button } from "@/components/ui/button"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
-import { SUPPORTED_TOKENS, type Token } from "@/config/token-registry"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Cyberpunk animations
 const scanline = keyframes`
@@ -207,11 +206,8 @@ interface MatchmakingLobbyProps {
   publicKey: string
   playerName: string
   mutbBalance: number
-  solBalance: number | null
   onExit: () => void
   selectedGame?: string
-  selectedToken: Token
-  onTokenChange: (token: Token) => void
 }
 
 interface GameLobby {
@@ -221,7 +217,6 @@ interface GameLobby {
   mode: string
   modeName: string
   wager: number
-  wagerToken: Token
   players: number
   maxPlayers: number
   status: "waiting" | "full" | "in-progress"
@@ -232,11 +227,8 @@ export default function MatchmakingLobby({
   publicKey,
   playerName,
   mutbBalance,
-  solBalance,
   onExit,
-  selectedGame = "pvp-test",
-  selectedToken,
-  onTokenChange,
+  selectedGame = "top-down-shooter",
 }: MatchmakingLobbyProps) {
   const [activeTab, setActiveTab] = useState("browse")
   const [selectedMode, setSelectedMode] = useState<string | null>(null)
@@ -249,28 +241,24 @@ export default function MatchmakingLobby({
   // Game state management
   const [gameState, setGameState] = useState<"lobby" | "waiting" | "playing" | "results">("lobby")
   const [selectedLobby, setSelectedLobby] = useState<GameLobby | null>(null)
-  const [gameResult, setGameResult] = useState<{ winner: string | null; reward: number; token: Token } | null>(null)
+  const [gameResult, setGameResult] = useState<{ winner: string | null; reward: number } | null>(null)
 
   // Pop-out state
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
 
   // Refs for cleanup tracking
   const componentIdRef = useRef<string>(`matchmaking-${Date.now()}`)
-
-  // Local state for lobbies, replacing mock data
-  const [lobbies, setLobbies] = useState<GameLobby[]>([])
+  const lobbyUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const newLobbyIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Load selected game implementation
   useEffect(() => {
     const gameImpl = gameRegistry.getGame(selectedGame)
     if (gameImpl) {
       setSelectedGameImpl(gameImpl)
-      if (gameImpl.config.modes.length > 0) {
-        setSelectedMode(gameImpl.config.modes[0].id)
-        setWagerAmount(gameImpl.config.modes[0].minWager)
-      }
     } else {
-      const availableGames = gameRegistry.getGamesByType("pvp")
+      // Default to first available game if selected game not found
+      const availableGames = gameRegistry.getLiveGames()
       if (availableGames.length > 0) {
         setSelectedGameImpl(availableGames[0])
       }
@@ -285,6 +273,8 @@ export default function MatchmakingLobby({
     return () => {
       debugManager.trackComponentUnmount("MatchmakingLobby")
       transitionDebugger.trackTransition("mounted", "unmounted", "MatchmakingLobby")
+
+      // Clean up all resources
       transitionDebugger.cleanupAll("MatchmakingLobby")
     }
   }, [publicKey, selectedGame])
@@ -298,7 +288,141 @@ export default function MatchmakingLobby({
     }
   }, [gameState])
 
-  const getTokenBalance = (token: Token) => (token.symbol === "SOL" ? (solBalance ?? 0) : mutbBalance)
+  // Mock lobbies with a more realistic structure
+  const [lobbies, setLobbies] = useState<GameLobby[]>([
+    {
+      id: "lobby-1",
+      host: "Player1",
+      hostName: "CryptoGamer",
+      mode: "duel",
+      modeName: "1v1 Duel",
+      wager: 5,
+      players: 1,
+      maxPlayers: 2,
+      status: "waiting",
+      gameType: "top-down-shooter",
+    },
+    {
+      id: "lobby-2",
+      host: "Player2",
+      hostName: "SolanaWarrior",
+      mode: "ffa",
+      modeName: "Free-For-All",
+      wager: 10,
+      players: 2,
+      maxPlayers: 4,
+      status: "waiting",
+      gameType: "top-down-shooter",
+    },
+    // Add more mock lobbies as needed
+  ])
+
+  // Simulate lobby updates with safe intervals
+  useEffect(() => {
+    // Clear any existing interval first
+    if (lobbyUpdateIntervalRef.current) {
+      transitionDebugger.safeClearInterval(`${componentIdRef.current}-lobby-update`)
+      lobbyUpdateIntervalRef.current = null
+    }
+
+    // Only run this effect when in lobby state
+    if (gameState !== "lobby") return
+
+    debugManager.logInfo("MatchmakingLobby", "Setting up lobby update interval")
+
+    lobbyUpdateIntervalRef.current = transitionDebugger.safeSetInterval(
+      () => {
+        setLobbies((prevLobbies) => {
+          return prevLobbies.map((lobby) => {
+            // Randomly update player counts for waiting lobbies
+            if (lobby.status === "waiting" && Math.random() > 0.7) {
+              const newPlayerCount = Math.min(lobby.players + 1, lobby.maxPlayers)
+              const newStatus = newPlayerCount === lobby.maxPlayers ? "full" : "waiting"
+              return { ...lobby, players: newPlayerCount, status: newStatus }
+            }
+            // Randomly start full games
+            else if (lobby.status === "full" && Math.random() > 0.8) {
+              return { ...lobby, status: "in-progress" }
+            }
+            // Randomly finish in-progress games
+            else if (lobby.status === "in-progress" && Math.random() > 0.9) {
+              return {
+                ...lobby,
+                status: "waiting",
+                players: 1,
+              }
+            }
+            return lobby
+          })
+        })
+      },
+      5000,
+      `${componentIdRef.current}-lobby-update`,
+    )
+
+    return () => {
+      if (lobbyUpdateIntervalRef.current) {
+        transitionDebugger.safeClearInterval(`${componentIdRef.current}-lobby-update`)
+        lobbyUpdateIntervalRef.current = null
+        debugManager.logInfo("MatchmakingLobby", "Cleared lobby update interval")
+      }
+    }
+  }, [gameState])
+
+  // Simulate new lobbies being created with safe intervals
+  useEffect(() => {
+    // Clear any existing interval first
+    if (newLobbyIntervalRef.current) {
+      transitionDebugger.safeClearInterval(`${componentIdRef.current}-new-lobby`)
+      newLobbyIntervalRef.current = null
+    }
+
+    // Only run this effect when in lobby state
+    if (gameState !== "lobby") return
+
+    debugManager.logInfo("MatchmakingLobby", "Setting up new lobby interval")
+
+    newLobbyIntervalRef.current = transitionDebugger.safeSetInterval(
+      () => {
+        if (Math.random() > 0.8) {
+          // Get a random game
+          const games = gameRegistry.getLiveGames()
+          if (games.length === 0) return
+
+          const randomGame = games[Math.floor(Math.random() * games.length)]
+          const randomMode = randomGame.config.modes[Math.floor(Math.random() * randomGame.config.modes.length)]
+
+          const botNames = ["CryptoArcher", "TokenShooter", "BlockchainGamer", "NFTWarrior", "SolanaSniper"]
+          const randomName = botNames[Math.floor(Math.random() * botNames.length)]
+
+          const newLobby: GameLobby = {
+            id: `lobby-${Date.now()}`,
+            host: `bot-${Date.now()}`,
+            hostName: randomName,
+            mode: randomMode.id,
+            modeName: randomMode.name,
+            wager: Math.floor(Math.random() * 20) + 1,
+            players: 1,
+            maxPlayers: randomMode.players,
+            status: "waiting",
+            gameType: randomGame.config.id,
+          }
+
+          setLobbies((prev) => [...prev.slice(-9), newLobby]) // Keep last 10 lobbies
+        }
+      },
+      10000,
+      `${componentIdRef.current}-new-lobby`,
+    )
+
+    return () => {
+      if (newLobbyIntervalRef.current) {
+        transitionDebugger.safeClearInterval(`${componentIdRef.current}-new-lobby`)
+        newLobbyIntervalRef.current = null
+        debugManager.logInfo("MatchmakingLobby", "Cleared new lobby interval")
+      }
+    }
+  }, [gameState])
 
   const createLobby = () => {
     if (!selectedMode || !selectedGameImpl) return
@@ -307,16 +431,19 @@ export default function MatchmakingLobby({
     if (!mode) return
 
     if (wagerAmount < mode.minWager) {
-      alert(`Minimum wager for ${mode.name} is ${mode.minWager} ${selectedToken.symbol}`)
+      alert(`Minimum wager for ${mode.name} is ${mode.minWager} MUTB`)
       return
     }
 
-    const balance = getTokenBalance(selectedToken)
-
-    if (wagerAmount > balance) {
-      alert(`You don't have enough ${selectedToken.symbol} tokens for this wager`)
+    if (wagerAmount > mutbBalance) {
+      alert("You don't have enough MUTB tokens for this wager")
       return
     }
+
+    // Try to load audio files, but don't block game creation if it fails
+    loadAudioFiles().catch((err) => {
+      debugManager.logWarning("AUDIO", "Audio files could not be loaded, game will continue without sound", err)
+    })
 
     const newLobby: GameLobby = {
       id: `lobby-${Date.now()}`,
@@ -325,27 +452,35 @@ export default function MatchmakingLobby({
       mode: selectedMode,
       modeName: mode.name,
       wager: wagerAmount,
-      wagerToken: selectedToken,
       players: 1,
       maxPlayers: mode.players,
       status: "waiting",
       gameType: selectedGameImpl.config.id,
     }
 
-    setLobbies((prev) => [...prev, newLobby])
+    setLobbies([...lobbies, newLobby])
     setSelectedLobby(newLobby)
+
+    // Track state transition
+    transitionDebugger.trackTransition("lobby", "waiting", "MatchmakingLobby", { lobbyId: newLobby.id })
     setGameState("waiting")
+
     debugManager.logInfo("MatchmakingLobby", "Created new lobby", newLobby)
   }
 
   const joinLobby = (lobby: GameLobby) => {
     if (lobby.status !== "waiting") return
-    const balance = getTokenBalance(lobby.wagerToken)
-    if (lobby.wager > balance) {
-      alert(`You don't have enough ${lobby.wagerToken.symbol} tokens for this wager`)
+    if (lobby.wager > mutbBalance) {
+      alert("You don't have enough MUTB tokens for this wager")
       return
     }
 
+    // Try to load audio files, but don't block game joining if it fails
+    loadAudioFiles().catch((err) => {
+      debugManager.logWarning("AUDIO", "Audio files could not be loaded, game will continue without sound", err)
+    })
+
+    // Update the lobby to add the player
     setLobbies((prevLobbies) =>
       prevLobbies.map((l) => {
         if (l.id === lobby.id) {
@@ -357,60 +492,95 @@ export default function MatchmakingLobby({
       }),
     )
 
+    // In a real app, this would send a request to join the lobby
     setSelectedLobby(lobby)
+
+    // Track state transition
+    transitionDebugger.trackTransition("lobby", "waiting", "MatchmakingLobby", { lobbyId: lobby.id })
     setGameState("waiting")
+
     debugManager.logInfo("MatchmakingLobby", "Joined lobby", lobby)
   }
 
   const handleGameEnd = (winner: string | null) => {
     if (!selectedLobby) return
 
+    // Calculate rewards
     const totalPot = selectedLobby.wager * selectedLobby.maxPlayers
     const winnerReward = totalPot * 0.95 // 5% platform fee
 
     setGameResult({
       winner,
       reward: winner === publicKey ? winnerReward : 0,
-      token: selectedLobby.wagerToken,
     })
 
+    // Close the pop-out
     setIsGamePopOutOpen(false)
+
+    // Track state transition
+    transitionDebugger.trackTransition("playing", "results", "MatchmakingLobby", { winner })
     setGameState("results")
-    debugManager.logInfo("MatchmakingLobby", "Game ended", {
-      winner,
-      reward: winner === publicKey ? winnerReward : 0,
-      token: selectedLobby.wagerToken.symbol,
-    })
+
+    debugManager.logInfo("MatchmakingLobby", "Game ended", { winner, reward: winner === publicKey ? winnerReward : 0 })
   }
 
   const exitGame = () => {
+    // Clean up any game-related resources
+    transitionDebugger.cleanupAll("GameController")
+
+    // Reset state
     setGameState("lobby")
     setSelectedLobby(null)
     setGameResult(null)
     setIsGamePopOutOpen(false)
-    onExit()
+
+    // Track state transition
+    transitionDebugger.trackTransition("any", "exiting", "MatchmakingLobby")
+
+    // Use a safe timeout to ensure cleanup completes before exiting
+    transitionDebugger.safeSetTimeout(
+      () => {
+        try {
+          onExit()
+        } catch (error) {
+          debugManager.logError("MatchmakingLobby", "Error in onExit callback", error)
+        }
+      },
+      300,
+      `${componentIdRef.current}-exit`,
+    )
+
     debugManager.logInfo("MatchmakingLobby", "Exiting game")
   }
 
   const exitWaitingRoom = () => {
+    // Track state transition
+    transitionDebugger.trackTransition("waiting", "lobby", "MatchmakingLobby")
     setGameState("lobby")
     setSelectedLobby(null)
+
     debugManager.logInfo("MatchmakingLobby", "Exited waiting room")
   }
 
   const startGame = () => {
     if (!selectedLobby || !selectedGameImpl) return
+
+    // Track state transition
+    transitionDebugger.trackTransition("waiting", "playing", "MatchmakingLobby")
     setGameState("playing")
+
     debugManager.logInfo("MatchmakingLobby", "Starting game")
   }
 
   const handleClosePopOut = () => {
+    // Show a confirmation dialog before closing the game
     if (window.confirm("Are you sure you want to exit the game? Your progress will be lost.")) {
       setIsGamePopOutOpen(false)
-      handleGameEnd(null)
+      handleGameEnd(null) // End the game with no winner
     }
   }
 
+  // Game content to be rendered in the pop-out
   const renderGameContent = () => {
     if (!selectedLobby || !selectedGameImpl) return null
 
@@ -430,28 +600,20 @@ export default function MatchmakingLobby({
     )
   }
 
-  if (gameState === "results" && gameResult) {
-    const { winner, reward, token } = gameResult
+  // Render based on game state
+  if (gameState === "results") {
     return isCyberpunk ? (
       <CyberModeCard>
         <CardHeader>
           <CardTitle className="text-center font-mono text-[#0ff]">GAME OVER</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          {winner === publicKey ? (
+          {gameResult?.winner === publicKey ? (
             <>
               <div className="text-4xl font-bold font-mono text-[#0ff]">YOU WIN!</div>
               <div className="flex items-center justify-center gap-2 text-2xl text-[#0ff]">
-                <Image
-                  src={token.logoURI || "/placeholder.svg"}
-                  alt={token.symbol}
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
-                <span className="font-mono">
-                  +{reward.toFixed(token.symbol === "SOL" ? 4 : 2)} {token.symbol}
-                </span>
+                <Image src="/images/mutable-token.png" alt="MUTB" width={32} height={32} className="rounded-full" />
+                <span className="font-mono">+{gameResult.reward} MUTB</span>
               </div>
             </>
           ) : (
@@ -470,14 +632,12 @@ export default function MatchmakingLobby({
           <CardTitle className="text-center font-mono">GAME OVER</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          {winner === publicKey ? (
+          {gameResult?.winner === publicKey ? (
             <>
               <div className="text-4xl font-bold font-mono text-green-600">YOU WIN!</div>
               <div className="flex items-center justify-center gap-2 text-2xl">
-                <Image src={token.logoURI || "/placeholder.svg"} alt={token.symbol} width={32} height={32} />
-                <span className="font-mono">
-                  +{reward.toFixed(token.symbol === "SOL" ? 4 : 2)} {token.symbol}
-                </span>
+                <Image src="/images/mutable-token.png" alt="MUTB" width={32} height={32} />
+                <span className="font-mono">+{gameResult.reward} MUTB</span>
               </div>
             </>
           ) : (
@@ -506,7 +666,6 @@ export default function MatchmakingLobby({
         playerName={localPlayerName}
         maxPlayers={selectedLobby.maxPlayers}
         wager={selectedLobby.wager}
-        wagerToken={selectedLobby.wagerToken}
         gameMode={selectedLobby.modeName}
         onExit={exitWaitingRoom}
         onGameStart={startGame}
@@ -514,13 +673,15 @@ export default function MatchmakingLobby({
     )
   }
 
-  const allGames = gameRegistry.getGamesByType("pvp")
+  // Default: lobby state
+  const allGames = gameRegistry.getLiveGames()
   const filteredLobbies = selectedGameImpl
     ? lobbies.filter((lobby) => lobby.gameType === selectedGameImpl.config.id)
     : []
 
   return (
     <>
+      {/* Game Pop-out Container */}
       <GamePopOutContainer
         isOpen={isGamePopOutOpen}
         onClose={handleClosePopOut}
@@ -529,6 +690,7 @@ export default function MatchmakingLobby({
         {renderGameContent()}
       </GamePopOutContainer>
 
+      {/* Regular lobby UI */}
       {isCyberpunk ? (
         <CyberModeCard>
           <CardHeader>
@@ -537,17 +699,15 @@ export default function MatchmakingLobby({
                 <Gamepad2 className="h-5 w-5 text-[#0ff]" />
                 <CardTitle className="font-mono text-[#0ff]">PVP ARENA</CardTitle>
               </div>
-              <SoundButton
-                variant="outline"
-                className="!border-pink-500/50 !text-pink-400 hover:!bg-pink-900/30"
-                onClick={onExit}
-              >
-                Back
-              </SoundButton>
+              <CyberModeBadge variant="outline" className="flex items-center gap-1 font-mono">
+                <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+                {mutbBalance.toFixed(2)} MUTB
+              </CyberModeBadge>
             </div>
-            <CardDescription className="text-[#0ff]/70">Battle other players and win tokens</CardDescription>
+            <CardDescription className="text-[#0ff]/70">Battle other players and win MUTB tokens</CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Game selection tabs */}
             <div className="mb-4">
               <Label className="font-mono mb-2 block text-[#0ff]">SELECT GAME</Label>
               <div className="flex flex-wrap gap-2">
@@ -611,12 +771,7 @@ export default function MatchmakingLobby({
                             <div className="text-center">
                               <div className="text-sm font-medium text-[#0ff]/80">Wager</div>
                               <div className="font-mono flex items-center justify-center gap-1 text-[#0ff]">
-                                <Image
-                                  src={lobby.wagerToken.logoURI || "/placeholder.svg"}
-                                  alt={lobby.wagerToken.symbol}
-                                  width={12}
-                                  height={12}
-                                />
+                                <Image src="/images/mutable-token.png" alt="MUTB" width={12} height={12} />
                                 <span>{lobby.wager}</span>
                               </div>
                             </div>
@@ -663,6 +818,19 @@ export default function MatchmakingLobby({
                   {selectedGameImpl && (
                     <>
                       <div>
+                        <Label className="font-mono text-[#0ff]">GAME TYPE</Label>
+                        <div className="p-3 border border-[#0ff]/30 rounded-md bg-[#0a0a24]/80 mt-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="bg-[#0a0a24] p-1 rounded-md border border-[#0ff]/50 text-[#0ff]">
+                              {selectedGameImpl.config.icon}
+                            </div>
+                            <div className="font-bold font-mono text-[#0ff]">{selectedGameImpl.config.name}</div>
+                          </div>
+                          <p className="text-sm text-[#0ff]/70">{selectedGameImpl.config.description}</p>
+                        </div>
+                      </div>
+
+                      <div>
                         <Label className="font-mono text-[#0ff]">GAME MODE</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                           {selectedGameImpl.config.modes.map((mode) => (
@@ -682,6 +850,12 @@ export default function MatchmakingLobby({
                                 <div className="font-bold font-mono text-[#0ff]">{mode.name}</div>
                               </div>
                               <p className="text-sm text-[#0ff]/70">{mode.description}</p>
+                              <div className="mt-2 text-sm text-[#0ff]/80">
+                                <span className="font-medium">Players:</span> {mode.players}
+                              </div>
+                              <div className="text-sm text-[#0ff]/80">
+                                <span className="font-medium">Min Wager:</span> {mode.minWager} MUTB
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -691,48 +865,23 @@ export default function MatchmakingLobby({
 
                   <div>
                     <Label htmlFor="wagerAmount" className="font-mono text-[#0ff]">
-                      WAGER AMOUNT
+                      WAGER AMOUNT (MUTB)
                     </Label>
                     <div className="flex items-center gap-2">
                       <CyberModeInput
                         id="wagerAmount"
                         type="number"
                         min={1}
-                        max={getTokenBalance(selectedToken)}
+                        max={mutbBalance}
                         value={wagerAmount}
                         onChange={(e) => setWagerAmount(Number(e.target.value))}
                       />
-                      <Select
-                        value={selectedToken.symbol}
-                        onValueChange={(value) => {
-                          const token = SUPPORTED_TOKENS.find((t) => t.symbol === value)
-                          if (token) onTokenChange(token)
-                        }}
-                      >
-                        <SelectTrigger className="w-[120px] cyber-select">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="cyber-select-content">
-                          {SUPPORTED_TOKENS.map((token) => (
-                            <SelectItem key={token.symbol} value={token.symbol}>
-                              <div className="flex items-center gap-2">
-                                <Image
-                                  src={token.logoURI || "/placeholder.svg"}
-                                  alt={token.symbol}
-                                  width={16}
-                                  height={16}
-                                />
-                                {token.symbol}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-1 bg-[#0a0a24]/80 px-3 py-2 rounded-md border border-[#0ff]/30">
+                        <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} />
+                        <span className="font-mono text-[#0ff]">MUTB</span>
+                      </div>
                     </div>
-                    <p className="text-sm text-[#0ff]/70 mt-1">
-                      Your balance: {getTokenBalance(selectedToken).toFixed(selectedToken.symbol === "SOL" ? 4 : 2)}{" "}
-                      {selectedToken.symbol}
-                    </p>
+                    <p className="text-sm text-[#0ff]/70 mt-1">Your balance: {mutbBalance.toFixed(2)} MUTB</p>
                   </div>
                 </div>
               </TabsContent>
@@ -742,9 +891,7 @@ export default function MatchmakingLobby({
             {activeTab === "create" ? (
               <CyberModeButton
                 className="w-full"
-                disabled={
-                  !selectedMode || !selectedGameImpl || wagerAmount <= 0 || wagerAmount > getTokenBalance(selectedToken)
-                }
+                disabled={!selectedMode || !selectedGameImpl || wagerAmount <= 0 || wagerAmount > mutbBalance}
                 onClick={createLobby}
               >
                 CREATE GAME
@@ -764,13 +911,18 @@ export default function MatchmakingLobby({
                 <Gamepad2 className="h-5 w-5" />
                 <CardTitle className="font-mono">PVP ARENA</CardTitle>
               </div>
-              <SoundButton variant="outline" className="border-2 border-black" onClick={onExit}>
-                Back
-              </SoundButton>
+              <Badge
+                variant="outline"
+                className="bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
+              >
+                <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+                {mutbBalance.toFixed(2)} MUTB
+              </Badge>
             </div>
-            <CardDescription>Battle other players and win tokens</CardDescription>
+            <CardDescription>Battle other players and win MUTB tokens</CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Game selection tabs */}
             <div className="mb-4">
               <Label className="font-mono mb-2 block">SELECT GAME</Label>
               <div className="flex flex-wrap gap-2">
@@ -842,12 +994,7 @@ export default function MatchmakingLobby({
                             <div className="text-center">
                               <div className="text-sm font-medium">Wager</div>
                               <div className="font-mono flex items-center justify-center gap-1">
-                                <Image
-                                  src={lobby.wagerToken.logoURI || "/placeholder.svg"}
-                                  alt={lobby.wagerToken.symbol}
-                                  width={12}
-                                  height={12}
-                                />
+                                <Image src="/images/mutable-token.png" alt="MUTB" width={12} height={12} />
                                 <span>{lobby.wager}</span>
                               </div>
                             </div>
@@ -896,6 +1043,19 @@ export default function MatchmakingLobby({
                   {selectedGameImpl && (
                     <>
                       <div>
+                        <Label className="font-mono">GAME TYPE</Label>
+                        <div className="p-3 border-2 rounded-md border-black bg-[#FFD54F] mt-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="bg-white p-1 rounded-md border border-black">
+                              {selectedGameImpl.config.icon}
+                            </div>
+                            <div className="font-bold font-mono">{selectedGameImpl.config.name}</div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{selectedGameImpl.config.description}</p>
+                        </div>
+                      </div>
+
+                      <div>
                         <Label className="font-mono">GAME MODE</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                           {selectedGameImpl.config.modes.map((mode) => (
@@ -913,6 +1073,12 @@ export default function MatchmakingLobby({
                                 <div className="font-bold font-mono">{mode.name}</div>
                               </div>
                               <p className="text-sm text-muted-foreground">{mode.description}</p>
+                              <div className="mt-2 text-sm">
+                                <span className="font-medium">Players:</span> {mode.players}
+                              </div>
+                              <div className="text-sm">
+                                <span className="font-medium">Min Wager:</span> {mode.minWager} MUTB
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -922,49 +1088,24 @@ export default function MatchmakingLobby({
 
                   <div>
                     <Label htmlFor="wagerAmount" className="font-mono">
-                      WAGER AMOUNT
+                      WAGER AMOUNT (MUTB)
                     </Label>
                     <div className="flex items-center gap-2">
                       <Input
                         id="wagerAmount"
                         type="number"
                         min={1}
-                        max={getTokenBalance(selectedToken)}
+                        max={mutbBalance}
                         value={wagerAmount}
                         onChange={(e) => setWagerAmount(Number(e.target.value))}
                         className="border-2 border-black"
                       />
-                      <Select
-                        value={selectedToken.symbol}
-                        onValueChange={(value) => {
-                          const token = SUPPORTED_TOKENS.find((t) => t.symbol === value)
-                          if (token) onTokenChange(token)
-                        }}
-                      >
-                        <SelectTrigger className="w-[120px] border-2 border-black">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SUPPORTED_TOKENS.map((token) => (
-                            <SelectItem key={token.symbol} value={token.symbol}>
-                              <div className="flex items-center gap-2">
-                                <Image
-                                  src={token.logoURI || "/placeholder.svg"}
-                                  alt={token.symbol}
-                                  width={16}
-                                  height={16}
-                                />
-                                {token.symbol}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-1 bg-[#f5efdc] px-3 py-2 rounded-md border-2 border-black">
+                        <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} />
+                        <span className="font-mono">MUTB</span>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Your balance: {getTokenBalance(selectedToken).toFixed(selectedToken.symbol === "SOL" ? 4 : 2)}{" "}
-                      {selectedToken.symbol}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">Your balance: {mutbBalance.toFixed(2)} MUTB</p>
                   </div>
                 </div>
               </TabsContent>
@@ -974,9 +1115,7 @@ export default function MatchmakingLobby({
             {activeTab === "create" ? (
               <SoundButton
                 className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
-                disabled={
-                  !selectedMode || !selectedGameImpl || wagerAmount <= 0 || wagerAmount > getTokenBalance(selectedToken)
-                }
+                disabled={!selectedMode || !selectedGameImpl || wagerAmount <= 0 || wagerAmount > mutbBalance}
                 onClick={createLobby}
               >
                 CREATE GAME

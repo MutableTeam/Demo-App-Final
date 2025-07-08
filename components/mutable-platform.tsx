@@ -1,25 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Gamepad2, ArrowLeftRight, Smartphone, Code, Mail, CheckCircle, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import MutableMarketplace from "./mutable-marketplace"
-import GameSelection from "./game-selection"
-import MatchmakingLobby from "./pvp-lobby/matchmaking-lobby"
+import GameSelection from "./pvp-game/game-selection"
+import MatchmakingLobby from "./pvp-game/matchmaking-lobby"
 import type { Connection } from "@solana/web3.js"
 import SoundButton from "./sound-button"
 import { withClickSound } from "@/utils/sound-utils"
 import { trackEvent } from "@/utils/analytics"
+import LastStandGameLauncher from "@/games/last-stand/game-launcher"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
-import { gameRegistry } from "@/types/game-registry"
-import PvEGameLauncher from "./pve-game/pve-game-launcher"
-import { SUPPORTED_TOKENS, type Token } from "@/config/token-registry"
 
 // Cyberpunk styled components
 const glitchAnim1 = keyframes`
@@ -217,12 +215,10 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
   const isCyberpunk = styleMode === "cyberpunk"
 
   const [activeTab, setActiveTab] = useState("desktop-games")
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
+  const [selectedGame, setSelectedGame] = useState<string | null>(null)
   const [mutbBalance, setMutbBalance] = useState<number>(100) // Mock MUTB balance
   // Local state to track balance changes without waiting for blockchain updates
   const [localBalance, setLocalBalance] = useState<number | null>(balance)
-  // Global token selection state
-  const [selectedToken, setSelectedToken] = useState<Token>(SUPPORTED_TOKENS[0])
 
   // Update useEffect to sync localBalance with balance from props
   useEffect(() => {
@@ -235,11 +231,11 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
   }
 
   const handleSelectGame = (gameId: string) => {
-    setSelectedGameId(gameId)
+    setSelectedGame(gameId)
   }
 
   const handleBackToSelection = () => {
-    setSelectedGameId(null)
+    setSelectedGame(null)
   }
 
   const handleDeveloperContact = () => {
@@ -247,119 +243,6 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
     trackEvent("developer_contact", { source: "develop_tab" })
     window.location.href =
       "mailto:mutablepvp@gmail.com?subject=Game%20Developer%20Submission&body=I'm%20interested%20in%20developing%20a%20game%20for%20the%20Mutable%20platform.%0A%0AGame%20Name:%20%0AGame%20Type:%20%0ABrief%20Description:%20%0A%0AThank%20you!"
-  }
-
-  const renderDesktopGamesContent = () => {
-    if (selectedGameId) {
-      const game = gameRegistry.getGame(selectedGameId)
-      if (!game) {
-        return (
-          <Card className={cn("arcade-card", isCyberpunk && "bg-black/80 border-cyan-500/50")}>
-            <CardContent className="p-12 flex flex-col items-center justify-center">
-              <h2 className={cn("text-3xl font-bold font-mono text-center mb-2", isCyberpunk && "text-cyan-400")}>
-                Error: Game not found
-              </h2>
-              <SoundButton onClick={handleBackToSelection} className="mt-8">
-                BACK TO GAMES
-              </SoundButton>
-            </CardContent>
-          </Card>
-        )
-      }
-
-      const header = (
-        <div className="flex items-center mb-4">
-          <SoundButton
-            variant="outline"
-            className={cn(
-              "border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
-              isCyberpunk && "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50 shadow-cyan-500/30",
-            )}
-            onClick={handleBackToSelection}
-          >
-            Back to Game Selection
-          </SoundButton>
-          <Badge
-            variant="outline"
-            className={cn(
-              "ml-auto bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono dark:bg-[#D4AF37] dark:border-gray-700 dark:text-black",
-              isCyberpunk && "bg-black/70 border-cyan-500 text-cyan-400",
-            )}
-          >
-            <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-            {mutbBalance.toFixed(2)} MUTB
-          </Badge>
-        </div>
-      )
-
-      if (game.config.gameType === "pvp") {
-        return (
-          <div className="space-y-4">
-            {header}
-            <MatchmakingLobby
-              publicKey={publicKey}
-              playerName={getPlayerName()}
-              mutbBalance={mutbBalance}
-              solBalance={localBalance}
-              onExit={handleBackToSelection}
-              selectedGame={selectedGameId}
-              selectedToken={selectedToken}
-              onTokenChange={setSelectedToken}
-            />
-          </div>
-        )
-      }
-
-      if (game.config.gameType === "pve") {
-        return (
-          <div className="space-y-4">
-            {header}
-            <PvEGameLauncher
-              game={game}
-              publicKey={publicKey}
-              playerName={getPlayerName()}
-              mutbBalance={mutbBalance}
-              solBalance={localBalance}
-              onExit={handleBackToSelection}
-              isCyberpunk={isCyberpunk}
-              selectedToken={selectedToken}
-              onTokenChange={setSelectedToken}
-            />
-          </div>
-        )
-      }
-
-      return (
-        <div className="space-y-4">
-          {header}
-          <Card className={cn("arcade-card", isCyberpunk && "bg-black/80 border-cyan-500/50")}>
-            <CardContent className="p-12 flex flex-col items-center justify-center">
-              <Gamepad2 size={64} className={cn("mb-4 text-gray-700", isCyberpunk && "text-cyan-500")} />
-              <h2 className={cn("text-3xl font-bold font-mono text-center mb-2", isCyberpunk && "text-cyan-400")}>
-                COMING SOON
-              </h2>
-              <p className={cn("text-center text-gray-700 max-w-md", isCyberpunk && "text-cyan-300/70")}>
-                This game is currently in development and will be available soon!
-              </p>
-              <SoundButton onClick={handleBackToSelection} className="mt-8">
-                BACK TO GAMES
-              </SoundButton>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-
-    return (
-      <GameSelection
-        publicKey={publicKey}
-        balance={localBalance}
-        mutbBalance={mutbBalance}
-        onSelectGame={handleSelectGame}
-        selectedToken={selectedToken}
-        onTokenChange={setSelectedToken}
-      />
-    )
   }
 
   return (
@@ -445,7 +328,92 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               : {}
           }
         >
-          {renderDesktopGamesContent()}
+          {selectedGame ? (
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <SoundButton
+                  variant="outline"
+                  className={cn(
+                    "border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
+                    isCyberpunk && "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50 shadow-cyan-500/30",
+                  )}
+                  onClick={handleBackToSelection}
+                >
+                  Back to Game Selection
+                </SoundButton>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "ml-auto bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono dark:bg-[#D4AF37] dark:border-gray-700 dark:text-black",
+                    isCyberpunk && "bg-black/70 border-cyan-500 text-cyan-400",
+                  )}
+                >
+                  <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+                  {mutbBalance.toFixed(2)} MUTB
+                </Badge>
+              </div>
+              {selectedGame === "top-down-shooter" || selectedGame === "mutball-pool" ? (
+                <MatchmakingLobby
+                  publicKey={publicKey}
+                  playerName={getPlayerName()}
+                  mutbBalance={mutbBalance}
+                  onExit={handleBackToSelection}
+                  selectedGame={selectedGame}
+                />
+              ) : selectedGame === "archer-arena" ? (
+                <div className="space-y-4">
+                  <LastStandGameLauncher
+                    publicKey={publicKey}
+                    playerName={getPlayerName()}
+                    mutbBalance={mutbBalance}
+                    onExit={handleBackToSelection}
+                  />
+                </div>
+              ) : (
+                <Card className={cn("arcade-card", isCyberpunk && "bg-black/80 border-cyan-500/50")}>
+                  <CardContent className="p-12 flex flex-col items-center justify-center">
+                    <Gamepad2
+                      size={64}
+                      className={cn("mb-4 text-gray-700 dark:text-gray-400", isCyberpunk && "text-cyan-500")}
+                    />
+                    <h2
+                      className={cn(
+                        "text-3xl font-bold font-mono text-center mb-2 dark:text-white",
+                        isCyberpunk && "text-cyan-400",
+                      )}
+                    >
+                      COMING SOON
+                    </h2>
+                    <p
+                      className={cn(
+                        "text-center text-gray-700 max-w-md dark:text-gray-300",
+                        isCyberpunk && "text-cyan-300/70",
+                      )}
+                    >
+                      This game is currently in development and will be available soon!
+                    </p>
+                    <SoundButton
+                      onClick={handleBackToSelection}
+                      className={cn(
+                        "mt-8 bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:bg-[#D4AF37] dark:hover:bg-[#C4A137] dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] dark:text-black",
+                        isCyberpunk &&
+                          "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border-cyan-500 shadow-cyan-500/30",
+                      )}
+                    >
+                      BACK TO GAMES
+                    </SoundButton>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <GameSelection
+              publicKey={publicKey}
+              balance={localBalance}
+              mutbBalance={mutbBalance}
+              onSelectGame={handleSelectGame}
+            />
+          )}
         </TabsContent>
 
         <TabsContent
@@ -882,6 +850,19 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
                 </div>
               </div>
             </CardContent>
+            <CardFooter>
+              <div className={cn("text-sm text-center w-full dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                <p>Join our growing ecosystem of game developers and earn revenue through the Mutable platform!</p>
+                <p
+                  className={cn(
+                    "mt-1 text-xs text-muted-foreground dark:text-gray-400",
+                    isCyberpunk && "text-cyan-400/50",
+                  )}
+                >
+                  All games are reviewed for quality and compliance before being added to the platform.
+                </p>
+              </div>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
