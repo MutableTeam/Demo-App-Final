@@ -11,8 +11,27 @@ import DebugOverlay from "@/components/pvp-game/debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
 import { updateGameState } from "@/components/pvp-game/game-engine"
 import { useIsMobile } from "@/hooks/use-mobile"
+import type { PlatformType } from "@/contexts/platform-context"
 
-export default function GameComponent({ playerId, playerName, isHost, gameMode, initialGameState, onGameEnd }) {
+interface GameComponentProps {
+  playerId: string
+  playerName: string
+  isHost: boolean
+  gameMode: string
+  initialGameState: any
+  onGameEnd: (winner: string | null) => void
+  platformType: PlatformType
+}
+
+export default function GameComponent({
+  playerId,
+  playerName,
+  isHost,
+  gameMode,
+  initialGameState,
+  onGameEnd,
+  platformType,
+}: GameComponentProps) {
   // Use the base game controller
   const {
     gameState,
@@ -55,7 +74,7 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
 
   // Initialize nipplejs joystick for mobile
   useEffect(() => {
-    if (!isMobile) return
+    if (platformType !== "mobile") return
 
     // Dynamically import nipplejs only on mobile
     import("nipplejs")
@@ -101,11 +120,11 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
         joystickManagerRef.current = null
       }
     }
-  }, [isMobile])
+  }, [platformType])
 
   // Update player controls based on joystick input
   useEffect(() => {
-    if (!isMobile || !gameStateRef.current?.players?.[playerId]) return
+    if (platformType !== "mobile" || !gameStateRef.current?.players?.[playerId]) return
 
     const player = gameStateRef.current.players[playerId]
     const threshold = 0.3 // Minimum force threshold to register movement
@@ -123,7 +142,7 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
       player.controls.left = false
       player.controls.right = false
     }
-  }, [joystickData, isMobile, playerId])
+  }, [joystickData, platformType, playerId])
 
   // Initialize game
   useEffect(() => {
@@ -323,7 +342,7 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
               }
 
               // Special attack release sound
-              if (!localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
+              if (localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
                 audioManager.playSound("special-attack")
                 specialSoundPlayedRef.current = false
               }

@@ -7,7 +7,6 @@ import PromoWatermark from "@/components/promo-watermark"
 import GlobalAudioControls from "@/components/global-audio-controls"
 import DebugOverlay from "@/components/debug-overlay"
 import PlatformSelector from "@/components/platform-selector"
-import PlatformIndicator from "@/components/platform-indicator"
 import { registerGames } from "@/games/registry"
 import MutablePlatform from "@/components/mutable-platform"
 import RetroArcadeBackground from "@/components/retro-arcade-background"
@@ -22,18 +21,14 @@ import type { PlatformType } from "@/contexts/platform-context"
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
 function HomeContent() {
+  const [showPlatform, setShowPlatform] = useState(false)
   const [walletConnected, setWalletConnected] = useState(false)
   const [publicKey, setPublicKey] = useState("")
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
 
   // Platform context
-  const { isSelected: isPlatformSelected, resetPlatform, platformType } = usePlatform()
-
-  // Debug logging
-  useEffect(() => {
-    console.log("Platform state:", { isPlatformSelected, platformType })
-  }, [isPlatformSelected, platformType])
+  const { isSelected: isPlatformSelected } = usePlatform()
 
   // Initialize Google Analytics
   useEffect(() => {
@@ -54,25 +49,19 @@ function HomeContent() {
     setPublicKey(publicKey)
     setBalance(balance)
     setProvider(provider)
-
-    // If wallet is disconnected, reset platform selection and go back to platform selector
-    if (!connected) {
-      resetPlatform()
-    }
   }
 
   const handlePlatformSelected = (platform: PlatformType) => {
-    console.log("Platform selected in main component:", platform)
-    // Platform is already set in context by the PlatformSelector
-    // Component will re-render automatically due to context change
+    // Small delay to show selection feedback
+    setTimeout(() => {
+      setShowPlatform(true)
+    }, 500)
   }
 
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
-  // Show platform selector if platform not selected
-  if (!isPlatformSelected) {
-    console.log("Showing platform selector")
+  if (!showPlatform) {
     return (
       <main className="min-h-screen bg-background relative">
         <PromoWatermark />
@@ -91,8 +80,6 @@ function HomeContent() {
     )
   }
 
-  // Show main platform with wallet connector
-  console.log("Showing main platform")
   return (
     <main className="min-h-screen bg-background relative">
       {/* PromoWatermark positioned at top left */}
@@ -117,9 +104,6 @@ function HomeContent() {
       <div className={`fixed ${walletConnected ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90]`}>
         <GlobalAudioControls />
       </div>
-
-      {/* Platform indicator widget */}
-      <PlatformIndicator />
 
       <RetroArcadeBackground>
         <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">

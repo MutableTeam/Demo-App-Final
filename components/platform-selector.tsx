@@ -4,11 +4,12 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Monitor, Smartphone, Gamepad2, MousePointer, TouchpadIcon as TouchIcon } from "lucide-react"
+import { Monitor, Smartphone, Gamepad2, MousePointer, TouchpadIcon } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { LOGOS } from "@/utils/image-paths"
 
 interface PlatformSelectorProps {
   onPlatformSelected: (platform: PlatformType) => void
@@ -16,33 +17,15 @@ interface PlatformSelectorProps {
 
 export default function PlatformSelector({ onPlatformSelected }: PlatformSelectorProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
-  const [isProcessing, setIsProcessing] = useState(false)
   const { setPlatform } = usePlatform()
   const { styleMode } = useCyberpunkTheme()
 
   const isCyberpunk = styleMode === "cyberpunk"
 
-  const handlePlatformSelect = async (platform: PlatformType) => {
-    if (isProcessing) return
-
-    console.log(`User selected platform: ${platform}`)
+  const handlePlatformSelect = (platform: PlatformType) => {
     setSelectedPlatform(platform)
-    setIsProcessing(true)
-
-    try {
-      // Set platform in context
-      setPlatform(platform)
-
-      // Small delay for visual feedback
-      setTimeout(() => {
-        console.log("Calling onPlatformSelected")
-        onPlatformSelected(platform)
-        setIsProcessing(false)
-      }, 800)
-    } catch (error) {
-      console.error("Error setting platform:", error)
-      setIsProcessing(false)
-    }
+    setPlatform(platform)
+    onPlatformSelected(platform)
   }
 
   const platforms = [
@@ -83,9 +66,9 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
   return (
     <div className="w-full max-w-5xl mx-auto p-6">
       {/* Logo */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-8">
         <Image
-          src="/images/mutable-logo-transparent.png"
+          src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
           alt="Mutable Logo"
           width={300}
           height={180}
@@ -94,6 +77,28 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
             isCyberpunk ? "filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)] animate-pulse" : "filter drop-shadow-lg",
           )}
         />
+      </div>
+
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1
+          className={cn(
+            "text-4xl font-bold mb-4",
+            isCyberpunk
+              ? "text-cyan-400 font-mono tracking-wider text-shadow-[0_0_10px_rgba(0,255,255,0.7)]"
+              : "bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent",
+          )}
+        >
+          Choose Your Gaming Platform
+        </h1>
+        <p
+          className={cn(
+            "text-lg max-w-2xl mx-auto",
+            isCyberpunk ? "text-cyan-300/80 font-mono" : "text-muted-foreground",
+          )}
+        >
+          Select your preferred gaming experience. This will optimize controls and interface for your device.
+        </p>
       </div>
 
       {/* Platform Cards */}
@@ -108,7 +113,6 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
               className={cn(
                 "relative overflow-hidden transition-all duration-300 hover:scale-105 cursor-pointer group",
                 "min-h-[400px] border-2",
-                isProcessing && "pointer-events-none opacity-75",
                 isCyberpunk
                   ? [
                       "bg-gradient-to-br from-slate-900/90 to-purple-900/90",
@@ -124,10 +128,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                         : "border-border hover:border-primary/50",
                     ],
               )}
-              onClick={() => {
-                console.log(`Card clicked for platform: ${platform.type}`)
-                handlePlatformSelect(platform.type)
-              }}
+              onClick={() => handlePlatformSelect(platform.type)}
             >
               {/* Cyberpunk shine effect */}
               {isCyberpunk && (
@@ -242,19 +243,9 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                           isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                         ],
                   )}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    console.log(`Button clicked for platform: ${platform.type}`)
-                    handlePlatformSelect(platform.type)
-                  }}
-                  disabled={isProcessing}
+                  onClick={() => handlePlatformSelect(platform.type)}
                 >
-                  {isSelected && isProcessing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
-                      Loading...
-                    </>
-                  ) : isSelected ? (
+                  {isSelected ? (
                     <>
                       <Gamepad2 className="mr-3 h-6 w-6" />
                       Selected - Continue
@@ -264,7 +255,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                       {platform.type === "desktop" ? (
                         <MousePointer className="mr-3 h-6 w-6" />
                       ) : (
-                        <TouchIcon className="mr-3 h-6 w-6" />
+                        <TouchpadIcon className="mr-3 h-6 w-6" />
                       )}
                       Select {platform.title}
                     </>
