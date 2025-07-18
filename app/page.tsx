@@ -28,7 +28,7 @@ function HomeContent() {
   const [provider, setProvider] = useState<any>(null)
 
   // Platform context
-  const { isSelected: isPlatformSelected, resetPlatform } = usePlatform()
+  const { isSelected: isPlatformSelected } = usePlatform()
 
   // Initialize Google Analytics
   useEffect(() => {
@@ -49,12 +49,6 @@ function HomeContent() {
     setPublicKey(publicKey)
     setBalance(balance)
     setProvider(provider)
-
-    // If wallet is disconnected, reset platform selection and go back to platform selector
-    if (!connected) {
-      setShowPlatform(false)
-      resetPlatform()
-    }
   }
 
   const handlePlatformSelected = (platform: PlatformType) => {

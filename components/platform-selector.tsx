@@ -52,7 +52,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
           height={120}
           className={cn(
             "w-auto h-auto max-w-[200px] mx-auto",
-            isCyberpunk ? "filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)]" : "filter drop-shadow-lg",
+            "filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)]", // Always apply glow effect
           )}
         />
       </div>
