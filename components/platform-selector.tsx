@@ -35,7 +35,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
       type: "desktop" as PlatformType,
       title: "Desktop",
       icon: Monitor,
-      image: "/images/desktop-gaming-setup.png",
+      image: "/images/retro-desktop-gaming.png", // Updated image
       gradient: "from-blue-500/20 to-purple-600/20",
       hoverGradient: "from-blue-500/30 to-purple-600/30",
     },
@@ -43,7 +43,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
       type: "mobile" as PlatformType,
       title: "Mobile",
       icon: Smartphone,
-      image: "/images/mobile-gaming-hands.png",
+      image: "/images/retro-mobile-gaming.png", // Updated image
       gradient: "from-green-500/20 to-teal-600/20",
       hoverGradient: "from-green-500/30 to-teal-600/30",
     },

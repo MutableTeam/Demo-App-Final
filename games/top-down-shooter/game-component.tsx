@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useCallback, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,10 +18,14 @@ import {
   Zap,
   Target,
   ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   MousePointer,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePlatform } from "@/contexts/platform-context"
+import { useGameContext } from "@/contexts/game-context"
 import MobileOptimizedContainer from "@/components/mobile-optimized-container"
 
 interface GameStats {
@@ -35,11 +39,9 @@ interface GameStats {
 
 interface GameComponentProps {
   gameId: string
-  onGameEnd?: (stats: GameStats) => void
-  className?: string
 }
 
-export default function TopDownShooterGame({ gameId, onGameEnd, className }: GameComponentProps) {
+export default function TopDownShooterGame({ gameId }: GameComponentProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameLoopRef = useRef<number>()
   const keysRef = useRef<Set<string>>(new Set())
@@ -47,6 +49,7 @@ export default function TopDownShooterGame({ gameId, onGameEnd, className }: Gam
   const touchRef = useRef({ x: 0, y: 0, active: false })
 
   const { platformType } = usePlatform()
+  const { setGameStatus, setGameScore, setGameTimeRemaining } = useGameContext()
   const isMobile = platformType === "mobile"
 
   const [gameState, setGameState] = useState<"menu" | "playing" | "paused" | "gameOver">("menu")
@@ -437,8 +440,68 @@ export default function TopDownShooterGame({ gameId, onGameEnd, className }: Gam
     isMobile,
   ])
 
+  const renderGameContent = () => (
+    <div className="relative w-full h-full flex items-center justify-center">
+      <canvas ref={canvasRef} className="w-full h-full bg-black" />
+      {isMobile && (
+        <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end p-4">
+          {/* Movement D-pad */}
+          <div className="grid grid-cols-3 grid-rows-3 gap-2 w-32 h-32">
+            <Button
+              className="col-start-2 row-start-1"
+              onTouchStart={() => handleTouchInput("w", true)}
+              onTouchEnd={() => handleTouchInput("w", false)}
+              variant="outline"
+              size="icon"
+            >
+              <ArrowUp className="h-6 w-6" />
+            </Button>
+            <Button
+              className="col-start-1 row-start-2"
+              onTouchStart={() => handleTouchInput("a", true)}
+              onTouchEnd={() => handleTouchInput("a", false)}
+              variant="outline"
+              size="icon"
+            >
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <Button
+              className="col-start-3 row-start-2"
+              onTouchStart={() => handleTouchInput("d", true)}
+              onTouchEnd={() => handleTouchInput("d", false)}
+              variant="outline"
+              size="icon"
+            >
+              <ArrowRight className="h-6 w-6" />
+            </Button>
+            <Button
+              className="col-start-2 row-start-3"
+              onTouchStart={() => handleTouchInput("s", true)}
+              onTouchEnd={() => handleTouchInput("s", false)}
+              variant="outline"
+              size="icon"
+            >
+              <ArrowDown className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Action Button */}
+          <Button
+            className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center"
+            onTouchStart={() => handleTouchInput(" ", true)} // Spacebar for shooting
+            onTouchEnd={() => handleTouchInput(" ", false)}
+            variant="default"
+            size="icon"
+          >
+            <Target className="h-10 w-10" />
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+
   return (
-    <MobileOptimizedContainer className={cn("w-full max-w-6xl mx-auto", className)}>
+    <MobileOptimizedContainer className={cn("w-full max-w-6xl mx-auto")}>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Game Canvas */}
         <div className="lg:col-span-3">
@@ -461,83 +524,53 @@ export default function TopDownShooterGame({ gameId, onGameEnd, className }: Gam
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="relative">
-                <canvas
-                  ref={canvasRef}
-                  width={800}
-                  height={600}
-                  className="w-full h-auto bg-gray-900 border-2 border-gray-700"
-                  style={{ touchAction: "none" }}
-                />
-
-                {/* Game State Overlay */}
-                {gameState !== "playing" && (
-                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      {gameState === "menu" && (
-                        <div>
-                          <h2 className="text-3xl font-bold mb-4">Archer Arena</h2>
-                          <p className="mb-6 text-gray-300">
-                            {isMobile
-                              ? "Touch left side to move, right side to aim and shoot"
-                              : "Use WASD to move, mouse to aim and click to shoot"}
-                          </p>
-                          <Button onClick={startGame} size="lg">
+              {renderGameContent()}
+              {/* Game State Overlay */}
+              {gameState !== "playing" && (
+                <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                  <div className="text-center text-white">
+                    {gameState === "menu" && (
+                      <div>
+                        <h2 className="text-3xl font-bold mb-4">Archer Arena</h2>
+                        <p className="mb-6 text-gray-300">
+                          {isMobile
+                            ? "Touch left side to move, right side to aim and shoot"
+                            : "Use WASD to move, mouse to aim and click to shoot"}
+                        </p>
+                        <Button onClick={startGame} size="lg">
+                          <Play className="mr-2 h-4 w-4" />
+                          Start Game
+                        </Button>
+                      </div>
+                    )}
+                    {gameState === "paused" && (
+                      <div>
+                        <h2 className="text-2xl font-bold mb-4">Game Paused</h2>
+                        <div className="flex gap-4">
+                          <Button onClick={pauseGame}>
                             <Play className="mr-2 h-4 w-4" />
-                            Start Game
+                            Resume
                           </Button>
-                        </div>
-                      )}
-                      {gameState === "paused" && (
-                        <div>
-                          <h2 className="text-2xl font-bold mb-4">Game Paused</h2>
-                          <div className="flex gap-4">
-                            <Button onClick={pauseGame}>
-                              <Play className="mr-2 h-4 w-4" />
-                              Resume
-                            </Button>
-                            <Button onClick={resetGame} variant="outline">
-                              <RotateCcw className="mr-2 h-4 w-4" />
-                              Restart
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                      {gameState === "gameOver" && (
-                        <div>
-                          <h2 className="text-2xl font-bold mb-4">Game Over</h2>
-                          <p className="mb-4">Final Score: {gameStats.score}</p>
-                          <Button onClick={resetGame}>
+                          <Button onClick={resetGame} variant="outline">
                             <RotateCcw className="mr-2 h-4 w-4" />
-                            Play Again
+                            Restart
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile Touch Controls Overlay */}
-                {isMobile && gameState === "playing" && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* Movement area indicator */}
-                    <div className="absolute left-4 bottom-4 w-24 h-24 border-2 border-white/30 rounded-full flex items-center justify-center">
-                      <div className="text-white/60 text-xs text-center">
-                        <ArrowUp className="h-4 w-4 mx-auto mb-1" />
-                        Move
                       </div>
-                    </div>
-
-                    {/* Aim/Shoot area indicator */}
-                    <div className="absolute right-4 bottom-4 w-24 h-24 border-2 border-white/30 rounded-full flex items-center justify-center">
-                      <div className="text-white/60 text-xs text-center">
-                        <Target className="h-4 w-4 mx-auto mb-1" />
-                        Aim
+                    )}
+                    {gameState === "gameOver" && (
+                      <div>
+                        <h2 className="text-2xl font-bold mb-4">Game Over</h2>
+                        <p className="mb-4">Final Score: {gameStats.score}</p>
+                        <Button onClick={resetGame}>
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Play Again
+                        </Button>
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -664,3 +697,4 @@ export default function TopDownShooterGame({ gameId, onGameEnd, className }: Gam
     </MobileOptimizedContainer>
   )
 }
+</merged_code>
