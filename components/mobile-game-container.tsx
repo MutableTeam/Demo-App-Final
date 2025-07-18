@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
+import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
 
 interface MobileGameContainerProps {
@@ -9,136 +10,151 @@ interface MobileGameContainerProps {
   className?: string
   onJoystickMove?: (direction: { x: number; y: number }) => void
   onActionPress?: (action: string, pressed: boolean) => void
+  onAiming?: (angle: number, power: number) => void
+  onShoot?: () => void
 }
 
-interface JoystickProps {
-  onMove: (direction: { x: number; y: number }) => void
+interface TouchAimingProps {
+  onAiming: (angle: number, power: number) => void
+  onShoot: () => void
   className?: string
 }
 
-function VirtualJoystick({ onMove, className }: JoystickProps) {
-  const joystickRef = useRef<HTMLDivElement>(null)
-  const knobRef = useRef<HTMLDivElement>(null)
-  const isDragging = useRef(false)
-  const centerX = useRef(0)
-  const centerY = useRef(0)
-  const maxDistance = 40 // Maximum distance from center
+function TouchAiming({ onAiming, onShoot, className }: TouchAimingProps) {
+  const aimingRef = useRef<HTMLDivElement>(null)
+  const [isAiming, setIsAiming] = useState(false)
+  const [aimStart, setAimStart] = useState({ x: 0, y: 0 })
+  const [aimCurrent, setAimCurrent] = useState({ x: 0, y: 0 })
+  const [touchId, setTouchId] = useState<number | null>(null)
 
   useEffect(() => {
-    const joystick = joystickRef.current
-    const knob = knobRef.current
-    if (!joystick || !knob) return
+    const aimingArea = aimingRef.current
+    if (!aimingArea) return
 
-    const updateCenter = () => {
-      const rect = joystick.getBoundingClientRect()
-      centerX.current = rect.width / 2
-      centerY.current = rect.height / 2
-    }
-
-    const handleStart = (clientX: number, clientY: number) => {
-      isDragging.current = true
-      updateCenter()
-      joystick.style.opacity = "1"
-    }
-
-    const handleMove = (clientX: number, clientY: number) => {
-      if (!isDragging.current) return
-
-      const rect = joystick.getBoundingClientRect()
-      const x = clientX - rect.left - centerX.current
-      const y = clientY - rect.top - centerY.current
-
-      const distance = Math.sqrt(x * x + y * y)
-      const angle = Math.atan2(y, x)
-
-      const constrainedDistance = Math.min(distance, maxDistance)
-      const knobX = Math.cos(angle) * constrainedDistance
-      const knobY = Math.sin(angle) * constrainedDistance
-
-      knob.style.transform = `translate(${knobX}px, ${knobY}px)`
-
-      // Normalize values between -1 and 1
-      const normalizedX = knobX / maxDistance
-      const normalizedY = knobY / maxDistance
-
-      onMove({ x: normalizedX, y: normalizedY })
-    }
-
-    const handleEnd = () => {
-      isDragging.current = false
-      knob.style.transform = "translate(0px, 0px)"
-      joystick.style.opacity = "0.7"
-      onMove({ x: 0, y: 0 })
-    }
-
-    // Touch events
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault()
       const touch = e.touches[0]
-      handleStart(touch.clientX, touch.clientY)
+      if (!touch) return
+
+      setTouchId(touch.identifier)
+      const rect = aimingArea.getBoundingClientRect()
+      const startX = touch.clientX - rect.left
+      const startY = touch.clientY - rect.top
+
+      setAimStart({ x: startX, y: startY })
+      setAimCurrent({ x: startX, y: startY })
+      setIsAiming(true)
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault()
-      const touch = e.touches[0]
-      handleMove(touch.clientX, touch.clientY)
+      if (!isAiming || touchId === null) return
+
+      // Find the touch with matching identifier
+      const touch = Array.from(e.touches).find((t) => t.identifier === touchId)
+      if (!touch) return
+
+      const rect = aimingArea.getBoundingClientRect()
+      const currentX = touch.clientX - rect.left
+      const currentY = touch.clientY - rect.top
+
+      setAimCurrent({ x: currentX, y: currentY })
+
+      // Calculate angle and power
+      const deltaX = currentX - aimStart.x
+      const deltaY = currentY - aimStart.y
+      const angle = Math.atan2(deltaY, deltaX)
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = 100 // Maximum aiming distance
+      const power = Math.min(distance / maxDistance, 1)
+
+      onAiming(angle, power)
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault()
-      handleEnd()
-    }
+      if (!isAiming || touchId === null) return
 
-    // Mouse events
-    const handleMouseDown = (e: MouseEvent) => {
-      e.preventDefault()
-      handleStart(e.clientX, e.clientY)
-    }
+      // Check if the released touch matches our tracking touch
+      const releasedTouch = Array.from(e.changedTouches).find((t) => t.identifier === touchId)
+      if (!releasedTouch) return
 
-    const handleMouseMove = (e: MouseEvent) => {
-      e.preventDefault()
-      handleMove(e.clientX, e.clientY)
-    }
-
-    const handleMouseUp = (e: MouseEvent) => {
-      e.preventDefault()
-      handleEnd()
+      setIsAiming(false)
+      setTouchId(null)
+      onShoot()
     }
 
     // Add event listeners
-    joystick.addEventListener("touchstart", handleTouchStart, { passive: false })
-    joystick.addEventListener("mousedown", handleMouseDown)
-
-    document.addEventListener("touchmove", handleTouchMove, { passive: false })
-    document.addEventListener("touchend", handleTouchEnd, { passive: false })
-    document.addEventListener("mousemove", handleMouseMove)
-    document.addEventListener("mouseup", handleMouseUp)
+    aimingArea.addEventListener("touchstart", handleTouchStart, { passive: false })
+    aimingArea.addEventListener("touchmove", handleTouchMove, { passive: false })
+    aimingArea.addEventListener("touchend", handleTouchEnd, { passive: false })
 
     return () => {
-      joystick.removeEventListener("touchstart", handleTouchStart)
-      joystick.removeEventListener("mousedown", handleMouseDown)
-      document.removeEventListener("touchmove", handleTouchMove)
-      document.removeEventListener("touchend", handleTouchEnd)
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
+      aimingArea.removeEventListener("touchstart", handleTouchStart)
+      aimingArea.removeEventListener("touchmove", handleTouchMove)
+      aimingArea.removeEventListener("touchend", handleTouchEnd)
     }
-  }, [onMove])
+  }, [isAiming, touchId, aimStart, onAiming, onShoot])
+
+  const renderAimingLine = () => {
+    if (!isAiming) return null
+
+    const deltaX = aimCurrent.x - aimStart.x
+    const deltaY = aimCurrent.y - aimStart.y
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    const maxDistance = 100
+
+    // Limit the line length
+    const limitedDistance = Math.min(distance, maxDistance)
+    const angle = Math.atan2(deltaY, deltaX)
+    const endX = aimStart.x + Math.cos(angle) * limitedDistance
+    const endY = aimStart.y + Math.sin(angle) * limitedDistance
+
+    return (
+      <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
+        {/* Aiming line */}
+        <line
+          x1={aimStart.x}
+          y1={aimStart.y}
+          x2={endX}
+          y2={endY}
+          stroke="#00ffff"
+          strokeWidth="3"
+          strokeDasharray="5,5"
+        />
+        {/* Start point */}
+        <circle cx={aimStart.x} cy={aimStart.y} r="8" fill="#00ffff" fillOpacity="0.7" />
+        {/* End point */}
+        <circle cx={endX} cy={endY} r="6" fill="#ff00ff" fillOpacity="0.8" />
+        {/* Power indicator */}
+        <circle
+          cx={aimStart.x}
+          cy={aimStart.y}
+          r={8 + (limitedDistance / maxDistance) * 20}
+          fill="none"
+          stroke="#00ffff"
+          strokeWidth="2"
+          strokeOpacity="0.5"
+        />
+      </svg>
+    )
+  }
 
   return (
     <div
-      ref={joystickRef}
+      ref={aimingRef}
       className={cn(
-        "relative w-24 h-24 rounded-full border-2 border-cyan-400/50 bg-slate-800/80 backdrop-blur-sm",
-        "shadow-[0_0_15px_rgba(0,255,255,0.3)] opacity-70 transition-opacity duration-200",
+        "relative w-full h-full bg-slate-900/30 backdrop-blur-sm",
+        "border border-cyan-500/30 rounded-lg",
+        "flex items-center justify-center",
         "touch-none select-none",
         className,
       )}
     >
-      <div
-        ref={knobRef}
-        className="absolute top-1/2 left-1/2 w-8 h-8 -mt-4 -ml-4 rounded-full bg-cyan-400 shadow-lg transition-transform duration-75 ease-out"
-        style={{ transform: "translate(0px, 0px)" }}
-      />
+      {renderAimingLine()}
+      <div className="text-cyan-300 text-sm font-medium opacity-70 pointer-events-none">
+        {isAiming ? "Release to Shoot" : "Touch & Drag to Aim"}
+      </div>
     </div>
   )
 }
@@ -182,12 +198,49 @@ export default function MobileGameContainer({
   className,
   onJoystickMove = () => {},
   onActionPress = () => {},
+  onAiming = () => {},
+  onShoot = () => {},
 }: MobileGameContainerProps) {
+  const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0 })
+
+  const handleJoystickMove = (event: any) => {
+    if (event) {
+      // Normalize the joystick values (-100 to 100) to (-1 to 1)
+      const normalizedX = event.x ? event.x / 100 : 0
+      const normalizedY = event.y ? event.y / 100 : 0
+
+      setJoystickPosition({ x: normalizedX, y: normalizedY })
+      onJoystickMove({ x: normalizedX, y: normalizedY })
+    }
+  }
+
+  const handleJoystickStop = () => {
+    setJoystickPosition({ x: 0, y: 0 })
+    onJoystickMove({ x: 0, y: 0 })
+  }
+
   return (
     <div className={cn("w-full h-screen bg-black flex landscape:flex-row portrait:flex-col", className)}>
       {/* Left Controls - Joystick */}
-      <div className="landscape:w-32 landscape:h-full portrait:w-full portrait:h-32 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-        <VirtualJoystick onMove={onJoystickMove} />
+      <div className="landscape:w-40 landscape:h-full portrait:w-full portrait:h-40 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        <div className="relative">
+          <Joystick
+            size={120}
+            sticky={false}
+            baseColor="#1e293b"
+            stickColor="#00ffff"
+            move={handleJoystickMove}
+            stop={handleJoystickStop}
+            throttle={50}
+            baseShape="circle"
+            stickShape="circle"
+            controlPlaneShape="circle"
+          />
+          {/* Movement indicator */}
+          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-cyan-300 opacity-70">
+            Move
+          </div>
+        </div>
       </div>
 
       {/* Game Area - Centered and scaled to fit */}
@@ -197,12 +250,29 @@ export default function MobileGameContainer({
         </div>
       </div>
 
-      {/* Right Controls - Action Buttons */}
-      <div className="landscape:w-32 landscape:h-full portrait:w-full portrait:h-32 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-        <div className="flex landscape:flex-col portrait:flex-row gap-4">
-          <ActionButton label="FIRE" action="shoot" onPress={onActionPress} variant="primary" />
-          <ActionButton label="SPEC" action="special" onPress={onActionPress} variant="secondary" />
-          <ActionButton label="DASH" action="dash" onPress={onActionPress} variant="primary" />
+      {/* Right Controls - Aiming Area */}
+      <div className="landscape:w-40 landscape:h-full portrait:w-full portrait:h-40 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm gap-4">
+        {/* Aiming Area */}
+        <div className="flex-1 w-full max-w-32 max-h-32 landscape:max-w-full landscape:max-h-full">
+          <TouchAiming onAiming={onAiming} onShoot={onShoot} className="w-full h-full" />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex landscape:flex-col portrait:flex-row gap-2">
+          <ActionButton
+            label="DASH"
+            action="dash"
+            onPress={onActionPress}
+            variant="secondary"
+            className="w-12 h-12 text-xs"
+          />
+          <ActionButton
+            label="SPEC"
+            action="special"
+            onPress={onActionPress}
+            variant="primary"
+            className="w-12 h-12 text-xs"
+          />
         </div>
       </div>
     </div>

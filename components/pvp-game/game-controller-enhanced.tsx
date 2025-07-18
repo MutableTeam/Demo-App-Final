@@ -79,6 +79,11 @@ export default function GameControllerEnhanced({
   // Use a function to initialize state to ensure it's only created once
   const [gameState, setGameState] = useState<GameState>(() => {
     const initialState = createInitialGameState()
+    // Add arena size for mobile compatibility
+    initialState.arenaSize = { width: 800, height: 600 }
+    initialState.arrows = []
+    initialState.walls = []
+    initialState.pickups = []
     return initialState
   })
 
@@ -209,8 +214,26 @@ export default function GameControllerEnhanced({
     // Use the current game state
     const currentState = { ...gameStateRef.current }
 
-    // Add local player
-    currentState.players[playerId] = createPlayer(playerId, playerName, playerPositions[0], playerColors[0])
+    // Add local player with enhanced properties for mobile
+    const localPlayer = createPlayer(playerId, playerName, playerPositions[0], playerColors[0])
+    localPlayer.controls = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      shoot: false,
+      special: false,
+      dash: false,
+    }
+    localPlayer.rotation = 0
+    localPlayer.size = 20
+    localPlayer.animationState = "idle"
+    localPlayer.isDrawingBow = false
+    localPlayer.isDashing = false
+    localPlayer.isChargingSpecial = false
+    localPlayer.drawPower = 0
+
+    currentState.players[playerId] = localPlayer
     debugManager.logInfo("GAME", `Created player with ID: ${playerId}, name: ${playerName}`)
 
     // Determine number of AI opponents based on game mode
@@ -226,12 +249,31 @@ export default function GameControllerEnhanced({
 
     for (let i = 1; i <= aiCount; i++) {
       const aiId = `ai-${i}`
-      currentState.players[aiId] = createPlayer(
+      const aiPlayer = createPlayer(
         aiId,
         `AI ${i}`,
         playerPositions[i % playerPositions.length],
         playerColors[i % playerColors.length],
       )
+
+      // Add AI-specific properties
+      aiPlayer.controls = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        shoot: false,
+        special: false,
+        dash: false,
+      }
+      aiPlayer.rotation = 0
+      aiPlayer.size = 20
+      aiPlayer.animationState = "idle"
+      aiPlayer.isDrawingBow = false
+      aiPlayer.isDashing = false
+      aiPlayer.isChargingSpecial = false
+
+      currentState.players[aiId] = aiPlayer
 
       // Assign random difficulty to each AI
       const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)]
@@ -279,22 +321,22 @@ export default function GameControllerEnhanced({
         // Track entity counts
         const entityCounts = {
           players: Object.keys(gameStateRef.current.players).length,
-          arrows: gameStateRef.current.arrows.length,
-          walls: gameStateRef.current.walls.length,
-          pickups: gameStateRef.current.pickups.length,
+          arrows: gameStateRef.current.arrows?.length || 0,
+          walls: gameStateRef.current.walls?.length || 0,
+          pickups: gameStateRef.current.pickups?.length || 0,
         }
 
         debugManager.trackEntities(entityCounts)
 
         // Check for potential memory leaks
-        if (gameStateRef.current.arrows.length > 100) {
+        if ((gameStateRef.current.arrows?.length || 0) > 100) {
           debugManager.logWarning("GAME_LOOP", "Possible memory leak: Too many arrows", {
-            arrowCount: gameStateRef.current.arrows.length,
+            arrowCount: gameStateRef.current.arrows?.length || 0,
           })
 
           // Safety cleanup - remove oldest arrows if too many
-          if (gameStateRef.current.arrows.length > 200) {
-            gameStateRef.current.arrows = gameStateRef.current.arrows.slice(-100)
+          if ((gameStateRef.current.arrows?.length || 0) > 200) {
+            gameStateRef.current.arrows = gameStateRef.current.arrows?.slice(-100) || []
             debugManager.logInfo("GAME_LOOP", "Performed safety cleanup of arrows")
           }
         }
@@ -375,7 +417,7 @@ export default function GameControllerEnhanced({
                 const currentTime = Date.now() / 1000
                 const drawTime = currentTime - localPlayer.drawStartTime
 
-                if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
+                if (drawTime >= (localPlayer.maxDrawTime || 2) && !fullDrawSoundPlayedRef.current) {
                   playBowFullDrawSound()
                   fullDrawSoundPlayedRef.current = true
                 }
@@ -421,7 +463,7 @@ export default function GameControllerEnhanced({
               }
 
               // Explosive arrow sound
-              if (localPlayer.controls.explosiveArrow && localPlayer.explosiveArrowCooldown <= 0) {
+              if (localPlayer.controls?.explosiveArrow && (localPlayer.explosiveArrowCooldown || 0) <= 0) {
                 playExplosionSound()
               }
             } catch (error) {
@@ -530,7 +572,7 @@ export default function GameControllerEnhanced({
             break
           case "shift":
             // Only trigger dash if not already dashing and cooldown is complete
-            if (!player.isDashing && player.dashCooldown <= 0) {
+            if (!player.isDashing && (player.dashCooldown || 0) <= 0) {
               player.controls.dash = true
             }
             break
@@ -594,7 +636,7 @@ export default function GameControllerEnhanced({
           !player.isDashing &&
           !player.isChargingSpecial &&
           player.health > 0 &&
-          player.hitAnimationTimer <= 0 &&
+          (player.hitAnimationTimer || 0) <= 0 &&
           (player.animationState === "fire" || player.animationState === "special" || player.animationState === "hit")
         ) {
           // Check if any movement keys are still pressed
@@ -847,7 +889,7 @@ export default function GameControllerEnhanced({
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+    const secs = Math.floor(seconds % 60)
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
@@ -883,172 +925,211 @@ export default function GameControllerEnhanced({
   const controls = getPlatformControls()
 
   return (
-    <div className={cn("w-full max-w-4xl mx-auto space-y-4", className)}>
-      {/* Main Control Panel */}
-      <Card className="bg-gradient-to-br from-background to-muted/30">
-        <CardHeader className="pb-4">
+    <div className={cn("relative w-full h-full", className)}>
+      {/* Game Stats Header */}
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Gamepad2 className="w-5 h-5 text-primary" />
-              Game Controller
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Gamepad2 className="w-5 h-5" />
+              Archer Arena - {gameMode.toUpperCase()}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "flex items-center gap-1",
-                  platformType === "desktop"
-                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                    : "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300",
-                )}
-              >
-                {platformType === "desktop" ? (
-                  <>
-                    <Monitor className="w-3 h-3" />
-                    Desktop
-                  </>
-                ) : (
-                  <>
-                    <Smartphone className="w-3 h-3" />
-                    Mobile
-                  </>
-                )}
+              <Badge variant={connectionStatus === "connected" ? "default" : "destructive"}>{connectionStatus}</Badge>
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {Object.keys(gameState.players).length}
               </Badge>
-              <Badge variant="outline" className={getConnectionColor()}>
-                <div className="w-2 h-2 rounded-full bg-current mr-1" />
-                {connectionStatus}
-              </Badge>
+              {platformType === "mobile" && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Smartphone className="w-3 h-3" />
+                  Mobile
+                </Badge>
+              )}
+              {platformType === "desktop" && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Monitor className="w-3 h-3" />
+                  Desktop
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Game Controls */}
-          <div className="flex flex-wrap gap-3">
-            {!isPlaying ? (
-              <Button onClick={onGameStart} className="bg-green-600 hover:bg-green-700 text-white" size="lg">
-                <Play className="w-4 h-4 mr-2" />
-                Start Game
-              </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={isPaused ? onGameStart : onGamePause}
-                  variant={isPaused ? "default" : "secondary"}
-                  size="lg"
-                >
-                  {isPaused ? (
-                    <>
-                      <Play className="w-4 h-4 mr-2" />
-                      Resume
-                    </>
-                  ) : (
-                    <>
-                      <Pause className="w-4 h-4 mr-2" />
-                      Pause
-                    </>
-                  )}
-                </Button>
-                <Button onClick={onGameStop} variant="destructive" size="lg">
-                  <Square className="w-4 h-4 mr-2" />
-                  Stop
-                </Button>
-              </>
-            )}
-
-            <Button onClick={onGameReset} variant="outline" size="lg">
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset
-            </Button>
-          </div>
-
-          <Separator />
-
-          {/* Game Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{gameStats.score.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Score</div>
+              <div className="font-semibold text-lg">{gameStats.score}</div>
+              <div className="text-muted-foreground">Score</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{gameStats.level}</div>
-              <div className="text-sm text-muted-foreground">Level</div>
+              <div className="font-semibold text-lg">{gameStats.level}</div>
+              <div className="text-muted-foreground">Level</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{gameStats.lives}</div>
-              <div className="text-sm text-muted-foreground">Lives</div>
+              <div className="font-semibold text-lg">{gameStats.lives}</div>
+              <div className="text-muted-foreground">Lives</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{formatTime(gameStats.time)}</div>
-              <div className="text-sm text-muted-foreground">Time</div>
+              <div className="font-semibold text-lg">{formatTime(gameState.gameTime)}</div>
+              <div className="text-muted-foreground">Time</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{gameStats.multiplier}x</div>
-              <div className="text-sm text-muted-foreground">Multiplier</div>
+              <div className="font-semibold text-lg flex items-center justify-center gap-1">
+                <Zap className="w-4 h-4" />
+                {gameStats.multiplier}x
+              </div>
+              <div className="text-muted-foreground">Multiplier</div>
             </div>
           </div>
-
-          <Separator />
-
-          {/* Platform-Specific Controls Info */}
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Settings className="w-4 h-4 text-primary" />
-              <span className="font-semibold">Controls ({platformType})</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="font-medium text-foreground">Movement</div>
-                <div className="text-muted-foreground">{controls.primary}</div>
-              </div>
-              <div>
-                <div className="font-medium text-foreground">Action</div>
-                <div className="text-muted-foreground">{controls.secondary}</div>
-              </div>
-              <div>
-                <div className="font-medium text-foreground">Special</div>
-                <div className="text-muted-foreground">{controls.special}</div>
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-muted-foreground italic">{controls.hint}</div>
-          </div>
-
-          {/* Online Status */}
-          {connectionStatus === "connected" && (
-            <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/30 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  Online Players: {playersOnline}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Zap className="w-4 h-4 text-green-600" />
-                <span className="text-xs text-green-600">Connected</span>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      <EnhancedGameRenderer
-        gameState={gameState}
-        localPlayerId={playerId}
-        debugMode={showDebug}
-        platformType={platformType}
-        onTouchControl={handleTouchControl}
-      />
-      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
+      {/* Game Controls */}
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={isPlaying ? onGamePause : onGameStart}
+                variant={isPlaying ? "secondary" : "default"}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="w-4 h-4" />
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    {isPaused ? "Resume" : "Start"}
+                  </>
+                )}
+              </Button>
+              <Button onClick={onGameStop} variant="destructive" size="sm" className="flex items-center gap-2">
+                <Square className="w-4 h-4" />
+                Stop
+              </Button>
+              <Button
+                onClick={onGameReset}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 bg-transparent"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowDebug(!showDebug)}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Debug
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Resource Monitor */}
-      <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
+      {/* Game Renderer */}
+      <div className="relative">
+        <EnhancedGameRenderer
+          gameState={gameState}
+          localPlayerId={playerId}
+          debugMode={showDebug}
+          platformType={platformType}
+          onTouchControl={handleTouchControl}
+        />
 
-      {/* Small hint text */}
-      <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
-        {platformType === "desktop" ? (
-          <>Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor</>
-        ) : (
-          <>Touch controls enabled | M to toggle sound | Tap for debug options</>
+        {/* Debug Overlay */}
+        {showDebug && (
+          <div className="absolute top-4 right-4 z-50">
+            <DebugOverlay
+              gameState={gameState}
+              playerId={playerId}
+              showFps={true}
+              showEntityCount={true}
+              showPlayerInfo={true}
+              showPerformanceMetrics={true}
+            />
+          </div>
+        )}
+
+        {/* Resource Monitor */}
+        {showResourceMonitor && (
+          <div className="absolute bottom-4 right-4 z-50">
+            <ResourceMonitor />
+          </div>
+        )}
+
+        {/* Mobile Tutorial Overlay */}
+        {platformType === "mobile" && showTutorial && (
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <CardHeader>
+                <CardTitle>Mobile Controls</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Movement</h4>
+                  <p className="text-sm text-muted-foreground">Use the joystick on the left to move your archer</p>
+                </div>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold mb-2">Aiming & Shooting</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Touch and drag on the right side to aim. Release to shoot arrows
+                  </p>
+                </div>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold mb-2">Special Actions</h4>
+                  <p className="text-sm text-muted-foreground">Use DASH and SPEC buttons for special abilities</p>
+                </div>
+                <Button onClick={() => setShowTutorial(false)} className="w-full">
+                  Got it!
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Game Over Overlay */}
+        {gameState.isGameOver && (
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <CardHeader>
+                <CardTitle className="text-center">
+                  {gameState.winner === playerId ? "Victory!" : "Game Over"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <div>
+                  <p className="text-lg font-semibold">
+                    {gameState.winner === playerId
+                      ? "Congratulations! You won!"
+                      : gameState.winner
+                        ? `${gameState.players[gameState.winner]?.name || "Unknown"} wins!`
+                        : "It's a draw!"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Game Time: {formatTime(gameState.gameTime)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={onGameReset} className="flex-1">
+                    Play Again
+                  </Button>
+                  <Button onClick={onGameStop} variant="outline" className="flex-1 bg-transparent">
+                    Exit
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
