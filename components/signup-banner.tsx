@@ -1,85 +1,99 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { X } from "lucide-react"
+import type React from "react"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import Image from "next/image"
+import { Gift, Coins, Users, Zap } from "lucide-react"
 
-interface SignUpBannerProps {
-  onSignUp?: () => void
-  walletConnected?: boolean
-}
+export function SignUpBanner() {
+  const [email, setEmail] = useState("")
+  const [isSubmitted, setIsSubmitted] = useState(false)
 
-export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBannerProps) {
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    // Only show banner if wallet is connected and banner wasn't dismissed
-    if (walletConnected && !localStorage.getItem("signupBannerDismissed")) {
-      setIsVisible(true)
-    } else {
-      setIsVisible(false)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (email) {
+      setIsSubmitted(true)
+      // Here you would typically send the email to your backend
+      console.log("Email submitted:", email)
     }
-  }, [walletConnected])
-
-  const handleClose = () => {
-    setIsVisible(false)
-    // Remember that user dismissed the banner
-    localStorage.setItem("signupBannerDismissed", "true")
   }
 
-  const handleSignUp = () => {
-    if (onSignUp) {
-      onSignUp()
-    }
-    // For demo purposes, just close the banner
-    handleClose()
-  }
-
-  if (!isVisible) return null
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4">
-      <Card className="max-w-4xl mx-auto bg-gradient-to-r from-orange-500 to-yellow-500 border-0 shadow-lg">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Image
-                  src="/images/mutable-token.png"
-                  alt="MUTB Token"
-                  width={48}
-                  height={48}
-                  className="rounded-full border-2 border-white shadow-md"
-                />
-                <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 animate-pulse">
-                  FREE
-                </Badge>
-              </div>
-              <div className="text-white">
-                <h3 className="text-xl font-bold mb-1">🎉 Welcome Bonus Available!</h3>
-                <p className="text-white/90">
-                  Sign up now and receive up to <span className="font-bold">100 Free MUTB Tokens</span> to start gaming!
-                </p>
-              </div>
+  if (isSubmitted) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+        <CardContent className="pt-6">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Gift className="w-8 h-8 text-green-600" />
             </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleSignUp}
-                className="bg-white text-orange-600 hover:bg-gray-100 font-bold px-6 py-2 shadow-md"
-              >
-                Claim Your Tokens
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleClose} className="text-white hover:bg-white/20 p-2">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <h3 className="text-xl font-semibold text-green-800 mb-2">Welcome to the Waitlist!</h3>
+            <p className="text-green-700">You'll be among the first to receive your MUTB tokens when we launch.</p>
           </div>
         </CardContent>
       </Card>
-    </div>
+    )
+  }
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+      <CardHeader className="text-center">
+        <div className="flex justify-center mb-4">
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 px-3 py-1">
+            <Coins className="w-4 h-4 mr-1" />
+            Early Access
+          </Badge>
+        </div>
+        <CardTitle className="text-2xl font-bold text-gray-900">Get Free MUTB Tokens</CardTitle>
+        <CardDescription className="text-lg text-gray-600">
+          Join our waitlist and be the first to receive tokens when we launch
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Gift className="w-6 h-6 text-orange-600" />
+            </div>
+            <h4 className="font-semibold text-gray-900">Free Tokens</h4>
+            <p className="text-sm text-gray-600">Get MUTB tokens at launch</p>
+          </div>
+          <div className="text-center">
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Users className="w-6 h-6 text-orange-600" />
+            </div>
+            <h4 className="font-semibold text-gray-900">Early Access</h4>
+            <p className="text-sm text-gray-600">Be first to play new games</p>
+          </div>
+          <div className="text-center">
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Zap className="w-6 h-6 text-orange-600" />
+            </div>
+            <h4 className="font-semibold text-gray-900">Exclusive Perks</h4>
+            <p className="text-sm text-gray-600">Special rewards and bonuses</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input
+              type="email"
+              placeholder="Enter your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="flex-1"
+            />
+            <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-8">
+              Join Waitlist
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 text-center">We'll never spam you. Unsubscribe at any time.</p>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
