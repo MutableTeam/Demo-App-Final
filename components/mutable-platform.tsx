@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2, ArrowLeftRight, Smartphone, Code, Mail, CheckCircle, AlertCircle } from "lucide-react"
+import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import MutableMarketplace from "./mutable-marketplace"
 import GameSelection from "./pvp-game/game-selection"
@@ -198,7 +198,7 @@ const CyberTabsTrigger = styled(TabsTrigger)`
 // Add responsive styles for tabs
 const tabStyles = {
   container: "sticky top-0 z-30 bg-opacity-100 w-full",
-  list: "mb-6 border-2 border-black bg-[#FFD54F] dark:bg-[#D4AF37] dark:border-gray-700 w-full grid grid-cols-4 p-0 h-auto",
+  list: "mb-6 border-2 border-black bg-[#FFD54F] dark:bg-[#D4AF37] dark:border-gray-700 w-full grid grid-cols-3 p-0 h-auto",
   trigger:
     "data-[state=active]:bg-white data-[state=active]:text-black dark:data-[state=active]:bg-gray-800 dark:data-[state=active]:text-white font-mono py-2 px-1 h-auto flex flex-col items-center justify-center text-center",
 }
@@ -250,18 +250,14 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
       <Tabs defaultValue="desktop-games" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className={isCyberpunk ? "" : tabStyles.container}>
           {isCyberpunk ? (
-            <CyberTabsList className="w-full grid grid-cols-4 p-0 h-auto">
+            <CyberTabsList className="w-full grid grid-cols-3 p-0 h-auto">
               <CyberTabsTrigger value="exchange" data-value="EXCHANGE" onClick={withClickSound()}>
                 <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">EXCHANGE</span>
               </CyberTabsTrigger>
-              <CyberTabsTrigger value="desktop-games" data-value="DESKTOP" onClick={withClickSound()}>
+              <CyberTabsTrigger value="desktop-games" data-value="GAMES" onClick={withClickSound()}>
                 <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
-                <span className="text-xs sm:text-sm whitespace-normal text-center">DESKTOP</span>
-              </CyberTabsTrigger>
-              <CyberTabsTrigger value="mobile-games" data-value="MOBILE" onClick={withClickSound()}>
-                <Smartphone className="h-4 w-4 mb-1 mx-auto" />
-                <span className="text-xs sm:text-sm whitespace-normal text-center">MOBILE</span>
+                <span className="text-xs sm:text-sm whitespace-normal text-center">GAMES</span>
               </CyberTabsTrigger>
               <CyberTabsTrigger value="develop" data-value="DEVELOP" onClick={withClickSound()}>
                 <Code className="h-4 w-4 mb-1 mx-auto" />
@@ -276,11 +272,7 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               </TabsTrigger>
               <TabsTrigger value="desktop-games" className={tabStyles.trigger} onClick={withClickSound()}>
                 <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
-                <span className="text-xs sm:text-sm whitespace-normal text-center">DESKTOP</span>
-              </TabsTrigger>
-              <TabsTrigger value="mobile-games" className={tabStyles.trigger} onClick={withClickSound()}>
-                <Smartphone className="h-4 w-4 mb-1 mx-auto" />
-                <span className="text-xs sm:text-sm whitespace-normal text-center">MOBILE</span>
+                <span className="text-xs sm:text-sm whitespace-normal text-center">GAMES</span>
               </TabsTrigger>
               <TabsTrigger value="develop" className={tabStyles.trigger} onClick={withClickSound()}>
                 <Code className="h-4 w-4 mb-1 mx-auto" />
@@ -414,82 +406,6 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               onSelectGame={handleSelectGame}
             />
           )}
-        </TabsContent>
-
-        <TabsContent
-          value="mobile-games"
-          className={cn("mt-0 h-full min-h-[500px] pt-4", isCyberpunk && "rounded-lg py-4 px-0")}
-          style={
-            isCyberpunk
-              ? {
-                  color: "rgb(224, 255, 255) !important",
-                }
-              : {}
-          }
-          data-tab="mobile-games"
-        >
-          <Card
-            className={cn("arcade-card", isCyberpunk && "!bg-black/80 !border-cyan-500/50")}
-            style={isCyberpunk ? { backgroundColor: "rgba(0, 0, 0, 0.8)", borderColor: "rgba(6, 182, 212, 0.5)" } : {}}
-          >
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Smartphone className={cn("h-5 w-5 dark:text-gray-300", isCyberpunk && "text-cyan-400")} />
-                  <CardTitle className={cn("font-mono dark:text-white", isCyberpunk && "text-cyan-400")}>
-                    MOBILE GAMES
-                  </CardTitle>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono dark:bg-[#D4AF37] dark:border-gray-700 dark:text-black",
-                    isCyberpunk && "bg-black/70 border-cyan-500 text-cyan-400",
-                  )}
-                >
-                  <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-                  {mutbBalance.toFixed(2)} MUTB
-                </Badge>
-              </div>
-              <CardDescription className={cn("dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
-                Play games optimized for mobile devices
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div
-                className={cn(
-                  "p-8 border-2 border-black rounded-lg bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600 text-center",
-                  isCyberpunk && "!bg-black/50 !border-cyan-500/50",
-                )}
-                style={
-                  isCyberpunk ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" } : {}
-                }
-              >
-                <div className="flex justify-center mb-6">
-                  <Smartphone
-                    size={64}
-                    className={cn("text-gray-700 dark:text-gray-300", isCyberpunk && "text-cyan-500")}
-                  />
-                </div>
-                <h3 className={cn("text-2xl font-bold font-mono mb-4 dark:text-white", isCyberpunk && "text-cyan-400")}>
-                  Mobile Gaming Coming Soon!
-                </h3>
-                <p className={cn("text-lg mb-6 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
-                  We're working on bringing the Mutable gaming experience to your mobile devices. Stay tuned for
-                  exciting mobile-optimized games with the same play-to-earn mechanics!
-                </p>
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-2 bg-[#FFD54F] px-4 py-2 rounded-md border-2 border-black dark:bg-[#D4AF37] dark:border-gray-700",
-                    isCyberpunk && "bg-cyan-900/50 border-cyan-500 text-cyan-400",
-                  )}
-                >
-                  <Smartphone className="h-5 w-5" />
-                  <span className="font-medium">Mobile beta launching Q3 2025</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent

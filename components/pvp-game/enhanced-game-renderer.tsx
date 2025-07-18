@@ -1,24 +1,29 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import type React from "react"
+import { useRef, useEffect, useState } from "react"
 import * as PIXI from "pixi.js"
 import { ArcherGameIntegration } from "@/utils/archer-game-integration"
 import { textureManager } from "@/utils/rendering/texture-manager"
 import { ParticleSystem, ParticleType } from "@/utils/rendering/particle-system"
 import { debugManager } from "@/utils/debug-utils"
+import { usePlatform } from "@/contexts/platform-context"
+import MobileGameContainer from "@/components/mobile-game-container"
 import type { GameState } from "./game-engine"
 
 interface EnhancedGameRendererProps {
   gameState: GameState
   localPlayerId: string
   debugMode?: boolean
+  onTouchControl?: (action: string, pressed: boolean) => void
 }
 
-export default function EnhancedGameRenderer({
+const EnhancedGameRenderer: React.FC<EnhancedGameRendererProps> = ({
   gameState,
   localPlayerId,
   debugMode = false,
-}: EnhancedGameRendererProps) {
+  onTouchControl,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pixiAppRef = useRef<PIXI.Application | null>(null)
   const gameIntegrationRef = useRef<ArcherGameIntegration | null>(null)
@@ -31,6 +36,7 @@ export default function EnhancedGameRenderer({
   const fpsTextRef = useRef<PIXI.Text | null>(null)
   const frameCountRef = useRef(0)
   const lastFpsUpdateRef = useRef(0)
+  const { platformType } = usePlatform()
 
   // Initialize Pixi.js and game systems
   useEffect(() => {
@@ -317,14 +323,48 @@ export default function EnhancedGameRenderer({
     }
   }
 
+  const gameCanvas = (
+    <canvas
+      ref={canvasRef}
+      onClick={handleCanvasClick}
+      className="block mx-auto w-full h-full object-contain"
+      style={{ backgroundColor: "black", imageRendering: "pixelated" }}
+    />
+  )
+
+  if (platformType === "mobile") {
+    return (
+      <MobileGameContainer
+        onJoystickMove={(direction) => {
+          if (onTouchControl) {
+            onTouchControl("up", direction.y < -0.3)
+            onTouchControl("down", direction.y > 0.3)
+            onTouchControl("left", direction.x < -0.3)
+            onTouchControl("right", direction.x > 0.3)
+          }
+        }}
+        onActionPress={(action, pressed) => {
+          if (onTouchControl) {
+            onTouchControl(action, pressed)
+          }
+        }}
+      >
+        {gameCanvas}
+        {!isInitialized && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-xl font-bold">Loading Enhanced Renderer...</p>
+            </div>
+          </div>
+        )}
+      </MobileGameContainer>
+    )
+  }
+
   return (
     <div className="relative w-full h-full">
-      <canvas
-        ref={canvasRef}
-        onClick={handleCanvasClick}
-        className="block mx-auto"
-        style={{ backgroundColor: "black" }}
-      />
+      {gameCanvas}
       {!isInitialized && (
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
           <div className="text-center">
@@ -336,3 +376,5 @@ export default function EnhancedGameRenderer({
     </div>
   )
 }
+
+export default EnhancedGameRenderer

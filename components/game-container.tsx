@@ -9,6 +9,11 @@ import { cyberpunkColors } from "@/styles/cyberpunk-theme"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
+import { usePlatform } from "@/contexts/platform-context"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import { Badge } from "@/components/ui/badge"
+import { Monitor, Smartphone } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -68,6 +73,9 @@ const CyberpunkDevBanner = styled.div`
   text-shadow: 0 0 5px ${cyberpunkColors.primary.cyan};
   position: relative;
   overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   
   &::after {
     content: "";
@@ -87,6 +95,21 @@ const CyberpunkDevBanner = styled.div`
       to { left: 200%; }
     `} 3s linear infinite;
   }
+`
+
+const PlatformBadge = styled(Badge)`
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  color: #0ff;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 `
 
 const pulseAnimation = keyframes`
@@ -177,6 +200,10 @@ interface GameContainerProps {
 export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
   const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
   const { toast } = useToast()
+  const { platformType } = usePlatform()
+  const { styleMode } = useCyberpunkTheme()
+
+  const isCyberpunk = styleMode === "cyberpunk"
 
   // Get the game from registry
   const game = gameRegistry.getGame(gameId)
@@ -189,6 +216,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       playerName,
       isHost,
       gameMode,
+      platformType,
     })
 
     // Set game to playing state after a short delay to ensure proper initialization
@@ -198,13 +226,23 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [gameId, playerId, playerName, isHost, gameMode])
+  }, [gameId, playerId, playerName, isHost, gameMode, platformType])
 
   if (!game) {
+    if (isCyberpunk) {
+      return (
+        <CyberpunkLoadingContainer>
+          <CyberpunkLoadingText>Game not found</CyberpunkLoadingText>
+        </CyberpunkLoadingContainer>
+      )
+    }
+
     return (
-      <CyberpunkLoadingContainer>
-        <CyberpunkLoadingText>Game not found</CyberpunkLoadingText>
-      </CyberpunkLoadingContainer>
+      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
+        <div className="text-center">
+          <p className="text-xl font-bold text-muted-foreground">Game not found</p>
+        </div>
+      </div>
     )
   }
 
@@ -236,19 +274,94 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
 
   // Cyberpunk styled loading state
   if (gameState === "loading") {
+    if (isCyberpunk) {
+      return (
+        <CyberpunkLoadingContainer>
+          <CyberpunkSpinner />
+          <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
+        </CyberpunkLoadingContainer>
+      )
+    }
+
     return (
-      <CyberpunkLoadingContainer>
-        <CyberpunkSpinner />
-        <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
-      </CyberpunkLoadingContainer>
+      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xl font-bold">Loading Game...</p>
+        </div>
+      </div>
     )
   }
 
-  // Cyberpunk styled game container
+  // Render game container based on style mode
+  if (isCyberpunk) {
+    return (
+      <CyberpunkGameContainer>
+        {/* Development Banner with Platform Info */}
+        <CyberpunkDevBanner>
+          <span>Demo Game : Does Not Represent Final Product</span>
+          <PlatformBadge>
+            {platformType === "desktop" ? (
+              <>
+                <Monitor className="h-3 w-3" />
+                Desktop Mode
+              </>
+            ) : (
+              <>
+                <Smartphone className="h-3 w-3" />
+                Mobile Mode
+              </>
+            )}
+          </PlatformBadge>
+        </CyberpunkDevBanner>
+
+        <GameErrorBoundary>
+          {game.id === "archer-arena" || game.id === "last-stand" ? (
+            <GameControllerEnhanced
+              playerId={playerId}
+              playerName={playerName}
+              isHost={isHost}
+              gameMode={gameMode}
+              onGameEnd={onGameEnd}
+              platformType={platformType}
+            />
+          ) : (
+            <GameComponent
+              playerId={playerId}
+              playerName={playerName}
+              isHost={isHost}
+              gameMode={gameMode}
+              initialGameState={initialGameState}
+              onGameEnd={onGameEnd}
+              onError={handleError}
+              platformType={platformType}
+            />
+          )}
+        </GameErrorBoundary>
+      </CyberpunkGameContainer>
+    )
+  }
+
+  // Light/Dark theme version
   return (
-    <CyberpunkGameContainer>
-      {/* Development Banner */}
-      <CyberpunkDevBanner>Demo Game : Does Not Represent Final Product</CyberpunkDevBanner>
+    <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
+      {/* Development Banner with Platform Info */}
+      <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
+        <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
+        <Badge variant="outline" className="flex items-center gap-1">
+          {platformType === "desktop" ? (
+            <>
+              <Monitor className="h-3 w-3" />
+              Desktop Mode
+            </>
+          ) : (
+            <>
+              <Smartphone className="h-3 w-3" />
+              Mobile Mode
+            </>
+          )}
+        </Badge>
+      </div>
 
       <GameErrorBoundary>
         {game.id === "archer-arena" || game.id === "last-stand" ? (
@@ -258,6 +371,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
             isHost={isHost}
             gameMode={gameMode}
             onGameEnd={onGameEnd}
+            platformType={platformType}
           />
         ) : (
           <GameComponent
@@ -268,9 +382,13 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
             initialGameState={initialGameState}
             onGameEnd={onGameEnd}
             onError={handleError}
+            platformType={platformType}
           />
         )}
       </GameErrorBoundary>
-    </CyberpunkGameContainer>
+    </div>
   )
 }
+
+// Export as default
+export default GameContainer

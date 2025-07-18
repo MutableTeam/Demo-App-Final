@@ -6,24 +6,29 @@ import DemoWatermark from "@/components/demo-watermark"
 import PromoWatermark from "@/components/promo-watermark"
 import GlobalAudioControls from "@/components/global-audio-controls"
 import DebugOverlay from "@/components/debug-overlay"
+import PlatformSelector from "@/components/platform-selector"
 import { registerGames } from "@/games/registry"
 import MutablePlatform from "@/components/mutable-platform"
 import RetroArcadeBackground from "@/components/retro-arcade-background"
 import { Connection, clusterApiUrl } from "@solana/web3.js"
 import "@/styles/retro-arcade.css"
 import { initializeGoogleAnalytics } from "@/utils/analytics"
-import { SignUpBanner } from "@/components/signup-banner"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
+import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
+import type { PlatformType } from "@/contexts/platform-context"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
-export default function Home() {
-  // Wallet connection state
+function HomeContent() {
+  const [showPlatform, setShowPlatform] = useState(false)
   const [walletConnected, setWalletConnected] = useState(false)
   const [publicKey, setPublicKey] = useState("")
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
+
+  // Platform context
+  const { isSelected: isPlatformSelected } = usePlatform()
 
   // Initialize Google Analytics
   useEffect(() => {
@@ -46,11 +51,37 @@ export default function Home() {
     setProvider(provider)
   }
 
+  const handlePlatformSelected = (platform: PlatformType) => {
+    // Small delay to show selection feedback
+    setTimeout(() => {
+      setShowPlatform(true)
+    }, 500)
+  }
+
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
+  if (!showPlatform) {
+    return (
+      <main className="min-h-screen bg-background relative">
+        <PromoWatermark />
+
+        <div className="fixed top-4 right-4 md:right-8 z-[90]">
+          <GlobalAudioControls />
+        </div>
+
+        <RetroArcadeBackground>
+          <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative flex items-center justify-center min-h-screen">
+            <PlatformSelector onPlatformSelected={handlePlatformSelected} />
+            <DebugOverlay initiallyVisible={false} position="bottom-right" />
+          </div>
+        </RetroArcadeBackground>
+      </main>
+    )
+  }
+
   return (
-    <main className="min-h-screen relative">
+    <main className="min-h-screen bg-background relative">
       {/* PromoWatermark positioned at top left */}
       <PromoWatermark />
 
@@ -88,5 +119,13 @@ export default function Home() {
         </div>
       </RetroArcadeBackground>
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <PlatformProvider>
+      <HomeContent />
+    </PlatformProvider>
   )
 }
