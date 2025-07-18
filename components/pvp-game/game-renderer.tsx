@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import type { GameObject, GameState, Player } from "./game-engine"
 import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
 import {
@@ -1380,6 +1380,12 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
     }
   }
 
+  // Add this after the existing canvas click handler
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default touch behaviors on canvas
+    e.preventDefault()
+  }, [])
+
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       <canvas
@@ -1388,6 +1394,13 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
         width={gameState.arenaSize.width}
         height={gameState.arenaSize.height}
         onClick={handleCanvasClick}
+        onTouchStart={handleTouchStart}
+        style={{
+          touchAction: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+        }}
       />
     </div>
   )

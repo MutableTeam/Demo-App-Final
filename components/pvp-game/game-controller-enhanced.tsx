@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
 import EnhancedGameRenderer from "./enhanced-game-renderer"
 import DebugOverlay from "./debug-overlay"
@@ -23,6 +23,9 @@ import { debugManager, DebugLevel } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
+import MobileTouchControls from "@/components/mobile-touch-controls"
+import ResponsiveGameContainer from "@/components/responsive-game-container"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 interface GameControllerEnhancedProps {
   playerId: string
@@ -62,6 +65,12 @@ export default function GameControllerEnhanced({
   const [showTutorial, setShowTutorial] = useState<boolean>(false)
   const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
   const memoryTrackingInterval = useRef<NodeJS.Timeout | null>(null)
+  const isMobile = useIsMobile()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [mobileControls, setMobileControls] = useState({
+    movement: { x: 0, y: 0 },
+    bowDraw: { active: false, angle: 0, power: 0 },
+  })
 
   // Initialize debug system
   useEffect(() => {
@@ -757,6 +766,78 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
+  // Mobile control handlers
+  const handleMobileMovement = useCallback(
+    (deltaX: number, deltaY: number) => {
+      if (!gameStateRef.current.players[playerId]) return
+
+      const player = gameStateRef.current.players[playerId]
+
+      // Apply movement directly to player controls
+      player.controls.up = deltaY < -0.3
+      player.controls.down = deltaY > 0.3
+      player.controls.left = deltaX < -0.3
+      player.controls.right = deltaX > 0.3
+
+      setMobileControls((prev) => ({
+        ...prev,
+        movement: { x: deltaX, y: deltaY },
+      }))
+    },
+    [playerId],
+  )
+
+  const handleMobileBowDraw = useCallback(
+    (active: boolean, angle: number, power: number) => {
+      if (!gameStateRef.current.players[playerId]) return
+
+      const player = gameStateRef.current.players[playerId]
+
+      if (active) {
+        // Start drawing bow
+        player.controls.shoot = true
+        player.rotation = angle
+      } else {
+        // Release bow
+        player.controls.shoot = false
+      }
+
+      setMobileControls((prev) => ({
+        ...prev,
+        bowDraw: { active, angle, power },
+      }))
+    },
+    [playerId],
+  )
+
+  const handleMobileDash = useCallback(() => {
+    if (!gameStateRef.current.players[playerId]) return
+
+    const player = gameStateRef.current.players[playerId]
+    if (!player.isDashing && player.dashCooldown <= 0) {
+      player.controls.dash = true
+      setTimeout(() => {
+        if (gameStateRef.current.players[playerId]) {
+          gameStateRef.current.players[playerId].controls.dash = false
+        }
+      }, 100)
+    }
+  }, [playerId])
+
+  const handleMobileSpecialAttack = useCallback(() => {
+    if (!gameStateRef.current.players[playerId]) return
+
+    const player = gameStateRef.current.players[playerId]
+    if (player.specialAttackCooldown <= 0) {
+      player.controls.special = true
+      setTimeout(() => {
+        if (gameStateRef.current.players[playerId]) {
+          gameStateRef.current.players[playerId].controls.special = false
+        }
+      }, 100)
+    }
+  }, [playerId])
+
   // Show loading state while game initializes
   if (!gameState) {
     return (
@@ -770,17 +851,42 @@ export default function GameControllerEnhanced({
   }
 
   return (
-    <div className="relative">
-      <EnhancedGameRenderer gameState={gameState} localPlayerId={playerId} debugMode={showDebug} />
-      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
+    <ResponsiveGameContainer
+      gameWidth={gameState.arenaSize.width}
+      gameHeight={gameState.arenaSize.height}
+      className="bg-gray-900"
+    >
+      <div className="relative">
+        <EnhancedGameRenderer
+          gameState={gameState}
+          localPlayerId={playerId}
+          debugMode={showDebug}
+          canvasRef={canvasRef}
+        />
+        <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
 
-      {/* Resource Monitor */}
-      <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
+        {/* Mobile Touch Controls */}
+        {isMobile && (
+          <MobileTouchControls
+            onMovement={handleMobileMovement}
+            onBowDraw={handleMobileBowDraw}
+            onDash={handleMobileDash}
+            onSpecialAttack={handleMobileSpecialAttack}
+            canvasRef={canvasRef}
+            disabled={gameState.isGameOver}
+          />
+        )}
 
-      {/* Small hint text */}
-      <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
-        Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor
+        {/* Resource Monitor */}
+        <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
+
+        {/* Control hints */}
+        <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
+          {isMobile
+            ? "Left side: Move | Right side: Draw bow | Quick tap: Dash/Special"
+            : "Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor"}
+        </div>
       </div>
-    </div>
+    </ResponsiveGameContainer>
   )
 }
