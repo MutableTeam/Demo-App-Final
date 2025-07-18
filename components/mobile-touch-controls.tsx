@@ -2,173 +2,249 @@
 
 import type React from "react"
 
-import { useEffect, useRef, useState, useCallback } from "react"
-import { motion, useMotionValue } from "framer-motion"
-import { Zap, Shield } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { cn } from "@/lib/utils"
 
-interface MobileTouchControlsProps {
-  onMovement: (x: number, y: number) => void
-  onBowDraw: (active: boolean, angle: number, power: number) => void
-  onDash: () => void
-  onSpecialAttack: () => void
-  canvasRef: React.RefObject<HTMLCanvasElement>
-  disabled?: boolean
+interface JoystickProps {
+  onMove: (x: number, y: number) => void
+  onStop: () => void
+  className?: string
+  size?: number
 }
 
-export default function MobileTouchControls({
-  onMovement,
-  onBowDraw,
-  onDash,
-  onSpecialAttack,
-  canvasRef,
-  disabled = false,
-}: MobileTouchControlsProps) {
-  const joystickTouchId = useRef<number | null>(null)
-  const joystickBase = useMotionValue({ x: 0, y: 0 })
-  const joystickKnob = useMotionValue({ x: 0, y: 0 })
-  const [showJoystick, setShowJoystick] = useState(false)
+function Joystick({ onMove, onStop, className, size = 120 }: JoystickProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const joystickRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
 
-  const aimTouchId = useRef<number | null>(null)
-  const aimStartPos = useRef<{ x: number; y: number } | null>(null)
-  const [isAiming, setIsAiming] = useState(false)
-  const [aimPower, setAimPower] = useState(0)
-  const [aimAngle, setAimAngle] = useState(0)
+  const handleStart = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!joystickRef.current) return
 
-  const handleTouchStart = useCallback(
-    (e: TouchEvent) => {
-      if (disabled) return
-      e.preventDefault()
-      for (const touch of Array.from(e.changedTouches)) {
-        const touchX = touch.clientX
-        const touchY = touch.clientY
+      setIsDragging(true)
+      const rect = joystickRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
 
-        if (touchX < window.innerWidth / 2 && joystickTouchId.current === null) {
-          joystickTouchId.current = touch.identifier
-          joystickBase.set({ x: touchX, y: touchY })
-          joystickKnob.set({ x: touchX, y: touchY })
-          setShowJoystick(true)
-        } else if (touchX >= window.innerWidth / 2 && aimTouchId.current === null) {
-          aimTouchId.current = touch.identifier
-          aimStartPos.current = { x: touchX, y: touchY }
-          setIsAiming(true)
-          onBowDraw(true, 0, 0)
-        }
+      const deltaX = clientX - centerX
+      const deltaY = clientY - centerY
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = size / 2 - 20
+
+      if (distance <= maxDistance) {
+        setPosition({ x: deltaX, y: deltaY })
+        onMove(deltaX / maxDistance, deltaY / maxDistance)
+      } else {
+        const angle = Math.atan2(deltaY, deltaX)
+        const x = Math.cos(angle) * maxDistance
+        const y = Math.sin(angle) * maxDistance
+        setPosition({ x, y })
+        onMove(x / maxDistance, y / maxDistance)
       }
     },
-    [disabled, onBowDraw, joystickBase, joystickKnob],
+    [onMove, size],
   )
+
+  const handleMove = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!isDragging || !joystickRef.current) return
+
+      const rect = joystickRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+
+      const deltaX = clientX - centerX
+      const deltaY = clientY - centerY
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = size / 2 - 20
+
+      if (distance <= maxDistance) {
+        setPosition({ x: deltaX, y: deltaY })
+        onMove(deltaX / maxDistance, deltaY / maxDistance)
+      } else {
+        const angle = Math.atan2(deltaY, deltaX)
+        const x = Math.cos(angle) * maxDistance
+        const y = Math.sin(angle) * maxDistance
+        setPosition({ x, y })
+        onMove(x / maxDistance, y / maxDistance)
+      }
+    },
+    [isDragging, onMove, size],
+  )
+
+  const handleEnd = useCallback(() => {
+    setIsDragging(false)
+    setPosition({ x: 0, y: 0 })
+    onStop()
+  }, [onStop])
+
+  // Mouse events
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    handleStart(e.clientX, e.clientY)
+  }
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      handleMove(e.clientX, e.clientY)
+    },
+    [handleMove],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    handleEnd()
+  }, [handleEnd])
+
+  // Touch events
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    handleStart(touch.clientX, touch.clientY)
+  }
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (disabled) return
       e.preventDefault()
-      for (const touch of Array.from(e.changedTouches)) {
-        if (touch.identifier === joystickTouchId.current) {
-          const basePos = joystickBase.get()
-          const dx = touch.clientX - basePos.x
-          const dy = touch.clientY - basePos.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          const maxDistance = 60
-          const clampedDistance = Math.min(distance, maxDistance)
-          const angle = Math.atan2(dy, dx)
-
-          const knobX = basePos.x + Math.cos(angle) * clampedDistance
-          const knobY = basePos.y + Math.sin(angle) * clampedDistance
-          joystickKnob.set({ x: knobX, y: knobY })
-
-          const moveX = (Math.cos(angle) * clampedDistance) / maxDistance
-          const moveY = (Math.sin(angle) * clampedDistance) / maxDistance
-          onMovement(moveX, moveY)
-        } else if (touch.identifier === aimTouchId.current && aimStartPos.current) {
-          const dx = touch.clientX - aimStartPos.current.x
-          const dy = touch.clientY - aimStartPos.current.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          const power = Math.min(distance / 100, 1)
-          const angle = Math.atan2(dy, dx)
-
-          setAimPower(power)
-          setAimAngle(angle)
-          onBowDraw(true, angle, power)
-        }
+      const touch = e.touches[0]
+      if (touch) {
+        handleMove(touch.clientX, touch.clientY)
       }
     },
-    [disabled, onMovement, onBowDraw, joystickBase, joystickKnob],
+    [handleMove],
   )
 
   const handleTouchEnd = useCallback(
     (e: TouchEvent) => {
-      if (disabled) return
       e.preventDefault()
-      for (const touch of Array.from(e.changedTouches)) {
-        if (touch.identifier === joystickTouchId.current) {
-          joystickTouchId.current = null
-          setShowJoystick(false)
-          onMovement(0, 0)
-        } else if (touch.identifier === aimTouchId.current) {
-          aimTouchId.current = null
-          setIsAiming(false)
-          onBowDraw(false, aimAngle, aimPower)
-          setAimPower(0)
-          setAimAngle(0)
-        }
-      }
+      handleEnd()
     },
-    [disabled, onMovement, onBowDraw, aimAngle, aimPower],
+    [handleEnd],
   )
 
   useEffect(() => {
-    const element = document.body
-
-    element.addEventListener("touchstart", handleTouchStart, { passive: false })
-    element.addEventListener("touchmove", handleTouchMove, { passive: false })
-    element.addEventListener("touchend", handleTouchEnd, { passive: false })
-    element.addEventListener("touchcancel", handleTouchEnd, { passive: false })
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      document.addEventListener("touchmove", handleTouchMove, { passive: false })
+      document.addEventListener("touchend", handleTouchEnd, { passive: false })
+    }
 
     return () => {
-      element.removeEventListener("touchstart", handleTouchStart)
-      element.removeEventListener("touchmove", handleTouchMove)
-      element.removeEventListener("touchend", handleTouchEnd)
-      element.removeEventListener("touchcancel", handleTouchEnd)
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+      document.removeEventListener("touchmove", handleTouchMove)
+      document.removeEventListener("touchend", handleTouchEnd)
     }
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd])
-
-  const joystickBasePos = joystickBase.get()
-  const joystickKnobPos = joystickKnob.get()
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-50">
-      {showJoystick && (
-        <div
-          className="absolute"
-          style={{ left: joystickBasePos.x, top: joystickBasePos.y, transform: "translate(-50%, -50%)" }}
-        >
-          <div className="w-32 h-32 bg-white/10 rounded-full border-2 border-white/20" />
-          <motion.div
-            className="absolute w-16 h-16 bg-white/30 rounded-full border-2 border-white/50 top-1/2 left-1/2"
-            style={{
-              x: joystickKnobPos.x - joystickBasePos.x - 32,
-              y: joystickKnobPos.y - joystickBasePos.y - 32,
-            }}
-          />
-        </div>
-      )}
+    <div
+      ref={joystickRef}
+      className={cn("relative rounded-full bg-black/30 border-2 border-white/20 touch-none select-none", className)}
+      style={{ width: size, height: size }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+    >
+      <div
+        ref={knobRef}
+        className="absolute w-8 h-8 bg-white/80 rounded-full border-2 border-white/40 transition-transform duration-75"
+        style={{
+          left: "50%",
+          top: "50%",
+          transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px)`,
+        }}
+      />
+    </div>
+  )
+}
 
-      <div className="absolute bottom-6 right-6 flex flex-col items-center gap-4 pointer-events-auto">
-        <button
-          onTouchStart={onDash}
-          disabled={disabled}
-          className="w-20 h-20 rounded-full bg-cyber-blue/50 text-white font-bold border-2 border-cyber-blue-light active:bg-cyber-blue flex items-center justify-center"
-        >
-          <Shield size={32} />
-        </button>
-        <button
-          onTouchStart={onSpecialAttack}
-          disabled={disabled}
-          className="w-24 h-24 rounded-full bg-cyber-magenta/50 text-white font-bold border-2 border-cyber-magenta-light active:bg-cyber-magenta flex items-center justify-center"
-        >
-          <Zap size={40} />
-        </button>
+interface ActionButtonProps {
+  onPress: () => void
+  onRelease: () => void
+  children: React.ReactNode
+  className?: string
+  size?: number
+}
+
+function ActionButton({ onPress, onRelease, children, className, size = 60 }: ActionButtonProps) {
+  const [isPressed, setIsPressed] = useState(false)
+
+  const handleStart = useCallback(() => {
+    setIsPressed(true)
+    onPress()
+  }, [onPress])
+
+  const handleEnd = useCallback(() => {
+    setIsPressed(false)
+    onRelease()
+  }, [onRelease])
+
+  return (
+    <button
+      className={cn(
+        "rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white font-bold touch-none select-none transition-all duration-75",
+        isPressed && "bg-white/40 scale-95",
+        className,
+      )}
+      style={{ width: size, height: size }}
+      onMouseDown={handleStart}
+      onMouseUp={handleEnd}
+      onMouseLeave={handleEnd}
+      onTouchStart={handleStart}
+      onTouchEnd={handleEnd}
+    >
+      {children}
+    </button>
+  )
+}
+
+interface MobileTouchControlsProps {
+  onMove: (x: number, y: number) => void
+  onStopMove: () => void
+  onShoot: () => void
+  onStopShoot: () => void
+  onSpecial?: () => void
+  className?: string
+}
+
+export default function MobileTouchControls({
+  onMove,
+  onStopMove,
+  onShoot,
+  onStopShoot,
+  onSpecial,
+  className,
+}: MobileTouchControlsProps) {
+  return (
+    <div className={cn("fixed inset-0 pointer-events-none z-50", className)}>
+      {/* Movement Joystick - Bottom Left */}
+      <div className="absolute bottom-8 left-8 pointer-events-auto">
+        <Joystick onMove={onMove} onStop={onStopMove} size={120} />
+        <div className="text-white/60 text-xs text-center mt-2 font-mono">MOVE</div>
+      </div>
+
+      {/* Action Buttons - Bottom Right */}
+      <div className="absolute bottom-8 right-8 pointer-events-auto">
+        <div className="flex flex-col items-center gap-4">
+          {onSpecial && (
+            <ActionButton
+              onPress={onSpecial}
+              onRelease={() => {}}
+              size={50}
+              className="bg-yellow-500/30 border-yellow-400/60"
+            >
+              ⚡
+            </ActionButton>
+          )}
+          <ActionButton onPress={onShoot} onRelease={onStopShoot} size={70} className="bg-red-500/30 border-red-400/60">
+            🎯
+          </ActionButton>
+        </div>
+        <div className="text-white/60 text-xs text-center mt-2 font-mono">SHOOT</div>
       </div>
     </div>
   )
 }
+
+export { Joystick, ActionButton }

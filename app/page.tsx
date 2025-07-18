@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { type Connection, PublicKey } from "@solana/web3.js"
-import { AnchorProvider } from "@coral-xyz/anchor"
+import type { Connection } from "@solana/web3.js"
 import { MultiWalletConnector } from "@/components/multi-wallet-connector"
 import { Button } from "@/components/ui/button"
-import { useWallet, useConnection } from "@solana/wallet-adapter-react"
 import ModeSelection from "@/components/mode-selection"
 import MobileGameView from "@/components/mobile-game-view"
 import DemoWatermark from "@/components/demo-watermark"
@@ -18,35 +16,27 @@ import RetroArcadeBackground from "@/components/retro-arcade-background"
 import "@/styles/retro-arcade.css"
 import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
+import { clusterApiUrl, Connection as SolanaConnection } from "@solana/web3.js"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
-const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID!)
-
 export default function Home() {
   const [publicKey, setPublicKey] = useState<string | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
-  const [provider, setProvider] = useState<AnchorProvider | null>(null)
+  const [provider, setProvider] = useState<any>(null)
   const [connection, setConnection] = useState<Connection | null>(null)
   const [selectedMode, setSelectedMode] = useState<"unselected" | "desktop" | "mobile">("unselected")
-
-  const wallet = useWallet()
-  const { connection: walletConnection } = useConnection()
 
   useEffect(() => {
     initializeGoogleAnalytics(GA_MEASUREMENT_ID)
     registerGames()
     initializeEnhancedRenderer()
-  }, [])
 
-  useEffect(() => {
-    if (wallet.publicKey) {
-      setPublicKey(wallet.publicKey.toBase58())
-    } else {
-      setPublicKey(null)
-    }
-  }, [wallet.publicKey])
+    // Initialize connection
+    const conn = new SolanaConnection(clusterApiUrl("devnet"), "confirmed")
+    setConnection(conn)
+  }, [])
 
   const handleModeSelect = (mode: "desktop" | "mobile") => {
     setSelectedMode(mode)
@@ -57,10 +47,6 @@ export default function Home() {
     setPublicKey(null)
     setBalance(null)
     setProvider(null)
-    // Disconnect wallet if connected
-    if (wallet.connected) {
-      wallet.disconnect()
-    }
   }
 
   const handleWalletConnect = async (connected: boolean, pk: string, bal: number | null, prov: any) => {
@@ -69,33 +55,19 @@ export default function Home() {
       setPublicKey(null)
       setBalance(null)
       setProvider(null)
-      setConnection(null)
       return
     }
 
     try {
-      const anchorProvider = new AnchorProvider(walletConnection, wallet, AnchorProvider.defaultOptions())
-      setProvider(anchorProvider)
-      setConnection(walletConnection)
+      setProvider(prov)
       setPublicKey(pk)
       setBalance(bal)
-
-      // You can optionally initialize the program here if needed for initial state
-      // const program = new Program(IDL, programId, anchorProvider)
     } catch (error) {
       console.error("Error connecting wallet:", error)
       setPublicKey(null)
       setBalance(null)
       setProvider(null)
-      setConnection(null)
     }
-  }
-
-  const handleWalletDisconnect = () => {
-    setPublicKey(null)
-    setBalance(null)
-    setProvider(null)
-    setConnection(null)
   }
 
   const renderContent = () => {

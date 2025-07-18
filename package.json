@@ -9,7 +9,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "latest",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "latest",
     "@emotion/styled": "latest",
@@ -44,7 +43,6 @@
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
     "@solana/spl-token": "latest",
-    "@solana/wallet-adapter-react": "latest",
     "@solana/web3.js": "latest",
     "autoprefixer": "^10.4.20",
     "borsh": "latest",

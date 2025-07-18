@@ -1100,4 +1100,5 @@ export default function MultiWalletConnector({
   )
 }
 
-// Add a named export at the end
+// Add this named export at the end of the file
+export { MultiWalletConnector }

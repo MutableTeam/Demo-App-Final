@@ -75,20 +75,26 @@ export default function MobileGameView({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <Badge
-            variant="outline"
-            className={cn(
-              "flex items-center gap-1 font-mono",
-              isCyberpunk ? "bg-black/70 border-cyan-500 text-cyan-400" : "bg-yellow-100 text-black border-yellow-500",
-            )}
-          >
-            <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-            {mutbBalance.toFixed(2)} MUTB
-          </Badge>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "flex items-center gap-1 font-mono",
+                isCyberpunk
+                  ? "bg-black/70 border-cyan-500 text-cyan-400"
+                  : "bg-yellow-100 text-black border-yellow-500",
+              )}
+            >
+              <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+              {mutbBalance.toFixed(2)} MUTB
+            </Badge>
             <GlobalAudioControls />
-            <MultiWalletConnector onConnectionChange={onWalletChange} compact={true} />
           </div>
+        </div>
+
+        {/* Wallet connector for mobile */}
+        <div className="mb-6">
+          <MultiWalletConnector onConnectionChange={onWalletChange} compact={true} />
         </div>
 
         {/* Game Content */}

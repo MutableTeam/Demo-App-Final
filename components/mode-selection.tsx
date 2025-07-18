@@ -1,183 +1,179 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Smartphone, Monitor, Gamepad2, TouchpadIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Smartphone, Monitor, Gamepad2, Zap } from "lucide-react"
+import Image from "next/image"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import { cn } from "@/lib/utils"
+import SoundButton from "./sound-button"
 
 interface ModeSelectionProps {
-  onModeSelect: (mode: "mobile" | "desktop") => void
+  onModeSelect: (mode: "desktop" | "mobile") => void
 }
 
 export default function ModeSelection({ onModeSelect }: ModeSelectionProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
-  const [selectedMode, setSelectedMode] = useState<"mobile" | "desktop" | null>(null)
-
-  const handleModeSelect = (mode: "mobile" | "desktop") => {
-    setSelectedMode(mode)
-    setTimeout(() => {
-      onModeSelect(mode)
-    }, 300)
-  }
+  const [hoveredMode, setHoveredMode] = useState<"desktop" | "mobile" | null>(null)
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-4xl">
-        <div className="text-center mb-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="mb-6">
+            <Image
+              src="/images/mutable-logo-transparent.png"
+              alt="Mutable Logo"
+              width={200}
+              height={120}
+              className="mx-auto"
+            />
+          </div>
           <h1
             className={cn(
-              "text-4xl font-bold mb-4 font-mono",
-              isCyberpunk ? "text-cyan-400" : "text-gray-900 dark:text-white",
+              "text-4xl md:text-5xl font-bold mb-4 font-mono",
+              isCyberpunk ? "text-cyan-400" : "text-white",
             )}
           >
-            Choose Your Experience
+            CHOOSE YOUR EXPERIENCE
           </h1>
-          <p className={cn("text-lg", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}>
-            Select how you'd like to play on the Mutable world.
+          <p className={cn("text-lg md:text-xl", isCyberpunk ? "text-cyan-300/70" : "text-gray-300")}>
+            Select how you want to play on the Mutable platform
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Mobile Mode */}
-          <Card
-            className={cn(
-              "cursor-pointer transition-all duration-300 hover:scale-105 border-2",
-              selectedMode === "mobile" && "ring-4 ring-blue-500",
-              isCyberpunk ? "bg-black/80 border-cyan-500/50 hover:border-cyan-400" : "hover:border-blue-400",
-            )}
-            onClick={() => handleModeSelect("mobile")}
-          >
-            <CardHeader className="text-center pb-4">
-              <div className="flex justify-center mb-4">
-                <div
-                  className={cn("p-4 rounded-full", isCyberpunk ? "bg-cyan-900/50" : "bg-blue-100 dark:bg-blue-900")}
-                >
-                  <Smartphone
-                    className={cn("h-12 w-12", isCyberpunk ? "text-cyan-400" : "text-blue-600 dark:text-blue-400")}
-                  />
-                </div>
-              </div>
-              <CardTitle
-                className={cn("text-2xl font-mono", isCyberpunk ? "text-cyan-400" : "text-gray-900 dark:text-white")}
-              >
-                Mobile Experience
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <TouchpadIcon className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-blue-500")} />
-                  <span
-                    className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}
-                  >
-                    Touch controls & virtual joystick
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Gamepad2 className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-blue-500")} />
-                  <span
-                    className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}
-                  >
-                    Optimized for mobile gaming
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Smartphone className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-blue-500")} />
-                  <span
-                    className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}
-                  >
-                    Responsive design for all screen sizes
-                  </span>
-                </div>
-              </div>
-              <Button
-                className={cn(
-                  "w-full mt-6",
-                  isCyberpunk
-                    ? "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border border-cyan-500"
-                    : "bg-blue-600 hover:bg-blue-700 text-white",
-                )}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleModeSelect("mobile")
-                }}
-              >
-                Choose Mobile
-              </Button>
-            </CardContent>
-          </Card>
-
+        {/* Mode Selection Cards */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Desktop Mode */}
           <Card
             className={cn(
-              "cursor-pointer transition-all duration-300 hover:scale-105 border-2",
-              selectedMode === "desktop" && "ring-4 ring-green-500",
-              isCyberpunk ? "bg-black/80 border-cyan-500/50 hover:border-cyan-400" : "hover:border-green-400",
+              "relative overflow-hidden transition-all duration-300 cursor-pointer border-2",
+              isCyberpunk
+                ? "bg-black/80 border-cyan-500/50 hover:border-cyan-400 hover:shadow-[0_0_30px_rgba(0,255,255,0.3)]"
+                : "bg-[#fbf3de] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px]",
+              hoveredMode === "desktop" && "scale-105",
             )}
-            onClick={() => handleModeSelect("desktop")}
+            onMouseEnter={() => setHoveredMode("desktop")}
+            onMouseLeave={() => setHoveredMode(null)}
+            onClick={() => onModeSelect("desktop")}
           >
             <CardHeader className="text-center pb-4">
               <div className="flex justify-center mb-4">
-                <div
-                  className={cn("p-4 rounded-full", isCyberpunk ? "bg-cyan-900/50" : "bg-green-100 dark:bg-green-900")}
-                >
-                  <Monitor
-                    className={cn("h-12 w-12", isCyberpunk ? "text-cyan-400" : "text-green-600 dark:text-green-400")}
-                  />
+                <div className={cn("p-4 rounded-full", isCyberpunk ? "bg-cyan-900/50" : "bg-blue-100")}>
+                  <Monitor className={cn("h-12 w-12", isCyberpunk ? "text-cyan-400" : "text-blue-600")} />
                 </div>
               </div>
-              <CardTitle
-                className={cn("text-2xl font-mono", isCyberpunk ? "text-cyan-400" : "text-gray-900 dark:text-white")}
-              >
-                Desktop Experience
+              <CardTitle className={cn("text-2xl font-mono", isCyberpunk ? "text-cyan-400" : "text-black")}>
+                DESKTOP MODE
               </CardTitle>
+              <CardDescription className={cn("text-base", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>
+                Full-featured gaming experience
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Gamepad2 className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-green-500")} />
-                  <span
-                    className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}
-                  >
+                  <Gamepad2 className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-blue-600")} />
+                  <span className={cn("text-sm", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>
+                    Complete game library access
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Zap className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-blue-600")} />
+                  <span className={cn("text-sm", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>
+                    Advanced trading features
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Monitor className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-blue-600")} />
+                  <span className={cn("text-sm", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>
                     Keyboard & mouse controls
                   </span>
                 </div>
+              </div>
+              <SoundButton
+                className={cn(
+                  "w-full mt-6 font-mono font-bold",
+                  isCyberpunk
+                    ? "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border border-cyan-500"
+                    : "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px]",
+                )}
+                onClick={() => onModeSelect("desktop")}
+              >
+                ENTER DESKTOP MODE
+              </SoundButton>
+            </CardContent>
+          </Card>
+
+          {/* Mobile Mode */}
+          <Card
+            className={cn(
+              "relative overflow-hidden transition-all duration-300 cursor-pointer border-2",
+              isCyberpunk
+                ? "bg-black/80 border-pink-500/50 hover:border-pink-400 hover:shadow-[0_0_30px_rgba(255,0,255,0.3)]"
+                : "bg-[#fbf3de] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px]",
+              hoveredMode === "mobile" && "scale-105",
+            )}
+            onMouseEnter={() => setHoveredMode("mobile")}
+            onMouseLeave={() => setHoveredMode(null)}
+            onClick={() => onModeSelect("mobile")}
+          >
+            <CardHeader className="text-center pb-4">
+              <div className="flex justify-center mb-4">
+                <div className={cn("p-4 rounded-full", isCyberpunk ? "bg-pink-900/50" : "bg-green-100")}>
+                  <Smartphone className={cn("h-12 w-12", isCyberpunk ? "text-pink-400" : "text-green-600")} />
+                </div>
+              </div>
+              <CardTitle className={cn("text-2xl font-mono", isCyberpunk ? "text-pink-400" : "text-black")}>
+                MOBILE MODE
+              </CardTitle>
+              <CardDescription className={cn("text-base", isCyberpunk ? "text-pink-300/70" : "text-gray-600")}>
+                Optimized for touch devices
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Monitor className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-green-500")} />
-                  <span
-                    className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}
-                  >
-                    Full desktop interface
+                  <Smartphone className={cn("h-5 w-5", isCyberpunk ? "text-pink-500" : "text-green-600")} />
+                  <span className={cn("text-sm", isCyberpunk ? "text-pink-300" : "text-gray-700")}>
+                    Touch-optimized controls
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Gamepad2 className={cn("h-5 w-5", isCyberpunk ? "text-cyan-500" : "text-green-500")} />
-                  <span
-                    className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}
-                  >
-                    Enhanced gaming features
+                  <Gamepad2 className={cn("h-5 w-5", isCyberpunk ? "text-pink-500" : "text-green-600")} />
+                  <span className={cn("text-sm", isCyberpunk ? "text-pink-300" : "text-gray-700")}>
+                    Mobile-friendly games
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Zap className={cn("h-5 w-5", isCyberpunk ? "text-pink-500" : "text-green-600")} />
+                  <span className={cn("text-sm", isCyberpunk ? "text-pink-300" : "text-gray-700")}>
+                    Streamlined interface
                   </span>
                 </div>
               </div>
-              <Button
+              <SoundButton
                 className={cn(
-                  "w-full mt-6",
+                  "w-full mt-6 font-mono font-bold",
                   isCyberpunk
-                    ? "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border border-cyan-500"
-                    : "bg-green-600 hover:bg-green-700 text-white",
+                    ? "bg-pink-900/50 hover:bg-pink-800/50 text-pink-400 border border-pink-500"
+                    : "bg-[#4CAF50] hover:bg-[#45a049] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px]",
                 )}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleModeSelect("desktop")
-                }}
+                onClick={() => onModeSelect("mobile")}
               >
-                Choose Desktop
-              </Button>
+                ENTER MOBILE MODE
+              </SoundButton>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-12">
+          <p className={cn("text-sm", isCyberpunk ? "text-cyan-300/50" : "text-gray-400")}>
+            You can switch between modes anytime by disconnecting your wallet
+          </p>
         </div>
       </div>
     </div>
