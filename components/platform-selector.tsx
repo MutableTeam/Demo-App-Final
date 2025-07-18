@@ -1,31 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { Card } from "@/components/ui/card"
-import { Monitor, Smartphone, Check } from "lucide-react"
 import { usePlatform } from "@/contexts/platform-context"
+import { Monitor, Smartphone } from "lucide-react"
 import Image from "next/image"
 
 export default function PlatformSelector() {
   const { platform, setPlatform } = usePlatform()
-  const [hoveredPlatform, setHoveredPlatform] = useState<string | null>(null)
-
-  const platforms = [
-    {
-      id: "desktop",
-      name: "Desktop",
-      icon: Monitor,
-      image: "/images/retro-desktop-gaming.png",
-      description: "Keyboard & Mouse",
-    },
-    {
-      id: "mobile",
-      name: "Mobile",
-      icon: Smartphone,
-      image: "/images/retro-mobile-gaming.png",
-      description: "Touch Controls",
-    },
-  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex flex-col items-center justify-center p-4">
@@ -36,61 +16,59 @@ export default function PlatformSelector() {
           alt="MutablePvP"
           width={200}
           height={80}
-          className="h-16 w-auto"
+          className="h-20 w-auto"
         />
       </div>
 
-      {/* Platform Cards */}
+      {/* Platform Selection Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
-        {platforms.map((platformOption) => {
-          const Icon = platformOption.icon
-          const isSelected = platform === platformOption.id
-          const isHovered = hoveredPlatform === platformOption.id
+        {/* Desktop Card */}
+        <div
+          onClick={() => setPlatform("desktop")}
+          className={`relative group cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+            platform === "desktop" ? "ring-4 ring-blue-500" : ""
+          }`}
+        >
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-purple-700 p-8 h-80">
+            {/* Background Image */}
+            <div className="absolute inset-0 opacity-30">
+              <Image src="/images/retro-desktop-gaming.png" alt="Desktop Gaming" fill className="object-cover" />
+            </div>
 
-          return (
-            <Card
-              key={platformOption.id}
-              className={`
-                relative overflow-hidden cursor-pointer transition-all duration-300 ease-out
-                ${isSelected ? "ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-950" : "hover:shadow-2xl"}
-                ${isHovered ? "scale-105 shadow-2xl" : ""}
-                group
-              `}
-              onClick={() => setPlatform(platformOption.id as "desktop" | "mobile")}
-              onMouseEnter={() => setHoveredPlatform(platformOption.id)}
-              onMouseLeave={() => setHoveredPlatform(null)}
-            >
-              {/* Selection Indicator */}
-              {isSelected && (
-                <div className="absolute top-4 right-4 z-10">
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
-                    <Check className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-              )}
+            {/* Content */}
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white">
+              <Monitor className="h-16 w-16 mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Desktop</h3>
+            </div>
 
-              {/* Background Image */}
-              <div className="relative h-64 overflow-hidden">
-                <Image
-                  src={platformOption.image || "/placeholder.svg"}
-                  alt={platformOption.name}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              </div>
+            {/* Selection Indicator */}
+            {platform === "desktop" && <div className="absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full"></div>}
+          </div>
+        </div>
 
-              {/* Content */}
-              <div className="p-6 text-center">
-                <div className="flex items-center justify-center mb-4">
-                  <Icon className="h-12 w-12 text-purple-500" />
-                </div>
-                <h3 className="text-2xl font-bold mb-2">{platformOption.name}</h3>
-                <p className="text-gray-600 dark:text-gray-400">{platformOption.description}</p>
-              </div>
-            </Card>
-          )
-        })}
+        {/* Mobile Card */}
+        <div
+          onClick={() => setPlatform("mobile")}
+          className={`relative group cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+            platform === "mobile" ? "ring-4 ring-green-500" : ""
+          }`}
+        >
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-600 to-teal-700 p-8 h-80">
+            {/* Background Image */}
+            <div className="absolute inset-0 opacity-30">
+              <Image src="/images/retro-mobile-gaming.png" alt="Mobile Gaming" fill className="object-cover" />
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-white">
+              <Smartphone className="h-16 w-16 mb-4" />
+              <h3 className="text-2xl font-bold mb-2">Mobile</h3>
+            </div>
+
+            {/* Selection Indicator */}
+            {platform === "mobile" && <div className="absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full"></div>}
+          </div>
+        </div>
       </div>
     </div>
   )

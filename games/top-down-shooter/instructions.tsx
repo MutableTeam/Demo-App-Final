@@ -103,3 +103,6 @@ export function GameInstructions({ platform }: GameInstructionsProps) {
     </Card>
   )
 }
+
+// Also export as default to fix the import issue
+export default GameInstructions
