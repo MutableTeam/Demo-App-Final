@@ -9,6 +9,7 @@ import { cyberpunkColors } from "@/styles/cyberpunk-theme"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
+import ResponsiveGameContainer from "@/components/responsive-game-container"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -237,40 +238,44 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
   // Cyberpunk styled loading state
   if (gameState === "loading") {
     return (
-      <CyberpunkLoadingContainer>
-        <CyberpunkSpinner />
-        <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
-      </CyberpunkLoadingContainer>
+      <ResponsiveGameContainer gameWidth={800} gameHeight={600}>
+        <CyberpunkLoadingContainer>
+          <CyberpunkSpinner />
+          <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
+        </CyberpunkLoadingContainer>
+      </ResponsiveGameContainer>
     )
   }
 
-  // Cyberpunk styled game container
+  // Cyberpunk styled game container with responsive wrapper
   return (
-    <CyberpunkGameContainer>
-      {/* Development Banner */}
-      <CyberpunkDevBanner>Demo Game : Does Not Represent Final Product</CyberpunkDevBanner>
+    <ResponsiveGameContainer gameWidth={1200} gameHeight={800}>
+      <CyberpunkGameContainer>
+        {/* Development Banner */}
+        <CyberpunkDevBanner>Demo Game : Does Not Represent Final Product</CyberpunkDevBanner>
 
-      <GameErrorBoundary>
-        {game.id === "archer-arena" || game.id === "last-stand" ? (
-          <GameControllerEnhanced
-            playerId={playerId}
-            playerName={playerName}
-            isHost={isHost}
-            gameMode={gameMode}
-            onGameEnd={onGameEnd}
-          />
-        ) : (
-          <GameComponent
-            playerId={playerId}
-            playerName={playerName}
-            isHost={isHost}
-            gameMode={gameMode}
-            initialGameState={initialGameState}
-            onGameEnd={onGameEnd}
-            onError={handleError}
-          />
-        )}
-      </GameErrorBoundary>
-    </CyberpunkGameContainer>
+        <GameErrorBoundary>
+          {game.id === "archer-arena" || game.id === "last-stand" ? (
+            <GameControllerEnhanced
+              playerId={playerId}
+              playerName={playerName}
+              isHost={isHost}
+              gameMode={gameMode}
+              onGameEnd={onGameEnd}
+            />
+          ) : (
+            <GameComponent
+              playerId={playerId}
+              playerName={playerName}
+              isHost={isHost}
+              gameMode={gameMode}
+              initialGameState={initialGameState}
+              onGameEnd={onGameEnd}
+              onError={handleError}
+            />
+          )}
+        </GameErrorBoundary>
+      </CyberpunkGameContainer>
+    </ResponsiveGameContainer>
   )
 }
