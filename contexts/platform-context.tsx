@@ -20,26 +20,41 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   // Load platform from localStorage on mount
   useEffect(() => {
-    const savedPlatform = localStorage.getItem("mutable-platform")
-    if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
-      setPlatformType(savedPlatform as PlatformType)
-      setIsSelected(true)
-      console.log(`Loaded platform from storage: ${savedPlatform}`)
+    try {
+      const savedPlatform = localStorage.getItem("mutable-platform")
+      console.log("Loading platform from localStorage:", savedPlatform)
+      if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
+        setPlatformType(savedPlatform as PlatformType)
+        setIsSelected(true)
+        console.log(`Loaded platform from storage: ${savedPlatform}`)
+      }
+    } catch (error) {
+      console.error("Error loading platform from localStorage:", error)
     }
   }, [])
 
   const setPlatform = (platform: PlatformType) => {
     console.log(`Setting platform to: ${platform}`)
-    setPlatformType(platform)
-    setIsSelected(true)
-    localStorage.setItem("mutable-platform", platform)
+    try {
+      setPlatformType(platform)
+      setIsSelected(true)
+      localStorage.setItem("mutable-platform", platform)
+      console.log(`Platform successfully set to: ${platform}`)
+    } catch (error) {
+      console.error("Error setting platform:", error)
+    }
   }
 
   const resetPlatform = () => {
     console.log("Resetting platform")
-    setPlatformType(null)
-    setIsSelected(false)
-    localStorage.removeItem("mutable-platform")
+    try {
+      setPlatformType(null)
+      setIsSelected(false)
+      localStorage.removeItem("mutable-platform")
+      console.log("Platform successfully reset")
+    } catch (error) {
+      console.error("Error resetting platform:", error)
+    }
   }
 
   return (

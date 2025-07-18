@@ -9,7 +9,6 @@ import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { LOGOS } from "@/utils/image-paths"
 
 interface PlatformSelectorProps {
   onPlatformSelected: (platform: PlatformType) => void
@@ -30,14 +29,20 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
     setSelectedPlatform(platform)
     setIsProcessing(true)
 
-    // Set platform in context
-    setPlatform(platform)
+    try {
+      // Set platform in context
+      setPlatform(platform)
 
-    // Small delay for visual feedback
-    setTimeout(() => {
-      onPlatformSelected(platform)
+      // Small delay for visual feedback
+      setTimeout(() => {
+        console.log("Calling onPlatformSelected")
+        onPlatformSelected(platform)
+        setIsProcessing(false)
+      }, 800)
+    } catch (error) {
+      console.error("Error setting platform:", error)
       setIsProcessing(false)
-    }, 800)
+    }
   }
 
   const platforms = [
@@ -80,7 +85,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
       {/* Logo */}
       <div className="text-center mb-12">
         <Image
-          src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
+          src="/images/mutable-logo-transparent.png"
           alt="Mutable Logo"
           width={300}
           height={180}
@@ -119,7 +124,10 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                         : "border-border hover:border-primary/50",
                     ],
               )}
-              onClick={() => handlePlatformSelect(platform.type)}
+              onClick={() => {
+                console.log(`Card clicked for platform: ${platform.type}`)
+                handlePlatformSelect(platform.type)
+              }}
             >
               {/* Cyberpunk shine effect */}
               {isCyberpunk && (
@@ -236,6 +244,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                   )}
                   onClick={(e) => {
                     e.stopPropagation()
+                    console.log(`Button clicked for platform: ${platform.type}`)
                     handlePlatformSelect(platform.type)
                   }}
                   disabled={isProcessing}

@@ -21,19 +21,22 @@ export default function PlatformIndicator() {
       className={cn(
         "fixed bottom-4 right-4 z-[80]",
         "flex items-center gap-2 px-3 py-2 rounded-lg",
-        "text-xs font-medium transition-all duration-300",
-        "backdrop-blur-sm border",
+        "text-sm font-medium transition-all duration-300",
         isCyberpunk
           ? [
-              "bg-slate-900/80 border-cyan-500/30",
-              "text-cyan-400 shadow-[0_0_10px_rgba(0,255,255,0.2)]",
-              "font-mono tracking-wide",
+              "bg-gradient-to-r from-slate-900/90 to-purple-900/90",
+              "border border-cyan-500/50",
+              "text-cyan-400 font-mono",
+              "shadow-[0_0_10px_rgba(0,255,255,0.3)]",
+              "backdrop-blur-sm",
             ]
-          : ["bg-background/80 border-border", "text-foreground shadow-lg"],
+          : ["bg-background/90 backdrop-blur-sm", "border border-border", "text-foreground", "shadow-lg"],
       )}
     >
-      <Icon className="h-3 w-3" />
-      <span>{isDesktop ? "Desktop Mode" : "Mobile Mode"}</span>
+      <Icon className={cn("h-4 w-4", isCyberpunk ? "text-cyan-400" : "text-primary")} />
+      <span className={cn(isCyberpunk ? "text-cyan-300" : "text-muted-foreground")}>
+        {isDesktop ? "Desktop Mode" : "Mobile Mode"}
+      </span>
     </div>
   )
 }

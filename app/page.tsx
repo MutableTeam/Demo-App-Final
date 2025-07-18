@@ -28,7 +28,12 @@ function HomeContent() {
   const [provider, setProvider] = useState<any>(null)
 
   // Platform context
-  const { isSelected: isPlatformSelected, resetPlatform } = usePlatform()
+  const { isSelected: isPlatformSelected, resetPlatform, platformType } = usePlatform()
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Platform state:", { isPlatformSelected, platformType })
+  }, [isPlatformSelected, platformType])
 
   // Initialize Google Analytics
   useEffect(() => {
@@ -57,9 +62,9 @@ function HomeContent() {
   }
 
   const handlePlatformSelected = (platform: PlatformType) => {
-    console.log("Platform selected:", platform)
+    console.log("Platform selected in main component:", platform)
     // Platform is already set in context by the PlatformSelector
-    // No need to do anything else here, the component will re-render
+    // Component will re-render automatically due to context change
   }
 
   // Create a connection object for Solana
@@ -67,6 +72,7 @@ function HomeContent() {
 
   // Show platform selector if platform not selected
   if (!isPlatformSelected) {
+    console.log("Showing platform selector")
     return (
       <main className="min-h-screen bg-background relative">
         <PromoWatermark />
@@ -86,6 +92,7 @@ function HomeContent() {
   }
 
   // Show main platform with wallet connector
+  console.log("Showing main platform")
   return (
     <main className="min-h-screen bg-background relative">
       {/* PromoWatermark positioned at top left */}
