@@ -1,317 +1,269 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Play, Pause, RotateCcw, Zap, Heart, Gamepad2, Monitor, Smartphone } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Play, Pause, Square, RotateCcw, Settings, Users, Zap, Monitor, Smartphone, Gamepad2 } from "lucide-react"
 import { usePlatform } from "@/contexts/platform-context"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import GameContainer from "@/components/game-container"
+import { cn } from "@/lib/utils"
 
 interface GameStats {
-  health: number
-  maxHealth: number
-  energy: number
-  maxEnergy: number
   score: number
   level: number
+  lives: number
+  time: number
+  multiplier: number
 }
 
 interface GameControllerEnhancedProps {
   gameId: string
-  onGameStart?: () => void
-  onGamePause?: () => void
-  onGameReset?: () => void
-  stats?: GameStats
+  onGameStart: () => void
+  onGamePause: () => void
+  onGameStop: () => void
+  onGameReset: () => void
+  gameStats?: GameStats
   isPlaying?: boolean
+  isPaused?: boolean
+  className?: string
 }
 
 export default function GameControllerEnhanced({
   gameId,
   onGameStart,
   onGamePause,
+  onGameStop,
   onGameReset,
-  stats = {
-    health: 100,
-    maxHealth: 100,
-    energy: 75,
-    maxEnergy: 100,
-    score: 1250,
-    level: 3,
-  },
+  gameStats = { score: 0, level: 1, lives: 3, time: 0, multiplier: 1 },
   isPlaying = false,
+  isPaused = false,
+  className,
 }: GameControllerEnhancedProps) {
-  const { platformType, isDesktop, isMobile } = usePlatform()
-  const { styleMode } = useCyberpunkTheme()
-  const gameCanvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<"idle" | "playing" | "paused">("idle")
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
+  const [playersOnline, setPlayersOnline] = useState(0)
+  const { platformType } = usePlatform()
+  const gameLoopRef = useRef<NodeJS.Timeout>()
 
-  const isCyberpunk = styleMode === "cyberpunk"
-
-  // Platform-specific control setup
+  // Simulate connection status
   useEffect(() => {
-    if (!gameCanvasRef.current) return
-
-    const canvas = gameCanvasRef.current
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Set canvas size
-    canvas.width = canvas.offsetWidth
-    canvas.height = canvas.offsetHeight
-
-    // Platform-specific event listeners
-    if (isDesktop) {
-      // Desktop: Keyboard and mouse controls
-      const handleKeyDown = (e: KeyboardEvent) => {
-        switch (e.key.toLowerCase()) {
-          case "w":
-          case "arrowup":
-            // Move up
-            break
-          case "s":
-          case "arrowdown":
-            // Move down
-            break
-          case "a":
-          case "arrowleft":
-            // Move left
-            break
-          case "d":
-          case "arrowright":
-            // Move right
-            break
-          case " ":
-            e.preventDefault()
-            // Shoot/Action
-            break
-        }
-      }
-
-      const handleMouseMove = (e: MouseEvent) => {
-        const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        // Handle mouse movement for aiming
-      }
-
-      const handleMouseClick = (e: MouseEvent) => {
-        // Handle shooting/actions
-      }
-
-      window.addEventListener("keydown", handleKeyDown)
-      canvas.addEventListener("mousemove", handleMouseMove)
-      canvas.addEventListener("click", handleMouseClick)
-
-      return () => {
-        window.removeEventListener("keydown", handleKeyDown)
-        canvas.removeEventListener("mousemove", handleMouseMove)
-        canvas.removeEventListener("click", handleMouseClick)
-      }
+    if (isPlaying) {
+      setConnectionStatus("connecting")
+      const timer = setTimeout(() => {
+        setConnectionStatus("connected")
+        setPlayersOnline(Math.floor(Math.random() * 50) + 10)
+      }, 1500)
+      return () => clearTimeout(timer)
     } else {
-      // Mobile: Touch controls
-      const handleTouchStart = (e: TouchEvent) => {
-        e.preventDefault()
-        const touch = e.touches[0]
-        const rect = canvas.getBoundingClientRect()
-        const x = touch.clientX - rect.left
-        const y = touch.clientY - rect.top
-        // Handle touch start
-      }
+      setConnectionStatus("disconnected")
+      setPlayersOnline(0)
+    }
+  }, [isPlaying])
 
-      const handleTouchMove = (e: TouchEvent) => {
-        e.preventDefault()
-        const touch = e.touches[0]
-        const rect = canvas.getBoundingClientRect()
-        const x = touch.clientX - rect.left
-        const y = touch.clientY - rect.top
-        // Handle touch movement
-      }
-
-      const handleTouchEnd = (e: TouchEvent) => {
-        e.preventDefault()
-        // Handle touch end
-      }
-
-      canvas.addEventListener("touchstart", handleTouchStart, { passive: false })
-      canvas.addEventListener("touchmove", handleTouchMove, { passive: false })
-      canvas.addEventListener("touchend", handleTouchEnd, { passive: false })
-
-      return () => {
-        canvas.removeEventListener("touchstart", handleTouchStart)
-        canvas.removeEventListener("touchmove", handleTouchMove)
-        canvas.removeEventListener("touchend", handleTouchEnd)
+  // Game loop for time tracking
+  useEffect(() => {
+    if (isPlaying && !isPaused) {
+      gameLoopRef.current = setInterval(() => {
+        // Game loop logic would go here
+      }, 100)
+    } else {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current)
       }
     }
-  }, [isDesktop, isMobile])
 
-  const handleGameStart = () => {
-    setGameState("playing")
-    onGameStart?.()
+    return () => {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current)
+      }
+    }
+  }, [isPlaying, isPaused])
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handleGamePause = () => {
-    setGameState("paused")
-    onGamePause?.()
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case "connected":
+        return "text-green-500"
+      case "connecting":
+        return "text-yellow-500"
+      default:
+        return "text-red-500"
+    }
   }
 
-  const handleGameReset = () => {
-    setGameState("idle")
-    onGameReset?.()
+  const getPlatformControls = () => {
+    if (platformType === "desktop") {
+      return {
+        primary: "WASD + Mouse",
+        secondary: "Space/Enter",
+        special: "Shift/Ctrl",
+        hint: "Use keyboard and mouse for precise control",
+      }
+    } else {
+      return {
+        primary: "Touch & Drag",
+        secondary: "Tap",
+        special: "Long Press",
+        hint: "Touch controls optimized for mobile",
+      }
+    }
   }
+
+  const controls = getPlatformControls()
 
   return (
-    <GameContainer title={`Game: ${gameId}`}>
-      <div className="w-full h-full flex flex-col">
-        {/* Game Stats Header */}
-        <div
-          className={`p-4 border-b ${
-            isCyberpunk
-              ? "bg-gradient-to-r from-slate-900/90 to-purple-900/90 border-cyan-500/30"
-              : "bg-muted/50 border-border"
-          }`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Left Stats */}
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Heart className={`h-5 w-5 ${isCyberpunk ? "text-red-400" : "text-red-500"}`} />
-                <div className="space-y-1">
-                  <div className={`text-sm font-medium ${isCyberpunk ? "text-cyan-300 font-mono" : "text-foreground"}`}>
-                    Health
-                  </div>
-                  <Progress
-                    value={(stats.health / stats.maxHealth) * 100}
-                    className={`w-20 h-2 ${isCyberpunk ? "bg-slate-700" : "bg-muted"}`}
-                  />
-                </div>
-                <span className={`text-sm ${isCyberpunk ? "text-cyan-300 font-mono" : "text-muted-foreground"}`}>
-                  {stats.health}/{stats.maxHealth}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Zap className={`h-5 w-5 ${isCyberpunk ? "text-yellow-400" : "text-yellow-500"}`} />
-                <div className="space-y-1">
-                  <div className={`text-sm font-medium ${isCyberpunk ? "text-cyan-300 font-mono" : "text-foreground"}`}>
-                    Energy
-                  </div>
-                  <Progress
-                    value={(stats.energy / stats.maxEnergy) * 100}
-                    className={`w-20 h-2 ${isCyberpunk ? "bg-slate-700" : "bg-muted"}`}
-                  />
-                </div>
-                <span className={`text-sm ${isCyberpunk ? "text-cyan-300 font-mono" : "text-muted-foreground"}`}>
-                  {stats.energy}/{stats.maxEnergy}
-                </span>
-              </div>
-            </div>
-
-            {/* Right Stats */}
-            <div className="flex items-center gap-4">
+    <div className={cn("w-full max-w-4xl mx-auto space-y-4", className)}>
+      {/* Main Control Panel */}
+      <Card className="bg-gradient-to-br from-background to-muted/30">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Gamepad2 className="w-5 h-5 text-primary" />
+              Game Controller
+            </CardTitle>
+            <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className={`${
-                  isCyberpunk
-                    ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10 font-mono"
-                    : "border-primary/20 text-primary bg-primary/10"
-                }`}
+                className={cn(
+                  "flex items-center gap-1",
+                  platformType === "desktop"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    : "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300",
+                )}
               >
-                Level {stats.level}
+                {platformType === "desktop" ? (
+                  <>
+                    <Monitor className="w-3 h-3" />
+                    Desktop
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="w-3 h-3" />
+                    Mobile
+                  </>
+                )}
               </Badge>
-              <div className={`text-lg font-bold ${isCyberpunk ? "text-cyan-400 font-mono" : "text-foreground"}`}>
-                Score: {stats.score.toLocaleString()}
+              <Badge variant="outline" className={getConnectionColor()}>
+                <div className="w-2 h-2 rounded-full bg-current mr-1" />
+                {connectionStatus}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Game Controls */}
+          <div className="flex flex-wrap gap-3">
+            {!isPlaying ? (
+              <Button onClick={onGameStart} className="bg-green-600 hover:bg-green-700 text-white" size="lg">
+                <Play className="w-4 h-4 mr-2" />
+                Start Game
+              </Button>
+            ) : (
+              <>
+                <Button
+                  onClick={isPaused ? onGameStart : onGamePause}
+                  variant={isPaused ? "default" : "secondary"}
+                  size="lg"
+                >
+                  {isPaused ? (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Resume
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pause
+                    </>
+                  )}
+                </Button>
+                <Button onClick={onGameStop} variant="destructive" size="lg">
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop
+                </Button>
+              </>
+            )}
+
+            <Button onClick={onGameReset} variant="outline" size="lg">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Game Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{gameStats.score.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Score</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{gameStats.level}</div>
+              <div className="text-sm text-muted-foreground">Level</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{gameStats.lives}</div>
+              <div className="text-sm text-muted-foreground">Lives</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{formatTime(gameStats.time)}</div>
+              <div className="text-sm text-muted-foreground">Time</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{gameStats.multiplier}x</div>
+              <div className="text-sm text-muted-foreground">Multiplier</div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Platform-Specific Controls Info */}
+          <div className="bg-muted/50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Settings className="w-4 h-4 text-primary" />
+              <span className="font-semibold">Controls ({platformType})</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <div className="font-medium text-foreground">Movement</div>
+                <div className="text-muted-foreground">{controls.primary}</div>
+              </div>
+              <div>
+                <div className="font-medium text-foreground">Action</div>
+                <div className="text-muted-foreground">{controls.secondary}</div>
+              </div>
+              <div>
+                <div className="font-medium text-foreground">Special</div>
+                <div className="text-muted-foreground">{controls.special}</div>
               </div>
             </div>
+            <div className="mt-3 text-xs text-muted-foreground italic">{controls.hint}</div>
           </div>
-        </div>
 
-        {/* Game Canvas */}
-        <div className="flex-1 relative bg-black">
-          <canvas ref={gameCanvasRef} className="w-full h-full" style={{ minHeight: "400px" }} />
-
-          {/* Game State Overlay */}
-          {gameState !== "playing" && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <Card
-                className={`${
-                  isCyberpunk
-                    ? "bg-gradient-to-br from-slate-900/90 to-purple-900/90 border-cyan-500/30"
-                    : "bg-card border-border"
-                }`}
-              >
-                <CardHeader className="text-center">
-                  <CardTitle
-                    className={`flex items-center justify-center gap-2 ${
-                      isCyberpunk ? "text-cyan-400 font-mono" : "text-foreground"
-                    }`}
-                  >
-                    <Gamepad2 className="h-6 w-6" />
-                    {gameState === "idle" ? "Ready to Play" : "Game Paused"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    {gameState === "idle" ? (
-                      <Button onClick={handleGameStart} className="flex-1">
-                        <Play className="h-4 w-4 mr-2" />
-                        Start Game
-                      </Button>
-                    ) : (
-                      <Button onClick={handleGameStart} className="flex-1">
-                        <Play className="h-4 w-4 mr-2" />
-                        Resume
-                      </Button>
-                    )}
-                    <Button onClick={handleGameReset} variant="outline">
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reset
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Online Status */}
+          {connectionStatus === "connected" && (
+            <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/30 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  Online Players: {playersOnline}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Zap className="w-4 h-4 text-green-600" />
+                <span className="text-xs text-green-600">Connected</span>
+              </div>
             </div>
           )}
-        </div>
-
-        {/* Control Hints */}
-        <div
-          className={`p-3 border-t ${
-            isCyberpunk
-              ? "bg-gradient-to-r from-slate-900/90 to-purple-900/90 border-cyan-500/30"
-              : "bg-muted/50 border-border"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {isDesktop ? (
-                <>
-                  <Monitor className={`h-4 w-4 ${isCyberpunk ? "text-cyan-400" : "text-primary"}`} />
-                  <span className={`text-sm ${isCyberpunk ? "text-cyan-300 font-mono" : "text-muted-foreground"}`}>
-                    WASD/Arrows: Move • Mouse: Aim • Click: Shoot • Space: Action
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Smartphone className={`h-4 w-4 ${isCyberpunk ? "text-cyan-400" : "text-primary"}`} />
-                  <span className={`text-sm ${isCyberpunk ? "text-cyan-300 font-mono" : "text-muted-foreground"}`}>
-                    Touch: Move • Tap: Shoot • Hold: Aim
-                  </span>
-                </>
-              )}
-            </div>
-
-            {gameState === "playing" && (
-              <Button onClick={handleGamePause} variant="outline" size="sm">
-                <Pause className="h-4 w-4 mr-1" />
-                Pause
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </GameContainer>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -5,8 +5,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { CyberpunkThemeProvider } from "@/contexts/cyberpunk-theme-context"
 import { PlatformProvider } from "@/contexts/platform-context"
+import { GameProvider } from "@/contexts/game-context"
 import { Toaster } from "@/components/ui/toaster"
-import { GameContextProvider } from "@/contexts/game-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,10 +27,10 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <CyberpunkThemeProvider>
             <PlatformProvider>
-              <GameContextProvider>
+              <GameProvider>
                 {children}
                 <Toaster />
-              </GameContextProvider>
+              </GameProvider>
             </PlatformProvider>
           </CyberpunkThemeProvider>
         </ThemeProvider>
