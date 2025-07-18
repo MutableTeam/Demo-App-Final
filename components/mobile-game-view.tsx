@@ -12,6 +12,8 @@ import LastStandGameLauncher from "@/games/last-stand/game-launcher"
 import type { Connection } from "@solana/web3.js"
 import { cn } from "@/lib/utils"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import MultiWalletConnector from "./multi-wallet-connector"
+import GlobalAudioControls from "./global-audio-controls"
 
 interface MobileGameViewProps {
   publicKey: string
@@ -19,6 +21,7 @@ interface MobileGameViewProps {
   provider: any
   connection: Connection
   onBackToModeSelection: () => void
+  onWalletChange: (connected: boolean, publicKey: string, balance: number | null, provider: any) => void
 }
 
 export default function MobileGameView({
@@ -27,12 +30,13 @@ export default function MobileGameView({
   provider,
   connection,
   onBackToModeSelection,
+  onWalletChange,
 }: MobileGameViewProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
-  const [mutbBalance, setMutbBalance] = useState<number>(100)
+  const [mutbBalance, setMutbBalance] = useState<number>(100) // Mock MUTB balance
   const [localBalance, setLocalBalance] = useState<number | null>(balance)
 
   useEffect(() => {
@@ -81,6 +85,10 @@ export default function MobileGameView({
             <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
             {mutbBalance.toFixed(2)} MUTB
           </Badge>
+          <div className="flex items-center gap-4">
+            <GlobalAudioControls />
+            <MultiWalletConnector onConnectionChange={onWalletChange} compact={true} />
+          </div>
         </div>
 
         {/* Game Content */}

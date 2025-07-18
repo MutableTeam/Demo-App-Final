@@ -36,7 +36,7 @@ export default function ModeSelection({ onModeSelect }: ModeSelectionProps) {
             Choose Your Experience
           </h1>
           <p className={cn("text-lg", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300")}>
-            Select how you'd like to play on the Mutable platform
+            Select how you'd like to play on the Mutable world.
           </p>
         </div>
 
