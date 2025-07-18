@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@chakra-ui/react": "latest",
     "@emotion/is-prop-valid": "latest",
     "@emotion/react": "latest",
     "@emotion/styled": "latest",
