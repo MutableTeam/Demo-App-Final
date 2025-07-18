@@ -1,365 +1,350 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Store, Search, Filter, TrendingUp, Users, Star, ShoppingCart, Eye } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ArrowLeftRight, TrendingUp, Info, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import Image from "next/image"
+import { type Connection, PublicKey } from "@solana/web3.js"
+import { withClickSound } from "@/utils/sound-utils"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/components/ui/use-toast"
+import { ToastAction } from "@/components/ui/toast"
+import { createJupiterApiClient } from "@/utils/jupiter-sdk"
+import { TokenSwapForm } from "./swap/token-swap-form"
+import { MarketOverview } from "./swap/market-overview"
+import { TransactionHistory } from "./swap/transaction-history"
+import { SOL_TOKEN, MUTB_TOKEN, DEFAULT_SWAP_PAIR, SUPPORTED_TOKENS } from "@/config/token-registry"
+import { getTokenBalance } from "@/utils/token-utils"
+import type { SwapResult } from "@/types/token-types"
 
-interface MarketplaceItem {
-  id: string
-  name: string
-  description: string
-  price: number
-  currency: "SOL" | "MUTB"
-  category: "NFT" | "Game Asset" | "Token" | "Collectible"
-  rarity: "Common" | "Rare" | "Epic" | "Legendary"
-  image: string
-  seller: string
-  rating: number
-  sales: number
-  isVerified: boolean
+interface MutableMarketplaceProps {
+  publicKey: string
+  balance: number | null
+  provider: any
+  connection: Connection
+  onBalanceChange?: (currency: "sol" | "mutb", newBalance: number) => void
 }
 
-const MARKETPLACE_ITEMS: MarketplaceItem[] = [
-  {
-    id: "1",
-    name: "Legendary Archer Bow",
-    description: "A powerful bow that increases arrow damage by 50%",
-    price: 2.5,
-    currency: "SOL",
-    category: "Game Asset",
-    rarity: "Legendary",
-    image: "/images/archer-game.png",
-    seller: "GameMaster",
-    rating: 4.8,
-    sales: 156,
-    isVerified: true,
-  },
-  {
-    id: "2",
-    name: "Pixel Pool Cue",
-    description: "Premium cue stick with enhanced accuracy",
-    price: 150,
-    currency: "MUTB",
-    category: "Game Asset",
-    rarity: "Epic",
-    image: "/images/pixel-art-pool.png",
-    seller: "PoolPro",
-    rating: 4.6,
-    sales: 89,
-    isVerified: true,
-  },
-  {
-    id: "3",
-    name: "Mutable Genesis NFT",
-    description: "First edition collectible from Mutable platform",
-    price: 5.0,
-    currency: "SOL",
-    category: "NFT",
-    rarity: "Legendary",
-    image: "/images/mutable-logo.png",
-    seller: "MutableTeam",
-    rating: 5.0,
-    sales: 234,
-    isVerified: true,
-  },
-  {
-    id: "4",
-    name: "Defense Tower Upgrade",
-    description: "Upgrade your towers in Last Stand game",
-    price: 75,
-    currency: "MUTB",
-    category: "Game Asset",
-    rarity: "Rare",
-    image: "/images/last-stand.jpg",
-    seller: "TowerDefender",
-    rating: 4.4,
-    sales: 67,
-    isVerified: false,
-  },
-]
+export default function MutableMarketplace({
+  publicKey,
+  balance,
+  provider,
+  connection,
+  onBalanceChange,
+}: MutableMarketplaceProps) {
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("swap")
+  const [mutbBalance, setMutbBalance] = useState<number>(0)
+  const [isTokenTradable, setIsTokenTradable] = useState<boolean>(false)
+  const [checkingTradability, setCheckingTradability] = useState<boolean>(true)
+  const [jupiterClient, setJupiterClient] = useState<any>(null)
+  const [availableTokens, setAvailableTokens] = useState<any[]>([])
 
-export function MutableMarketplace() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [selectedRarity, setSelectedRarity] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<string>("popular")
-  const [activeTab, setActiveTab] = useState("browse")
+  // Transaction history
+  const [transactionHistory, setTransactionHistory] = useState<SwapResult[]>([])
 
-  const filteredItems = MARKETPLACE_ITEMS.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
-    const matchesRarity = selectedRarity === "all" || item.rarity === selectedRarity
+  // Initialize Jupiter client and check token tradability
+  useEffect(() => {
+    if (connection) {
+      const client = createJupiterApiClient(connection)
+      setJupiterClient(client)
 
-    return matchesSearch && matchesCategory && matchesRarity
-  })
+      // Check available tokens and tradability
+      const initializeJupiter = async () => {
+        setCheckingTradability(true)
+        try {
+          // First, get available tokens
+          const tokens = await client.getAvailableTokens()
+          setAvailableTokens(tokens)
 
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    switch (sortBy) {
-      case "price-low":
-        return a.price - b.price
-      case "price-high":
-        return b.price - a.price
-      case "rating":
-        return b.rating - a.rating
-      case "sales":
-        return b.sales - a.sales
-      default: // popular
-        return b.sales - a.sales
+          // Then check tradability
+          console.log(`🔍 Checking tradability for MUTB token: ${MUTB_TOKEN.mintAddress}`)
+          console.log(`🔍 Testing against SOL: ${SOL_TOKEN.mintAddress}`)
+
+          // Test both directions
+          const mutbToSol = await client.isTokenTradable(MUTB_TOKEN.mintAddress, SOL_TOKEN.mintAddress)
+          const solToMutb = await client.isTokenTradable(SOL_TOKEN.mintAddress, MUTB_TOKEN.mintAddress)
+
+          console.log("📊 MUTB -> SOL tradability:", mutbToSol)
+          console.log("📊 SOL -> MUTB tradability:", solToMutb)
+
+          const tradable = mutbToSol || solToMutb
+          setIsTokenTradable(tradable)
+        } catch (error) {
+          console.error("❌ Error initializing Jupiter:", error)
+          setIsTokenTradable(false)
+        } finally {
+          setCheckingTradability(false)
+        }
+      }
+
+      initializeJupiter()
+
+      // Load transaction history from localStorage
+      try {
+        const savedHistory = localStorage.getItem("mutb_transaction_history")
+        if (savedHistory) {
+          setTransactionHistory(JSON.parse(savedHistory))
+        }
+      } catch (error) {
+        console.error("Error loading transaction history:", error)
+      }
     }
-  })
+  }, [connection])
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "Common":
-        return "bg-gray-100 text-gray-800 border-gray-200"
-      case "Rare":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "Epic":
-        return "bg-purple-100 text-purple-800 border-purple-200"
-      case "Legendary":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+  // Save transaction history to localStorage when it changes
+  useEffect(() => {
+    if (transactionHistory.length > 0) {
+      try {
+        localStorage.setItem("mutb_transaction_history", JSON.stringify(transactionHistory))
+      } catch (error) {
+        console.error("Error saving transaction history:", error)
+      }
+    }
+  }, [transactionHistory])
+
+  // Fetch token balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (!publicKey || !connection) return
+
+      try {
+        // Fetch MUTB balance
+        const mutbBalance = await getTokenBalance(connection, publicKey, MUTB_TOKEN)
+        setMutbBalance(mutbBalance)
+      } catch (error) {
+        console.error("Error fetching token balances:", error)
+      }
+    }
+
+    if (publicKey) {
+      fetchBalances()
+    }
+  }, [publicKey, connection])
+
+  // Manual refresh function
+  const handleRefreshTradability = async () => {
+    if (!jupiterClient) return
+
+    setCheckingTradability(true)
+    try {
+      // Refresh available tokens
+      const tokens = await jupiterClient.getAvailableTokens()
+      setAvailableTokens(tokens)
+
+      // Re-check tradability
+      const mutbToSol = await jupiterClient.isTokenTradable(MUTB_TOKEN.mintAddress, SOL_TOKEN.mintAddress)
+      const solToMutb = await jupiterClient.isTokenTradable(SOL_TOKEN.mintAddress, MUTB_TOKEN.mintAddress)
+
+      const tradable = mutbToSol || solToMutb
+      setIsTokenTradable(tradable)
+
+      toast({
+        title: "Refresh Complete",
+        description: tradable ? "Token is now tradable!" : "Token still not indexed",
+        variant: tradable ? "default" : "destructive",
+      })
+    } catch (error) {
+      console.error("Error refreshing tradability:", error)
+      toast({
+        title: "Refresh Failed",
+        description: "Could not check token status",
+        variant: "destructive",
+      })
+    } finally {
+      setCheckingTradability(false)
     }
   }
 
+  // Handle successful swap
+  const handleSwapComplete = (inputToken, outputToken, inputAmount, outputAmount, txId) => {
+    const newTransaction: SwapResult = {
+      type: "swap",
+      timestamp: Date.now(),
+      inputAmount,
+      inputToken: inputToken.symbol,
+      outputAmount,
+      outputToken: outputToken.symbol,
+      txId,
+    }
+
+    setTransactionHistory((prev) => [newTransaction, ...prev.slice(0, 9)])
+
+    toast({
+      title: "Swap Successful!",
+      description: `You swapped ${inputAmount} ${inputToken.symbol} for ${outputAmount.toFixed(2)} ${outputToken.symbol}`,
+      variant: "default",
+      className: "border-2 border-black bg-[#FFD54F] text-black font-mono",
+      action: (
+        <ToastAction altText="OK" className="border border-black">
+          OK
+        </ToastAction>
+      ),
+    })
+
+    refreshBalances()
+  }
+
+  // Function to refresh balances
+  const refreshBalances = async () => {
+    if (!publicKey || !connection) return
+
+    try {
+      const solBalance = await connection.getBalance(new PublicKey(publicKey))
+      if (onBalanceChange) {
+        onBalanceChange("sol", solBalance / 1e9)
+      }
+
+      const mutbBalance = await getTokenBalance(connection, publicKey, MUTB_TOKEN)
+      setMutbBalance(mutbBalance)
+      if (onBalanceChange) {
+        onBalanceChange("mutb", mutbBalance)
+      }
+    } catch (error) {
+      console.error("Error refreshing balances:", error)
+    }
+  }
+
+  // Render alerts
+  const renderAlert = () => {
+    if (checkingTradability) {
+      return (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          <span>Testing mainnet MUTB token (4Eey...QbW) on Jupiter devnet...</span>
+        </div>
+      )
+    }
+
+    if (!isTokenTradable) {
+      const mutbInList = availableTokens.find((token) => token.address === MUTB_TOKEN.mintAddress)
+
+      return (
+        <Alert className="mb-4 border-2 border-yellow-500 bg-yellow-50">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle className="text-yellow-800">Testing Mainnet Token on Devnet</AlertTitle>
+          <AlertDescription className="text-yellow-700 space-y-2">
+            <div>Testing mainnet MUTB token (4Eey...QbW) on Jupiter devnet.</div>
+            <div>Status: {mutbInList ? "Found in token list but no routes" : "Not in Jupiter token list"}</div>
+            <div>Available tokens on devnet: {availableTokens.length}</div>
+            <div>Note: Mainnet tokens typically aren't available on devnet</div>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" variant="outline" onClick={handleRefreshTradability} disabled={checkingTradability}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Refresh
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )
+    }
+
+    return (
+      <Alert className="mb-4 border-2 border-green-500 bg-green-50">
+        <Info className="h-4 w-4 text-green-600" />
+        <AlertTitle className="text-green-800">MUTB Token Found!</AlertTitle>
+        <AlertDescription className="text-green-700">MUTB token is available on Jupiter devnet!</AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
-          <Store className="h-8 w-8 text-orange-600" />
-          Mutable Marketplace
-        </h2>
-        <p className="text-gray-600">Trade game assets, NFTs, and collectibles</p>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200">
-          <TabsTrigger value="browse" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
-            <Eye className="h-4 w-4 mr-2" />
-            Browse
-          </TabsTrigger>
-          <TabsTrigger value="sell" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Sell
-          </TabsTrigger>
-          <TabsTrigger value="stats" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Stats
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Browse Tab */}
-        <TabsContent value="browse" className="space-y-6">
-          {/* Filters */}
-          <Card className="bg-white border-gray-200">
-            <CardHeader>
-              <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                <Filter className="h-5 w-5 text-orange-600" />
-                Filters
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Search</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Category */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="border-gray-300">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      <SelectItem value="NFT">NFTs</SelectItem>
-                      <SelectItem value="Game Asset">Game Assets</SelectItem>
-                      <SelectItem value="Token">Tokens</SelectItem>
-                      <SelectItem value="Collectible">Collectibles</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Rarity */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Rarity</Label>
-                  <Select value={selectedRarity} onValueChange={setSelectedRarity}>
-                    <SelectTrigger className="border-gray-300">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Rarities</SelectItem>
-                      <SelectItem value="Common">Common</SelectItem>
-                      <SelectItem value="Rare">Rare</SelectItem>
-                      <SelectItem value="Epic">Epic</SelectItem>
-                      <SelectItem value="Legendary">Legendary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sort */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Sort By</Label>
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="border-gray-300">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="popular">Most Popular</SelectItem>
-                      <SelectItem value="price-low">Price: Low to High</SelectItem>
-                      <SelectItem value="price-high">Price: High to Low</SelectItem>
-                      <SelectItem value="rating">Highest Rated</SelectItem>
-                      <SelectItem value="sales">Most Sales</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Items Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedItems.map((item) => (
-              <Card key={item.id} className="bg-white border-gray-200 hover:border-orange-300 transition-colors group">
-                <CardHeader className="pb-3">
-                  <div className="aspect-square relative mb-3 rounded-lg overflow-hidden border border-gray-200">
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={item.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg text-gray-900">{item.name}</CardTitle>
-                      {item.isVerified && (
-                        <Badge className="bg-green-100 text-green-800 border-green-200">Verified</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getRarityColor(item.rarity)}>{item.rarity}</Badge>
-                      <Badge variant="outline" className="border-gray-300">
-                        {item.category}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <CardDescription className="text-gray-600">{item.description}</CardDescription>
-
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span>{item.rating}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      <span>{item.sales} sales</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="text-2xl font-bold text-gray-900">
-                        {item.price} {item.currency}
-                      </div>
-                      <div className="text-xs text-gray-500">by {item.seller}</div>
-                    </div>
-                    <Button className="bg-orange-600 hover:bg-orange-700 text-white">Buy Now</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+    <Card className="bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ArrowLeftRight className="h-5 w-5" />
+            <CardTitle className="font-mono">EXCHANGE</CardTitle>
+            <Badge variant="outline" className="text-orange-600 border-orange-500">
+              DEVNET
+            </Badge>
           </div>
-
-          {sortedItems.length === 0 && (
-            <Card className="bg-white border-gray-200">
-              <CardContent className="text-center py-12">
-                <Store className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-                <p className="text-gray-600">Try adjusting your search or filter criteria</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Sell Tab */}
-        <TabsContent value="sell">
-          <Card className="bg-white border-gray-200">
-            <CardHeader>
-              <CardTitle className="text-xl text-gray-900">List an Item</CardTitle>
-              <CardDescription className="text-gray-600">
-                Sell your game assets and collectibles on the marketplace
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center py-12">
-                <ShoppingCart className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
-                <p className="text-gray-600">The ability to list items will be available soon</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Stats Tab */}
-        <TabsContent value="stats">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-gray-900">1,234</div>
-                <div className="text-sm text-gray-600">Total Items</div>
-                <div className="text-xs text-green-600 font-medium">+12% this week</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-gray-900">567</div>
-                <div className="text-sm text-gray-600">Active Sellers</div>
-                <div className="text-xs text-green-600 font-medium">+8% this week</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-gray-900">89.2K</div>
-                <div className="text-sm text-gray-600">Total Volume (SOL)</div>
-                <div className="text-xs text-green-600 font-medium">+15% this week</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-gray-900">2.4</div>
-                <div className="text-sm text-gray-600">Avg. Price (SOL)</div>
-                <div className="text-xs text-red-600 font-medium">-3% this week</div>
-              </CardContent>
-            </Card>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
+            >
+              <Image
+                src={MUTB_TOKEN.logoURI || "/placeholder.svg"}
+                alt={MUTB_TOKEN.symbol}
+                width={16}
+                height={16}
+                className="rounded-full"
+              />
+              {mutbBalance.toFixed(2)} {MUTB_TOKEN.symbol}
+            </Badge>
+            <Badge variant="outline" className="bg-white text-black border-2 border-black font-mono">
+              {balance !== null ? `${balance.toFixed(2)} ${SOL_TOKEN.symbol}` : "..."}
+            </Badge>
           </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+        <CardDescription>
+          Swap between {SOL_TOKEN.symbol} and {MUTB_TOKEN.symbol} tokens using Jupiter on Solana devnet
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {renderAlert()}
+
+        <Tabs defaultValue="swap" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4 border-2 border-black bg-[#FFD54F]">
+            <TabsTrigger
+              value="swap"
+              className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
+              onClick={withClickSound()}
+            >
+              <div className="flex items-center gap-2">
+                <ArrowLeftRight className="h-4 w-4" />
+                <span>SWAP</span>
+              </div>
+            </TabsTrigger>
+            <TabsTrigger
+              value="market"
+              className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
+              onClick={withClickSound()}
+            >
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                <span>MARKET</span>
+              </div>
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
+              onClick={withClickSound()}
+            >
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                <span>HISTORY</span>
+              </div>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="swap">
+            <TokenSwapForm
+              connection={connection}
+              publicKey={publicKey}
+              provider={provider}
+              swapPair={DEFAULT_SWAP_PAIR}
+              inputBalance={balance}
+              outputBalance={mutbBalance}
+              isTokenTradable={isTokenTradable}
+              onSwap={handleSwapComplete}
+              checkingTradability={checkingTradability}
+            />
+          </TabsContent>
+
+          <TabsContent value="market">
+            <MarketOverview tokens={SUPPORTED_TOKENS} recentTransactions={transactionHistory} />
+          </TabsContent>
+
+          <TabsContent value="history">
+            <TransactionHistory transactions={transactionHistory} />
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   )
 }
