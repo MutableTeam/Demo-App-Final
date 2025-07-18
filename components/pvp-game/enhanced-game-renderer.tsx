@@ -24,43 +24,56 @@ export default function EnhancedGameRenderer({
   className,
 }: EnhancedGameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const animationFrameRef = useRef<number>()
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
-  // Update canvas size based on container
+  // Update canvas size to fill container
   useEffect(() => {
     const updateCanvasSize = () => {
+      const container = containerRef.current
       const canvas = canvasRef.current
-      if (!canvas) return
-
-      const container = canvas.parentElement
-      if (!container) return
+      if (!container || !canvas) return
 
       const rect = container.getBoundingClientRect()
       const newWidth = Math.floor(rect.width)
       const newHeight = Math.floor(rect.height)
 
-      if (newWidth !== canvasSize.width || newHeight !== canvasSize.height) {
-        setCanvasSize({ width: newWidth, height: newHeight })
+      // Only update if size actually changed
+      if (newWidth !== canvas.width || newHeight !== canvas.height) {
         canvas.width = newWidth
         canvas.height = newHeight
+        setCanvasSize({ width: newWidth, height: newHeight })
 
+        console.log(`Canvas resized to ${newWidth}x${newHeight}`)
         debugManager.logInfo("RENDERER", `Canvas resized to ${newWidth}x${newHeight}`)
       }
     }
 
+    // Initial size update
     updateCanvasSize()
 
-    const resizeObserver = new ResizeObserver(updateCanvasSize)
-    const canvas = canvasRef.current
-    if (canvas?.parentElement) {
-      resizeObserver.observe(canvas.parentElement)
+    // Set up resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(updateCanvasSize)
+    })
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
     }
+
+    // Also listen to window resize as fallback
+    window.addEventListener("resize", updateCanvasSize)
+    window.addEventListener("orientationchange", () => {
+      setTimeout(updateCanvasSize, 100) // Delay to allow orientation change to complete
+    })
 
     return () => {
       resizeObserver.disconnect()
+      window.removeEventListener("resize", updateCanvasSize)
+      window.removeEventListener("orientationchange", updateCanvasSize)
     }
-  }, [canvasSize.width, canvasSize.height])
+  }, [])
 
   // Main render loop
   useEffect(() => {
@@ -71,13 +84,15 @@ export default function EnhancedGameRenderer({
     if (!ctx) return
 
     const render = () => {
-      // Clear canvas
+      // Clear canvas with dark background
       ctx.fillStyle = "#1a1a1a"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Calculate scale to fit game area in canvas
+      // Calculate game area scaling
       const gameWidth = gameState.arenaSize?.width || 800
       const gameHeight = gameState.arenaSize?.height || 600
+
+      // Scale to fit canvas while maintaining aspect ratio
       const scaleX = canvas.width / gameWidth
       const scaleY = canvas.height / gameHeight
       const scale = Math.min(scaleX, scaleY)
@@ -95,7 +110,7 @@ export default function EnhancedGameRenderer({
       ctx.fillRect(0, 0, gameWidth, gameHeight)
 
       // Draw grid pattern
-      ctx.strokeStyle = "#3d6a37"
+      ctx.strokeStyle = "rgba(61, 106, 55, 0.3)"
       ctx.lineWidth = 1
       const gridSize = 50
       for (let x = 0; x <= gameWidth; x += gridSize) {
@@ -111,22 +126,35 @@ export default function EnhancedGameRenderer({
         ctx.stroke()
       }
 
+      // Draw arena border
+      ctx.strokeStyle = "#00ffff"
+      ctx.lineWidth = 3
+      ctx.strokeRect(0, 0, gameWidth, gameHeight)
+
       // Draw walls
-      if (gameState.walls) {
+      if (gameState.walls && gameState.walls.length > 0) {
         ctx.fillStyle = "#8B4513"
         ctx.strokeStyle = "#654321"
         ctx.lineWidth = 2
         gameState.walls.forEach((wall) => {
-          ctx.fillRect(wall.x, wall.y, wall.width, wall.height)
-          ctx.strokeRect(wall.x, wall.y, wall.width, wall.height)
+          const wallX = wall.position?.x || wall.x || 0
+          const wallY = wall.position?.y || wall.y || 0
+          const wallWidth = wall.width || 50
+          const wallHeight = wall.height || 50
+
+          ctx.fillRect(wallX, wallY, wallWidth, wallHeight)
+          ctx.strokeRect(wallX, wallY, wallWidth, wallHeight)
         })
       }
 
       // Draw pickups
-      if (gameState.pickups) {
+      if (gameState.pickups && gameState.pickups.length > 0) {
         gameState.pickups.forEach((pickup) => {
+          const pickupX = pickup.position?.x || pickup.x || 0
+          const pickupY = pickup.position?.y || pickup.y || 0
+
           ctx.save()
-          ctx.translate(pickup.x, pickup.y)
+          ctx.translate(pickupX, pickupY)
 
           // Glow effect
           const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 15)
@@ -144,11 +172,15 @@ export default function EnhancedGameRenderer({
       }
 
       // Draw arrows
-      if (gameState.arrows) {
+      if (gameState.arrows && gameState.arrows.length > 0) {
         gameState.arrows.forEach((arrow) => {
+          const arrowX = arrow.position?.x || arrow.x || 0
+          const arrowY = arrow.position?.y || arrow.y || 0
+          const arrowAngle = arrow.rotation || arrow.angle || 0
+
           ctx.save()
-          ctx.translate(arrow.x, arrow.y)
-          ctx.rotate(arrow.angle)
+          ctx.translate(arrowX, arrowY)
+          ctx.rotate(arrowAngle)
 
           // Arrow shaft
           ctx.fillStyle = "#8B4513"
@@ -173,22 +205,27 @@ export default function EnhancedGameRenderer({
 
       // Draw players
       Object.values(gameState.players).forEach((player) => {
-        if (!player || player.health <= 0) return
+        if (!player || (player.health !== undefined && player.health <= 0)) return
+
+        const playerX = player.position?.x || 0
+        const playerY = player.position?.y || 0
+        const playerRotation = player.rotation || 0
+        const playerSize = player.size || 20
 
         ctx.save()
-        ctx.translate(player.position.x, player.position.y)
-        ctx.rotate(player.rotation || 0)
+        ctx.translate(playerX, playerY)
+        ctx.rotate(playerRotation)
 
         // Player shadow
         ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
         ctx.beginPath()
-        ctx.ellipse(2, 2, player.size + 2, player.size + 2, 0, 0, Math.PI * 2)
+        ctx.ellipse(2, 2, playerSize + 2, playerSize + 2, 0, 0, Math.PI * 2)
         ctx.fill()
 
         // Player body
-        ctx.fillStyle = player.color
+        ctx.fillStyle = player.color || "#00ff88"
         ctx.beginPath()
-        ctx.arc(0, 0, player.size, 0, Math.PI * 2)
+        ctx.arc(0, 0, playerSize, 0, Math.PI * 2)
         ctx.fill()
 
         // Player outline
@@ -199,9 +236,9 @@ export default function EnhancedGameRenderer({
         // Direction indicator
         ctx.fillStyle = "#FFFFFF"
         ctx.beginPath()
-        ctx.moveTo(player.size - 5, 0)
-        ctx.lineTo(player.size + 10, -5)
-        ctx.lineTo(player.size + 10, 5)
+        ctx.moveTo(playerSize - 5, 0)
+        ctx.lineTo(playerSize + 10, -5)
+        ctx.lineTo(playerSize + 10, 5)
         ctx.closePath()
         ctx.fill()
 
@@ -210,21 +247,16 @@ export default function EnhancedGameRenderer({
           ctx.strokeStyle = "#8B4513"
           ctx.lineWidth = 3
           ctx.beginPath()
-          ctx.arc(0, 0, player.size + 15, -0.3, 0.3)
+          ctx.arc(0, 0, playerSize + 15, -0.3, 0.3)
           ctx.stroke()
 
-          // Bow string
+          // Bow string with tension
           ctx.strokeStyle = "#FFFFFF"
           ctx.lineWidth = 1
           const stringTension = (player.drawPower || 0) * 10
           ctx.beginPath()
-          ctx.moveTo(Math.cos(-0.3) * (player.size + 15), Math.sin(-0.3) * (player.size + 15))
-          ctx.quadraticCurveTo(
-            -stringTension,
-            0,
-            Math.cos(0.3) * (player.size + 15),
-            Math.sin(0.3) * (player.size + 15),
-          )
+          ctx.moveTo(Math.cos(-0.3) * (playerSize + 15), Math.sin(-0.3) * (playerSize + 15))
+          ctx.quadraticCurveTo(-stringTension, 0, Math.cos(0.3) * (playerSize + 15), Math.sin(0.3) * (playerSize + 15))
           ctx.stroke()
         }
 
@@ -234,7 +266,7 @@ export default function EnhancedGameRenderer({
           ctx.lineWidth = 2
           for (let i = 0; i < 3; i++) {
             ctx.beginPath()
-            ctx.arc(0, 0, player.size + 5 + i * 5, 0, Math.PI * 2)
+            ctx.arc(0, 0, playerSize + 5 + i * 5, 0, Math.PI * 2)
             ctx.stroke()
           }
         }
@@ -243,33 +275,38 @@ export default function EnhancedGameRenderer({
 
         // Player name and health bar
         ctx.save()
-        ctx.translate(player.position.x, player.position.y - player.size - 20)
+        ctx.translate(playerX, playerY - playerSize - 25)
+
+        // Name background
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
+        ctx.fillRect(-30, -15, 60, 12)
 
         // Name
         ctx.fillStyle = "#FFFFFF"
-        ctx.font = "12px Arial"
+        ctx.font = "10px Arial"
         ctx.textAlign = "center"
-        ctx.fillText(player.name, 0, 0)
+        ctx.fillText(player.name || "Player", 0, -5)
 
         // Health bar background
         ctx.fillStyle = "#333333"
-        ctx.fillRect(-25, 5, 50, 6)
+        ctx.fillRect(-25, 0, 50, 6)
 
         // Health bar
-        const healthPercent = player.health / (player.maxHealth || 100)
+        const healthPercent = (player.health || 100) / (player.maxHealth || 100)
         ctx.fillStyle = healthPercent > 0.6 ? "#4CAF50" : healthPercent > 0.3 ? "#FFC107" : "#F44336"
-        ctx.fillRect(-25, 5, 50 * healthPercent, 6)
+        ctx.fillRect(-25, 0, 50 * healthPercent, 6)
 
         // Health bar border
         ctx.strokeStyle = "#FFFFFF"
         ctx.lineWidth = 1
-        ctx.strokeRect(-25, 5, 50, 6)
+        ctx.strokeRect(-25, 0, 50, 6)
 
         ctx.restore()
       })
 
-      // Draw game UI overlays
       ctx.restore()
+
+      // UI Overlays (not scaled)
 
       // Game timer (top center)
       if (gameState.gameTime !== undefined) {
@@ -277,42 +314,50 @@ export default function EnhancedGameRenderer({
         const seconds = Math.floor(gameState.gameTime % 60)
         const timeString = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-        ctx.fillRect(canvas.width / 2 - 40, 10, 80, 30)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+        ctx.fillRect(canvas.width / 2 - 50, 10, 100, 35)
+        ctx.strokeStyle = "#00ffff"
+        ctx.lineWidth = 2
+        ctx.strokeRect(canvas.width / 2 - 50, 10, 100, 35)
 
         ctx.fillStyle = "#FFFFFF"
-        ctx.font = "16px Arial"
+        ctx.font = "18px Arial"
         ctx.textAlign = "center"
-        ctx.fillText(timeString, canvas.width / 2, 30)
+        ctx.fillText(timeString, canvas.width / 2, 32)
       }
 
       // Scoreboard (top right)
-      const players = Object.values(gameState.players).filter((p) => p && p.health > 0)
-      if (players.length > 0) {
-        const scoreboardWidth = 200
-        const scoreboardHeight = players.length * 25 + 20
+      const alivePlayers = Object.values(gameState.players).filter((p) => p && p.health > 0)
+      if (alivePlayers.length > 0) {
+        const scoreboardWidth = 180
+        const scoreboardHeight = alivePlayers.length * 25 + 30
 
         ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
         ctx.fillRect(canvas.width - scoreboardWidth - 10, 10, scoreboardWidth, scoreboardHeight)
+        ctx.strokeStyle = "#00ffff"
+        ctx.lineWidth = 2
+        ctx.strokeRect(canvas.width - scoreboardWidth - 10, 10, scoreboardWidth, scoreboardHeight)
 
         ctx.fillStyle = "#FFFFFF"
         ctx.font = "14px Arial"
         ctx.textAlign = "left"
-        ctx.fillText("SCOREBOARD", canvas.width - scoreboardWidth, 30)
+        ctx.fillText("SCOREBOARD", canvas.width - scoreboardWidth + 5, 30)
 
-        players.forEach((player, index) => {
+        alivePlayers.forEach((player, index) => {
           const y = 50 + index * 25
           const score = player.score || 0
 
           // Player color indicator
-          ctx.fillStyle = player.color
-          ctx.fillRect(canvas.width - scoreboardWidth + 5, y - 10, 15, 15)
+          ctx.fillStyle = player.color || "#FFFFFF"
+          ctx.fillRect(canvas.width - scoreboardWidth + 10, y - 12, 12, 12)
 
           // Player name and score
           ctx.fillStyle = "#FFFFFF"
-          ctx.fillText(`${player.name}`, canvas.width - scoreboardWidth + 25, y)
+          ctx.font = "12px Arial"
+          ctx.fillText(`${index + 1}`, canvas.width - scoreboardWidth + 30, y - 2)
+          ctx.fillText(`${player.name}`, canvas.width - scoreboardWidth + 45, y - 2)
           ctx.textAlign = "right"
-          ctx.fillText(`${score}`, canvas.width - 20, y)
+          ctx.fillText(`${score}`, canvas.width - 20, y - 2)
           ctx.textAlign = "left"
         })
       }
@@ -320,16 +365,20 @@ export default function EnhancedGameRenderer({
       // Debug info
       if (debugMode) {
         ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-        ctx.fillRect(10, canvas.height - 100, 200, 90)
+        ctx.fillRect(10, canvas.height - 120, 220, 110)
+        ctx.strokeStyle = "#00ff00"
+        ctx.lineWidth = 1
+        ctx.strokeRect(10, canvas.height - 120, 220, 110)
 
         ctx.fillStyle = "#00FF00"
         ctx.font = "12px monospace"
         ctx.textAlign = "left"
-        ctx.fillText(`Players: ${Object.keys(gameState.players).length}`, 15, canvas.height - 80)
-        ctx.fillText(`Arrows: ${gameState.arrows?.length || 0}`, 15, canvas.height - 65)
-        ctx.fillText(`Walls: ${gameState.walls?.length || 0}`, 15, canvas.height - 50)
-        ctx.fillText(`Pickups: ${gameState.pickups?.length || 0}`, 15, canvas.height - 35)
-        ctx.fillText(`Time: ${gameState.gameTime?.toFixed(1) || 0}s`, 15, canvas.height - 20)
+        ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, 15, canvas.height - 100)
+        ctx.fillText(`Game: ${gameWidth}x${gameHeight}`, 15, canvas.height - 85)
+        ctx.fillText(`Scale: ${scale.toFixed(2)}`, 15, canvas.height - 70)
+        ctx.fillText(`Players: ${Object.keys(gameState.players).length}`, 15, canvas.height - 55)
+        ctx.fillText(`Arrows: ${gameState.arrows?.length || 0}`, 15, canvas.height - 40)
+        ctx.fillText(`Time: ${gameState.gameTime?.toFixed(1) || 0}s`, 15, canvas.height - 25)
       }
 
       animationFrameRef.current = requestAnimationFrame(render)
@@ -345,10 +394,10 @@ export default function EnhancedGameRenderer({
   }, [gameState, localPlayerId, debugMode, canvasSize])
 
   return (
-    <div className={cn("w-full h-full flex items-center justify-center bg-black", className)}>
+    <div ref={containerRef} className={cn("w-full h-full bg-black", className)}>
       <canvas
         ref={canvasRef}
-        className="max-w-full max-h-full border border-cyan-500/30 rounded-lg"
+        className="w-full h-full"
         style={{
           imageRendering: "pixelated",
           touchAction: "none",
