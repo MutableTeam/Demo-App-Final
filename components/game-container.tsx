@@ -1,190 +1,394 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Monitor, Smartphone, Maximize2, Minimize2, RotateCcw } from "lucide-react"
+import { useState, useEffect } from "react"
+import { gameRegistry } from "@/types/game-registry"
+import { useToast } from "@/hooks/use-toast"
+import GameErrorBoundary from "@/components/game-error-boundary"
+import { debugManager } from "@/utils/debug-utils"
+import { cyberpunkColors } from "@/styles/cyberpunk-theme"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
+import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
 import { usePlatform } from "@/contexts/platform-context"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import { Badge } from "@/components/ui/badge"
+import { Monitor, Smartphone } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { GameInterface } from "@/types/game-interface"
+
+// Cyberpunk styled components for the game container
+const CyberpunkGameContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: ${cyberpunkColors.background.dark};
+  border: 1px solid ${cyberpunkColors.border.cyan};
+  box-shadow: 0 0 15px ${cyberpunkColors.shadow.cyan};
+  overflow: hidden;
+  
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      transparent, 
+      ${cyberpunkColors.primary.cyan}, 
+      transparent
+    );
+    z-index: 1;
+  }
+  
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      ${cyberpunkColors.primary.magenta}, 
+      ${cyberpunkColors.primary.cyan}
+    );
+    z-index: 1;
+  }
+`
+
+const CyberpunkDevBanner = styled.div`
+  width: 100%;
+  background: linear-gradient(90deg, 
+    ${cyberpunkColors.primary.magenta}80, 
+    ${cyberpunkColors.primary.cyan}80
+  );
+  color: ${cyberpunkColors.text.primary};
+  font-family: monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 2px solid ${cyberpunkColors.border.cyanBright};
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px ${cyberpunkColors.primary.cyan};
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: ${keyframes`
+      from { left: -100%; }
+      to { left: 200%; }
+    `} 3s linear infinite;
+  }
+`
+
+const PlatformBadge = styled(Badge)`
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  color: #0ff;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+`
+
+const pulseAnimation = keyframes`
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 15px ${cyberpunkColors.primary.cyan}, 0 0 30px ${cyberpunkColors.primary.cyan}80;
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 25px ${cyberpunkColors.primary.magenta}, 0 0 40px ${cyberpunkColors.primary.magenta}80;
+  }
+`
+
+const CyberpunkLoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 600px;
+  background-color: ${cyberpunkColors.background.darker};
+  color: ${cyberpunkColors.text.primary};
+  border: 1px solid ${cyberpunkColors.border.cyan};
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    transform: perspective(500px) rotateX(60deg);
+    transform-origin: center bottom;
+    opacity: 0.3;
+  }
+`
+
+const CyberpunkSpinner = styled.div`
+  width: 60px;
+  height: 60px;
+  margin-bottom: 20px;
+  border: 3px solid transparent;
+  border-top-color: ${cyberpunkColors.primary.cyan};
+  border-right-color: ${cyberpunkColors.primary.magenta};
+  border-radius: 50%;
+  animation: ${keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  `} 1s linear infinite;
+  box-shadow: 0 0 15px ${cyberpunkColors.shadow.cyan};
+`
+
+const CyberpunkLoadingText = styled.p`
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: ${cyberpunkColors.text.cyan};
+  text-shadow: 0 0 10px ${cyberpunkColors.shadow.cyan};
+  animation: ${pulseAnimation} 2s infinite;
+  
+  &::after {
+    content: "...";
+    animation: ${keyframes`
+      0% { content: "."; }
+      33% { content: ".."; }
+      66% { content: "..."; }
+      100% { content: "."; }
+    `} 1.5s infinite;
+  }
+`
 
 interface GameContainerProps {
-  game: GameInterface
-  onClose?: () => void
-  className?: string
+  gameId: string
+  playerId: string
+  playerName: string
+  isHost: boolean
+  gameMode: string
+  onGameEnd: (winner: string | null) => void
 }
 
-export default function GameContainer({ game, onClose, className }: GameContainerProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const containerRef = useRef<HTMLDivElement>(null)
+export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
+  const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
+  const { toast } = useToast()
   const { platformType } = usePlatform()
+  const { styleMode } = useCyberpunkTheme()
+
+  const isCyberpunk = styleMode === "cyberpunk"
+
+  // Get the game from registry
+  const game = gameRegistry.getGame(gameId)
 
   useEffect(() => {
-    // Simulate game loading
+    // Log initialization for debugging
+    debugManager.logInfo("GameContainer", "Initializing game container", {
+      gameId,
+      playerId,
+      playerName,
+      isHost,
+      gameMode,
+      platformType,
+    })
+
+    // Set game to playing state after a short delay to ensure proper initialization
     const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1500)
+      setGameState("playing")
+      debugManager.logInfo("GameContainer", "Game state set to playing")
+    }, 500)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [gameId, playerId, playerName, isHost, gameMode, platformType])
 
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return
-
-    if (!isFullscreen) {
-      containerRef.current.requestFullscreen?.()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen?.()
-      setIsFullscreen(false)
+  if (!game) {
+    if (isCyberpunk) {
+      return (
+        <CyberpunkLoadingContainer>
+          <CyberpunkLoadingText>Game not found</CyberpunkLoadingText>
+        </CyberpunkLoadingContainer>
+      )
     }
+
+    return (
+      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
+        <div className="text-center">
+          <p className="text-xl font-bold text-muted-foreground">Game not found</p>
+        </div>
+      </div>
+    )
   }
 
-  const handleReset = () => {
-    setIsLoading(true)
-    // Simulate game reset
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+  const GameComponent = game.GameComponent
+
+  const handleError = (error: Error) => {
+    console.error("Game error:", error)
+    toast({
+      title: "System Error",
+      description: error.message,
+      variant: "destructive",
+    })
   }
 
-  return (
-    <div
-      ref={containerRef}
-      className={cn("w-full max-w-6xl mx-auto", isFullscreen && "fixed inset-0 z-50 max-w-none", className)}
-    >
-      <Card
-        className={cn(
-          "overflow-hidden transition-all duration-300",
-          isFullscreen ? "h-screen rounded-none" : "min-h-[600px]",
-          "bg-gradient-to-br from-background to-muted/30",
-        )}
-      >
-        <CardHeader
-          className={cn(
-            "flex flex-row items-center justify-between space-y-0 pb-4",
-            "bg-gradient-to-r from-primary/10 to-primary/5 border-b",
-          )}
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img
-                src={game.thumbnail || "/placeholder.svg"}
-                alt={game.title}
-                className="w-10 h-10 rounded-lg object-cover"
-              />
-              <div>
-                <CardTitle className="text-xl font-bold">{game.title}</CardTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-xs">
-                    {game.category}
-                  </Badge>
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "text-xs flex items-center gap-1",
-                      platformType === "desktop"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                    )}
-                  >
-                    {platformType === "desktop" ? (
-                      <>
-                        <Monitor className="w-3 h-3" />
-                        Desktop Mode
-                      </>
-                    ) : (
-                      <>
-                        <Smartphone className="w-3 h-3" />
-                        Mobile Mode
-                      </>
-                    )}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </div>
+  // Initialize game state
+  const initialGameState = game.initializeGameState({
+    playerId,
+    playerName,
+    isHost,
+    gameMode,
+    players: [
+      { id: playerId, name: playerName, isHost },
+      // Mock players for testing
+      { id: "ai-1", name: "AI Player 1", isHost: false },
+      { id: "ai-2", name: "AI Player 2", isHost: false },
+      { id: "ai-3", name: "AI Player 3", isHost: false },
+    ],
+  })
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleReset} className="h-8 bg-transparent">
-              <RotateCcw className="w-4 h-4 mr-1" />
-              Reset
-            </Button>
+  // Cyberpunk styled loading state
+  if (gameState === "loading") {
+    if (isCyberpunk) {
+      return (
+        <CyberpunkLoadingContainer>
+          <CyberpunkSpinner />
+          <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
+        </CyberpunkLoadingContainer>
+      )
+    }
 
-            <Button variant="outline" size="sm" onClick={toggleFullscreen} className="h-8 bg-transparent">
-              {isFullscreen ? (
-                <>
-                  <Minimize2 className="w-4 h-4 mr-1" />
-                  Exit
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="w-4 h-4 mr-1" />
-                  Fullscreen
-                </>
-              )}
-            </Button>
+    return (
+      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xl font-bold">Loading Game...</p>
+        </div>
+      </div>
+    )
+  }
 
-            {onClose && (
-              <Button variant="outline" size="sm" onClick={onClose} className="h-8 bg-transparent">
-                Close
-              </Button>
+  // Render game container based on style mode
+  if (isCyberpunk) {
+    return (
+      <CyberpunkGameContainer>
+        {/* Development Banner with Platform Info */}
+        <CyberpunkDevBanner>
+          <span>Demo Game : Does Not Represent Final Product</span>
+          <PlatformBadge>
+            {platformType === "desktop" ? (
+              <>
+                <Monitor className="h-3 w-3" />
+                Desktop Mode
+              </>
+            ) : (
+              <>
+                <Smartphone className="h-3 w-3" />
+                Mobile Mode
+              </>
             )}
-          </div>
-        </CardHeader>
+          </PlatformBadge>
+        </CyberpunkDevBanner>
 
-        <CardContent className={cn("p-0 relative", isFullscreen ? "h-[calc(100vh-80px)]" : "min-h-[500px]")}>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full min-h-[400px]">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <div className="space-y-2">
-                  <p className="text-lg font-semibold">Loading {game.title}...</p>
-                  <p className="text-sm text-muted-foreground">Optimizing for {platformType} experience</p>
-                </div>
-              </div>
-            </div>
+        <GameErrorBoundary>
+          {game.id === "archer-arena" || game.id === "last-stand" ? (
+            <GameControllerEnhanced
+              playerId={playerId}
+              playerName={playerName}
+              isHost={isHost}
+              gameMode={gameMode}
+              onGameEnd={onGameEnd}
+              platformType={platformType}
+            />
           ) : (
-            <div className="w-full h-full">
-              {/* Game component will be rendered here */}
-              <game.component
-                platformType={platformType}
-                isFullscreen={isFullscreen}
-                onGameStateChange={(state) => {
-                  console.log("Game state changed:", state)
-                }}
-              />
-            </div>
+            <GameComponent
+              playerId={playerId}
+              playerName={playerName}
+              isHost={isHost}
+              gameMode={gameMode}
+              initialGameState={initialGameState}
+              onGameEnd={onGameEnd}
+              onError={handleError}
+              platformType={platformType}
+            />
           )}
+        </GameErrorBoundary>
+      </CyberpunkGameContainer>
+    )
+  }
 
-          {/* Platform-specific controls overlay */}
-          {!isLoading && (
-            <div className="absolute bottom-4 right-4 z-10">
-              <Card className="bg-background/80 backdrop-blur-sm border-primary/20">
-                <CardContent className="p-3">
-                  <div className="text-xs text-muted-foreground">
-                    {platformType === "desktop" ? (
-                      <div className="space-y-1">
-                        <div>WASD: Move</div>
-                        <div>Mouse: Aim</div>
-                        <div>Space: Action</div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <div>Tap: Move/Shoot</div>
-                        <div>Hold: Aim</div>
-                        <div>Swipe: Special</div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+  // Light/Dark theme version
+  return (
+    <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
+      {/* Development Banner with Platform Info */}
+      <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
+        <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
+        <Badge variant="outline" className="flex items-center gap-1">
+          {platformType === "desktop" ? (
+            <>
+              <Monitor className="h-3 w-3" />
+              Desktop Mode
+            </>
+          ) : (
+            <>
+              <Smartphone className="h-3 w-3" />
+              Mobile Mode
+            </>
           )}
-        </CardContent>
-      </Card>
+        </Badge>
+      </div>
+
+      <GameErrorBoundary>
+        {game.id === "archer-arena" || game.id === "last-stand" ? (
+          <GameControllerEnhanced
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            onGameEnd={onGameEnd}
+            platformType={platformType}
+          />
+        ) : (
+          <GameComponent
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            initialGameState={initialGameState}
+            onGameEnd={onGameEnd}
+            onError={handleError}
+            platformType={platformType}
+          />
+        )}
+      </GameErrorBoundary>
     </div>
   )
 }
+
+// Export as default
+export default GameContainer
