@@ -6,7 +6,7 @@ export type PlatformType = "desktop" | "mobile" | null
 
 interface PlatformContextType {
   platform: PlatformType
-  setPlatform: (platform: PlatformType) => void
+  setPlatform: (type: PlatformType) => void
 }
 
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined)

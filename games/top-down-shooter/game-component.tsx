@@ -13,10 +13,6 @@ interface GameComponentProps {
 
 export default function TopDownShooterGame({ gameId }: GameComponentProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const gameLoopRef = useRef<number>()
-  const keysRef = useRef<Set<string>>(new Set())
-  const mouseRef = useRef({ x: 0, y: 0, pressed: false })
-  const touchRef = useRef({ x: 0, y: 0, active: false })
   const gameEngineRef = useRef<GameEngine | null>(null)
   const [gameStarted, setGameStarted] = useState(false)
   const [score, setScore] = useState(0)

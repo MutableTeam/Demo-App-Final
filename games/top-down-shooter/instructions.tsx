@@ -1,4 +1,6 @@
-import { Keyboard, MousePointer, TouchpadIcon } from "lucide-react"
+"use client"
+
+import { MousePointer, Target, TouchpadIcon } from "lucide-react"
 
 interface GameInstructionsProps {
   platform: "desktop" | "mobile"
@@ -6,28 +8,40 @@ interface GameInstructionsProps {
 
 export function GameInstructions({ platform }: GameInstructionsProps) {
   return (
-    <div className="text-center text-white max-w-md mx-auto">
-      <h3 className="text-xl font-semibold mb-4">How to Play:</h3>
+    <div className="text-center text-gray-300">
+      <h3 className="text-xl font-semibold mb-2">How to Play:</h3>
       {platform === "desktop" ? (
         <div className="space-y-2">
           <p className="flex items-center justify-center gap-2">
-            <Keyboard className="h-5 w-5" /> Use <span className="font-bold">WASD</span> to Move
+            <span className="flex gap-1">
+              <kbd className="px-2 py-1 text-xs bg-gray-700 rounded">W</kbd>
+              <kbd className="px-2 py-1 text-xs bg-gray-700 rounded">A</kbd>
+              <kbd className="px-2 py-1 text-xs bg-gray-700 rounded">S</kbd>
+              <kbd className="px-2 py-1 text-xs bg-gray-700 rounded">D</kbd>
+            </span>
+            Move Player
           </p>
           <p className="flex items-center justify-center gap-2">
-            <MousePointer className="h-5 w-5" /> Use <span className="font-bold">Mouse</span> to Aim and Shoot
+            <MousePointer className="h-4 w-4" />
+            Aim with Mouse
+          </p>
+          <p className="flex items-center justify-center gap-2">
+            <kbd className="px-2 py-1 text-xs bg-gray-700 rounded">Space</kbd> or Click to Shoot
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           <p className="flex items-center justify-center gap-2">
-            <TouchpadIcon className="h-5 w-5" /> Tap left side of screen to Move
+            <TouchpadIcon className="h-4 w-4" />
+            Touch Left Side to Move
           </p>
           <p className="flex items-center justify-center gap-2">
-            <TouchpadIcon className="h-5 w-5" /> Tap right side of screen to Shoot
+            <Target className="h-4 w-4" />
+            Touch Right Side to Aim & Shoot
           </p>
         </div>
       )}
-      <p className="mt-4 text-sm text-gray-300">Survive as long as you can against endless enemies!</p>
+      <p className="mt-4 text-sm">Survive as long as you can and defeat enemies!</p>
     </div>
   )
 }
