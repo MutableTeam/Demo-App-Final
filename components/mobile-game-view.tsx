@@ -1,22 +1,24 @@
 "use client"
 
-import { useState } from "react"
-import type { Connection } from "@solana/web3.js"
-import { GameSelection } from "@/components/pvp-game/game-selection"
-import { WaitingRoom } from "@/components/pvp-game/waiting-room"
-import { GameContainer } from "@/components/game-container"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import MultiWalletConnector from "@/components/multi-wallet-connector"
-import GlobalAudioControls from "@/components/global-audio-controls"
+import { Gamepad2, ArrowLeft } from "lucide-react"
 import Image from "next/image"
+import GameSelection from "./pvp-game/game-selection"
+import MatchmakingLobby from "./pvp-game/matchmaking-lobby"
+import LastStandGameLauncher from "@/games/last-stand/game-launcher"
+import type { Connection } from "@solana/web3.js"
+import { cn } from "@/lib/utils"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 
 interface MobileGameViewProps {
   publicKey: string
   balance: number | null
   provider: any
   connection: Connection
-  onWalletChange: (connected: boolean, publicKey: string, balance: number | null, provider: any) => void
+  onBackToModeSelection: () => void
 }
 
 export default function MobileGameView({
@@ -24,80 +26,166 @@ export default function MobileGameView({
   balance,
   provider,
   connection,
-  onWalletChange,
+  onBackToModeSelection,
 }: MobileGameViewProps) {
-  const [gameStage, setGameStage] = useState<"selection" | "waiting" | "playing" | "ended">("selection")
-  const [selectedGame, setSelectedGame] = useState<any>(null)
-  const [wager, setWager] = useState(0)
-  const [winner, setWinner] = useState<string | null>(null)
+  const { styleMode } = useCyberpunkTheme()
+  const isCyberpunk = styleMode === "cyberpunk"
 
-  const handleGameSelect = (game: any, selectedWager: number) => {
-    setSelectedGame(game)
-    setWager(selectedWager)
-    setGameStage("waiting")
+  const [selectedGame, setSelectedGame] = useState<string | null>(null)
+  const [mutbBalance, setMutbBalance] = useState<number>(100)
+  const [localBalance, setLocalBalance] = useState<number | null>(balance)
+
+  useEffect(() => {
+    setLocalBalance(balance)
+  }, [balance])
+
+  const getPlayerName = () => {
+    if (!publicKey) return "Player"
+    return "Player_" + publicKey.substring(0, 4)
   }
 
-  const handleGameStart = () => {
-    setGameStage("playing")
+  const handleSelectGame = (gameId: string) => {
+    setSelectedGame(gameId)
   }
 
-  const handleGameEnd = (winner: string | null) => {
-    setWinner(winner)
-    setGameStage("ended")
-  }
-
-  const handlePlayAgain = () => {
-    setGameStage("selection")
+  const handleBackToSelection = () => {
     setSelectedGame(null)
-    setWinner(null)
-  }
-
-  const renderStage = () => {
-    switch (gameStage) {
-      case "selection":
-        // For mobile, we go directly to the Archer Arena game selection
-        return <GameSelection onGameSelect={handleGameSelect} gameId="archer-arena" />
-      case "waiting":
-        return <WaitingRoom game={selectedGame} wager={wager} onGameStart={handleGameStart} isMobile={true} />
-      case "playing":
-        return (
-          <GameContainer
-            gameId={selectedGame.id}
-            playerId={publicKey}
-            playerName="Player1" // In a real app, this would come from a user profile
-            isHost={true}
-            gameMode="mobile"
-            onGameEnd={handleGameEnd}
-          />
-        )
-      case "ended":
-        return (
-          <Card className="text-center p-8 bg-black/70 border-2 border-cyber-cyan text-white">
-            <h2 className="text-3xl font-bold mb-4 text-cyber-cyan-light">Game Over</h2>
-            <p className="text-xl mb-6">
-              {winner ? `Winner: ${winner === publicKey ? "You!" : "AI"}` : "It's a draw!"}
-            </p>
-            <Button onClick={handlePlayAgain} className="bg-cyber-blue hover:bg-cyber-blue/80 text-white font-bold">
-              Play Again
-            </Button>
-          </Card>
-        )
-    }
   }
 
   return (
-    <div className="w-full h-screen flex flex-col bg-black text-white p-4 font-mono">
-      <header className="flex justify-between items-center mb-4 flex-shrink-0">
-        <div className="flex items-center gap-2 bg-black/50 border border-cyber-magenta-dark p-2 rounded-md">
-          <Image src="/images/mutable-token.png" alt="MUTB Token" width={24} height={24} />
-          <span className="font-bold text-lg text-cyber-magenta-light">{balance?.toFixed(2) ?? "0.00"}</span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+      <div className="max-w-md mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBackToModeSelection}
+            className={cn(
+              "border-2",
+              isCyberpunk
+                ? "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50"
+                : "border-gray-300 hover:bg-gray-100",
+            )}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <Badge
+            variant="outline"
+            className={cn(
+              "flex items-center gap-1 font-mono",
+              isCyberpunk ? "bg-black/70 border-cyan-500 text-cyan-400" : "bg-yellow-100 text-black border-yellow-500",
+            )}
+          >
+            <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+            {mutbBalance.toFixed(2)} MUTB
+          </Badge>
         </div>
-        <div className="flex items-center gap-4">
-          <GlobalAudioControls />
-          <MultiWalletConnector onConnectionChange={onWalletChange} compact={true} />
-        </div>
-      </header>
-      <main className="flex-grow flex items-center justify-center overflow-hidden">{renderStage()}</main>
+
+        {/* Game Content */}
+        {selectedGame ? (
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackToSelection}
+                className={cn(
+                  "border-2",
+                  isCyberpunk
+                    ? "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50"
+                    : "border-gray-300 hover:bg-gray-100",
+                )}
+              >
+                Back to Games
+              </Button>
+            </div>
+
+            {selectedGame === "top-down-shooter" || selectedGame === "mutball-pool" ? (
+              <MatchmakingLobby
+                publicKey={publicKey}
+                playerName={getPlayerName()}
+                mutbBalance={mutbBalance}
+                onExit={handleBackToSelection}
+                selectedGame={selectedGame}
+              />
+            ) : selectedGame === "archer-arena" ? (
+              <div className="space-y-4">
+                <LastStandGameLauncher
+                  publicKey={publicKey}
+                  playerName={getPlayerName()}
+                  mutbBalance={mutbBalance}
+                  onExit={handleBackToSelection}
+                />
+              </div>
+            ) : (
+              <Card className={cn("arcade-card", isCyberpunk ? "bg-black/80 border-cyan-500/50" : "")}>
+                <CardContent className="p-8 flex flex-col items-center justify-center">
+                  <Gamepad2
+                    size={48}
+                    className={cn("mb-4", isCyberpunk ? "text-cyan-500" : "text-gray-700 dark:text-gray-400")}
+                  />
+                  <h2
+                    className={cn(
+                      "text-2xl font-bold font-mono text-center mb-2",
+                      isCyberpunk ? "text-cyan-400" : "dark:text-white",
+                    )}
+                  >
+                    COMING SOON
+                  </h2>
+                  <p
+                    className={cn(
+                      "text-center text-sm max-w-md mb-4",
+                      isCyberpunk ? "text-cyan-300/70" : "text-gray-700 dark:text-gray-300",
+                    )}
+                  >
+                    This game is currently in development and will be available soon!
+                  </p>
+                  <Button
+                    onClick={handleBackToSelection}
+                    className={cn(
+                      "font-mono",
+                      isCyberpunk
+                        ? "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border border-cyan-500"
+                        : "bg-yellow-500 hover:bg-yellow-600 text-black",
+                    )}
+                  >
+                    BACK TO GAMES
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : (
+          <div>
+            <Card className={cn("mb-6", isCyberpunk ? "bg-black/80 border-cyan-500/50" : "")}>
+              <CardHeader>
+                <CardTitle className={cn("font-mono text-center", isCyberpunk ? "text-cyan-400" : "dark:text-white")}>
+                  MOBILE GAMES
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p
+                  className={cn(
+                    "text-center text-sm",
+                    isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-300",
+                  )}
+                >
+                  Optimized gaming experience for mobile devices
+                </p>
+              </CardContent>
+            </Card>
+
+            <GameSelection
+              publicKey={publicKey}
+              balance={localBalance}
+              mutbBalance={mutbBalance}
+              onSelectGame={handleSelectGame}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

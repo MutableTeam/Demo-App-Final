@@ -2,172 +2,201 @@
 
 import type React from "react"
 
-import { useRef, useState, useEffect, useCallback } from "react"
-import { motion, useMotionValue } from "framer-motion"
-import { Zap, Shield } from "lucide-react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { cn } from "@/lib/utils"
 
-interface MobileTouchControlsProps {
-  onMovement: (x: number, y: number) => void
-  onBowDraw: (active: boolean, angle: number, power: number) => void
-  onDash: () => void
-  onSpecialAttack: () => void
-  canvasRef: React.RefObject<HTMLCanvasElement>
-  disabled?: boolean
+interface TouchControlsProps {
+  onMove: (direction: { x: number; y: number }) => void
+  onAction: (action: string) => void
+  className?: string
 }
 
-export default function MobileTouchControls({
-  onMovement,
-  onBowDraw,
-  onDash,
-  onSpecialAttack,
-  canvasRef,
-  disabled = false,
-}: MobileTouchControlsProps) {
-  const joystickTouchId = useRef<number | null>(null)
-  const joystickBase = useMotionValue({ x: 0, y: 0 })
-  const joystickKnob = useMotionValue({ x: 0, y: 0 })
-  const [showJoystick, setShowJoystick] = useState(false)
+export default function MobileTouchControls({ onMove, onAction, className }: TouchControlsProps) {
+  const joystickRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [joystickCenter, setJoystickCenter] = useState({ x: 0, y: 0 })
+  const [knobPosition, setKnobPosition] = useState({ x: 0, y: 0 })
 
-  const aimTouchId = useRef<number | null>(null)
-  const aimStartPos = useRef<{ x: number; y: number } | null>(null)
-  const [isAiming, setIsAiming] = useState(false)
-  const [aimPower, setAimPower] = useState(0)
-  const [aimAngle, setAimAngle] = useState(0)
+  const joystickRadius = 50
+  const knobRadius = 20
+
+  const updateJoystickCenter = useCallback(() => {
+    if (joystickRef.current) {
+      const rect = joystickRef.current.getBoundingClientRect()
+      setJoystickCenter({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    updateJoystickCenter()
+    window.addEventListener("resize", updateJoystickCenter)
+    return () => window.removeEventListener("resize", updateJoystickCenter)
+  }, [updateJoystickCenter])
 
   const handleTouchStart = useCallback(
-    (e: TouchEvent) => {
-      if (disabled) return
+    (e: React.TouchEvent) => {
       e.preventDefault()
-      for (const touch of Array.from(e.changedTouches)) {
-        const touchX = touch.clientX
-        const touchY = touch.clientY
-
-        if (touchX < window.innerWidth / 2 && joystickTouchId.current === null) {
-          joystickTouchId.current = touch.identifier
-          joystickBase.set({ x: touchX, y: touchY })
-          joystickKnob.set({ x: touchX, y: touchY })
-          setShowJoystick(true)
-        } else if (touchX >= window.innerWidth / 2 && aimTouchId.current === null) {
-          aimTouchId.current = touch.identifier
-          aimStartPos.current = { x: touchX, y: touchY }
-          setIsAiming(true)
-          onBowDraw(true, 0, 0)
-        }
-      }
+      setIsDragging(true)
+      updateJoystickCenter()
     },
-    [disabled, onBowDraw, joystickBase, joystickKnob],
+    [updateJoystickCenter],
   )
 
   const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (disabled) return
+    (e: React.TouchEvent) => {
+      if (!isDragging) return
       e.preventDefault()
-      for (const touch of Array.from(e.changedTouches)) {
-        if (touch.identifier === joystickTouchId.current) {
-          const basePos = joystickBase.get()
-          const dx = touch.clientX - basePos.x
-          const dy = touch.clientY - basePos.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          const maxDistance = 60
-          const clampedDistance = Math.min(distance, maxDistance)
-          const angle = Math.atan2(dy, dx)
 
-          const knobX = basePos.x + Math.cos(angle) * clampedDistance
-          const knobY = basePos.y + Math.sin(angle) * clampedDistance
-          joystickKnob.set({ x: knobX, y: knobY })
+      const touch = e.touches[0]
+      const deltaX = touch.clientX - joystickCenter.x
+      const deltaY = touch.clientY - joystickCenter.y
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-          const moveX = (Math.cos(angle) * clampedDistance) / maxDistance
-          const moveY = (Math.sin(angle) * clampedDistance) / maxDistance
-          onMovement(moveX, moveY)
-        } else if (touch.identifier === aimTouchId.current && aimStartPos.current) {
-          const dx = touch.clientX - aimStartPos.current.x
-          const dy = touch.clientY - aimStartPos.current.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          const power = Math.min(distance / 100, 1)
-          const angle = Math.atan2(dy, dx)
+      let newX = deltaX
+      let newY = deltaY
 
-          setAimPower(power)
-          setAimAngle(angle)
-          onBowDraw(true, angle, power)
-        }
+      if (distance > joystickRadius - knobRadius) {
+        const angle = Math.atan2(deltaY, deltaX)
+        newX = Math.cos(angle) * (joystickRadius - knobRadius)
+        newY = Math.sin(angle) * (joystickRadius - knobRadius)
       }
+
+      setKnobPosition({ x: newX, y: newY })
+
+      // Normalize the movement values
+      const normalizedX = newX / (joystickRadius - knobRadius)
+      const normalizedY = newY / (joystickRadius - knobRadius)
+
+      onMove({ x: normalizedX, y: normalizedY })
     },
-    [disabled, onMovement, onBowDraw, joystickBase, joystickKnob],
+    [isDragging, joystickCenter, onMove],
   )
 
   const handleTouchEnd = useCallback(
-    (e: TouchEvent) => {
-      if (disabled) return
+    (e: React.TouchEvent) => {
       e.preventDefault()
-      for (const touch of Array.from(e.changedTouches)) {
-        if (touch.identifier === joystickTouchId.current) {
-          joystickTouchId.current = null
-          setShowJoystick(false)
-          onMovement(0, 0)
-        } else if (touch.identifier === aimTouchId.current) {
-          aimTouchId.current = null
-          setIsAiming(false)
-          onBowDraw(false, aimAngle, aimPower)
-          setAimPower(0)
-          setAimAngle(0)
-        }
-      }
+      setIsDragging(false)
+      setKnobPosition({ x: 0, y: 0 })
+      onMove({ x: 0, y: 0 })
     },
-    [disabled, onMovement, onBowDraw, aimAngle, aimPower],
+    [onMove],
   )
 
+  const handleMouseStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      setIsDragging(true)
+      updateJoystickCenter()
+    },
+    [updateJoystickCenter],
+  )
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return
+      e.preventDefault()
+
+      const deltaX = e.clientX - joystickCenter.x
+      const deltaY = e.clientY - joystickCenter.y
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+      let newX = deltaX
+      let newY = deltaY
+
+      if (distance > joystickRadius - knobRadius) {
+        const angle = Math.atan2(deltaY, deltaX)
+        newX = Math.cos(angle) * (joystickRadius - knobRadius)
+        newY = Math.sin(angle) * (joystickRadius - knobRadius)
+      }
+
+      setKnobPosition({ x: newX, y: newY })
+
+      const normalizedX = newX / (joystickRadius - knobRadius)
+      const normalizedY = newY / (joystickRadius - knobRadius)
+
+      onMove({ x: normalizedX, y: normalizedY })
+    },
+    [isDragging, joystickCenter, onMove],
+  )
+
+  const handleMouseEnd = useCallback(() => {
+    setIsDragging(false)
+    setKnobPosition({ x: 0, y: 0 })
+    onMove({ x: 0, y: 0 })
+  }, [onMove])
+
   useEffect(() => {
-    const element = document.body
-
-    element.addEventListener("touchstart", handleTouchStart, { passive: false })
-    element.addEventListener("touchmove", handleTouchMove, { passive: false })
-    element.addEventListener("touchend", handleTouchEnd, { passive: false })
-    element.addEventListener("touchcancel", handleTouchEnd, { passive: false })
-
-    return () => {
-      element.removeEventListener("touchstart", handleTouchStart)
-      element.removeEventListener("touchmove", handleTouchMove)
-      element.removeEventListener("touchend", handleTouchEnd)
-      element.removeEventListener("touchcancel", handleTouchEnd)
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseEnd)
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseEnd)
+      }
     }
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd])
-
-  const joystickBasePos = joystickBase.get()
-  const joystickKnobPos = joystickKnob.get()
+  }, [isDragging, handleMouseMove, handleMouseEnd])
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-50">
-      {showJoystick && (
+    <div
+      className={cn("fixed bottom-4 left-0 right-0 flex justify-between items-end px-4 pointer-events-none", className)}
+    >
+      {/* Virtual Joystick */}
+      <div className="pointer-events-auto">
         <div
-          className="absolute"
-          style={{ left: joystickBasePos.x, top: joystickBasePos.y, transform: "translate(-50%, -50%)" }}
+          ref={joystickRef}
+          className="relative w-24 h-24 bg-black/30 border-2 border-white/50 rounded-full flex items-center justify-center"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseStart}
         >
-          <div className="w-32 h-32 bg-white/10 rounded-full border-2 border-white/20" />
-          <motion.div
-            className="absolute w-16 h-16 bg-white/30 rounded-full border-2 border-white/50 top-1/2 left-1/2"
+          <div
+            ref={knobRef}
+            className="absolute w-10 h-10 bg-white/80 rounded-full shadow-lg transition-transform"
             style={{
-              x: joystickKnobPos.x - joystickBasePos.x - 32,
-              y: joystickKnobPos.y - joystickBasePos.y - 32,
+              transform: `translate(${knobPosition.x}px, ${knobPosition.y}px)`,
             }}
           />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-2 h-2 bg-white/60 rounded-full" />
+          </div>
         </div>
-      )}
+        <div className="text-center mt-2 text-white/70 text-xs font-mono">MOVE</div>
+      </div>
 
-      <div className="absolute bottom-6 right-6 flex flex-col items-center gap-4 pointer-events-auto">
+      {/* Action Buttons */}
+      <div className="pointer-events-auto flex flex-col gap-3">
         <button
-          onTouchStart={onDash}
-          disabled={disabled}
-          className="w-20 h-20 rounded-full bg-cyber-blue/50 text-white font-bold border-2 border-cyber-blue-light active:bg-cyber-blue flex items-center justify-center"
+          className="w-16 h-16 bg-red-600/80 border-2 border-white/50 rounded-full flex items-center justify-center text-white font-bold shadow-lg active:scale-95 transition-transform"
+          onTouchStart={(e) => {
+            e.preventDefault()
+            onAction("shoot")
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault()
+            onAction("shoot")
+          }}
         >
-          <Shield size={32} />
+          🏹
         </button>
         <button
-          onTouchStart={onSpecialAttack}
-          disabled={disabled}
-          className="w-24 h-24 rounded-full bg-cyber-magenta/50 text-white font-bold border-2 border-cyber-magenta-light active:bg-cyber-magenta flex items-center justify-center"
+          className="w-14 h-14 bg-blue-600/80 border-2 border-white/50 rounded-full flex items-center justify-center text-white font-bold shadow-lg active:scale-95 transition-transform"
+          onTouchStart={(e) => {
+            e.preventDefault()
+            onAction("special")
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault()
+            onAction("special")
+          }}
         >
-          <Zap size={40} />
+          ⚡
         </button>
+        <div className="text-center mt-1 text-white/70 text-xs font-mono">ACTION</div>
       </div>
     </div>
   )
