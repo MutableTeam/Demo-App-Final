@@ -1,11 +1,15 @@
 "use client"
 
 import { CardFooter } from "@/components/ui/card"
-
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Copy, Wallet, TestTube, ChevronUp, ChevronDown } from "lucide-react"
+import { Connection, clusterApiUrl } from "@solana/web3.js"
+import Image from "next/image"
+import SoundButton from "./sound-button"
+import { LOGOS } from "@/utils/image-paths"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Dialog,
@@ -22,15 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Wallet, Copy, ExternalLink, LogOut, ChevronDown } from "lucide-react"
-import { toast } from "sonner"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { keyframes } from "@emotion/react"
 import styled from "@emotion/styled"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import { Connection, clusterApiUrl } from "@solana/web3.js"
-import Image from "next/image"
-import SoundButton from "./sound-button"
-import { LOGOS } from "@/utils/image-paths"
+import { toast } from "react-toastify"
 
 const pulse = keyframes`
   0% {
@@ -401,12 +400,12 @@ export function MultiWalletConnector({ onConnect, onDisconnect, className }: Mul
             Copy Address
           </DropdownMenuItem>
           <DropdownMenuItem>
-            <ExternalLink className="mr-2 h-4 w-4" />
+            <TestTube className="mr-2 h-4 w-4" />
             View on Explorer
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={disconnectWallet} className="text-destructive">
-            <LogOut className="mr-2 h-4 w-4" />
+            <ChevronUp className="mr-2 h-4 w-4" />
             Disconnect
           </DropdownMenuItem>
         </DropdownMenuContent>
