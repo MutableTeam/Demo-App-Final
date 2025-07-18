@@ -5,6 +5,7 @@ import MutablePlatform from "@/components/mutable-platform"
 import MultiWalletConnector from "@/components/multi-wallet-connector"
 import { DemoWatermark } from "@/components/demo-watermark"
 import { GlobalAudioControls } from "@/components/global-audio-controls"
+import { SignUpBanner } from "@/components/signup-banner" // Corrected import
 
 export default function HomePage() {
   const [isWalletConnected, setIsWalletConnected] = useState(false)
@@ -40,6 +41,7 @@ export default function HomePage() {
       <MutablePlatform publicKey={publicKey} balance={balance} provider={provider} connection={null} />
       <DemoWatermark />
       <GlobalAudioControls />
+      <SignUpBanner walletConnected={isWalletConnected} /> {/* Added SignUpBanner */}
     </>
   )
 }
