@@ -14,7 +14,7 @@ interface MobileNavigationProps {
 type TabType = "home" | "games" | "wallet" | "profile" | "settings"
 
 export function MobileNavigation({ className }: MobileNavigationProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("home")
+  const [activeTab, setActiveTab] = useState<TabType>("games") // Default to games tab
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isMobile = useIsMobile()
 
@@ -37,28 +37,28 @@ export function MobileNavigation({ className }: MobileNavigationProps) {
         return <MobileGameTab />
       case "home":
         return (
-          <div className="p-4 text-center">
+          <div className="p-4 text-center bg-[#1a1a2e] h-full">
             <h2 className="text-xl font-bold text-white mb-4">Welcome to Mutable</h2>
             <p className="text-gray-400">Your Web3 Gaming Platform</p>
           </div>
         )
       case "wallet":
         return (
-          <div className="p-4 text-center">
+          <div className="p-4 text-center bg-[#1a1a2e] h-full">
             <h2 className="text-xl font-bold text-white mb-4">Wallet</h2>
             <p className="text-gray-400">Connect your wallet to get started</p>
           </div>
         )
       case "profile":
         return (
-          <div className="p-4 text-center">
+          <div className="p-4 text-center bg-[#1a1a2e] h-full">
             <h2 className="text-xl font-bold text-white mb-4">Profile</h2>
             <p className="text-gray-400">Manage your gaming profile</p>
           </div>
         )
       case "settings":
         return (
-          <div className="p-4 text-center">
+          <div className="p-4 text-center bg-[#1a1a2e] h-full">
             <h2 className="text-xl font-bold text-white mb-4">Settings</h2>
             <p className="text-gray-400">Configure your preferences</p>
           </div>
@@ -69,9 +69,9 @@ export function MobileNavigation({ className }: MobileNavigationProps) {
   }
 
   return (
-    <div className={cn("flex flex-col h-screen bg-black", className)}>
+    <div className={cn("flex flex-col h-screen bg-[#0f0f23]", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800">
+      <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-[#1a1a2e]">
         <h1 className="text-lg font-bold text-white">Mutable</h1>
         <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white">
           {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -82,7 +82,7 @@ export function MobileNavigation({ className }: MobileNavigationProps) {
       <div className="flex-1 overflow-hidden">{renderTabContent()}</div>
 
       {/* Bottom Navigation */}
-      <div className="border-t border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+      <div className="border-t border-gray-800 bg-[#1a1a2e] backdrop-blur-sm">
         <div className="flex items-center justify-around py-2">
           {tabs.map((tab) => {
             const Icon = tab.icon
@@ -108,7 +108,7 @@ export function MobileNavigation({ className }: MobileNavigationProps) {
       {/* Slide-out Menu */}
       {isMenuOpen && (
         <div className="absolute inset-0 bg-black/80 z-50">
-          <div className="absolute right-0 top-0 h-full w-64 bg-gray-900 border-l border-gray-800 p-4">
+          <div className="absolute right-0 top-0 h-full w-64 bg-[#1a1a2e] border-l border-gray-800 p-4">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-white">Menu</h2>
               <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)} className="text-white">

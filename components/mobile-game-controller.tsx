@@ -2,47 +2,23 @@
 
 import type React from "react"
 
-import { useRef, useEffect, useState, useCallback } from "react"
-import { useIsMobile } from "@/components/ui/use-mobile"
-
-interface TouchPoint {
-  id: number
-  x: number
-  y: number
-  startX: number
-  startY: number
-  timestamp: number
-}
-
-interface JoystickState {
-  active: boolean
-  centerX: number
-  centerY: number
-  currentX: number
-  currentY: number
-  deltaX: number
-  deltaY: number
-  distance: number
-  angle: number
-}
-
-interface ActionState {
-  active: boolean
-  startX: number
-  startY: number
-  currentX: number
-  currentY: number
-  distance: number
-  angle: number
-  power: number
-}
+import { useEffect, useRef, useState, useCallback } from "react"
+import { cn } from "@/lib/utils"
 
 interface MobileGameControllerProps {
   onMovement: (deltaX: number, deltaY: number) => void
   onAction: (active: boolean, angle: number, power: number) => void
   onSpecialAction: (type: "dash" | "special") => void
-  containerRef: React.RefObject<HTMLElement>
+  containerRef: React.RefObject<HTMLDivElement>
   disabled?: boolean
+}
+
+interface JoystickData {
+  x: number
+  y: number
+  angle: number
+  force: number
+  active: boolean
 }
 
 export function MobileGameController({
@@ -52,402 +28,286 @@ export function MobileGameController({
   containerRef,
   disabled = false,
 }: MobileGameControllerProps) {
-  const isMobile = useIsMobile()
-  const touchesRef = useRef<Map<number, TouchPoint>>(new Map())
-  const joystickRef = useRef<JoystickState>({
-    active: false,
-    centerX: 0,
-    centerY: 0,
-    currentX: 0,
-    currentY: 0,
-    deltaX: 0,
-    deltaY: 0,
-    distance: 0,
+  const joystickRef = useRef<HTMLDivElement>(null)
+  const actionAreaRef = useRef<HTMLDivElement>(null)
+  const [joystickData, setJoystickData] = useState<JoystickData>({
+    x: 0,
+    y: 0,
     angle: 0,
-  })
-  const actionRef = useRef<ActionState>({
+    force: 0,
     active: false,
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
-    distance: 0,
+  })
+  const [actionData, setActionData] = useState({
+    active: false,
     angle: 0,
     power: 0,
   })
 
-  const [joystickVisible, setJoystickVisible] = useState(false)
-  const [actionVisible, setActionVisible] = useState(false)
-  const [scale, setScale] = useState(1)
+  // Joystick handling
+  const handleJoystickStart = useCallback(
+    (clientX: number, clientY: number) => {
+      if (disabled || !joystickRef.current) return
 
-  // Constants for touch controls
-  const JOYSTICK_MAX_DISTANCE = 80
-  const ACTION_MAX_DISTANCE = 120
-  const TOUCH_DEAD_ZONE = 15
-  const DOUBLE_TAP_TIME = 300
-  const LONG_PRESS_TIME = 500
+      const rect = joystickRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
 
-  // Calculate responsive scale
-  const calculateScale = useCallback(() => {
-    if (!containerRef.current) return 1
-
-    const container = containerRef.current
-    const containerWidth = container.clientWidth
-    const containerHeight = container.clientHeight
-    const baseWidth = 800
-    const baseHeight = 600
-
-    const scaleX = containerWidth / baseWidth
-    const scaleY = containerHeight / baseHeight
-    return Math.min(scaleX, scaleY, 1)
-  }, [containerRef])
-
-  // Update scale on resize
-  useEffect(() => {
-    const updateScale = () => {
-      setScale(calculateScale())
-    }
-
-    updateScale()
-    window.addEventListener("resize", updateScale)
-    window.addEventListener("orientationchange", updateScale)
-
-    return () => {
-      window.removeEventListener("resize", updateScale)
-      window.removeEventListener("orientationchange", updateScale)
-    }
-  }, [calculateScale])
-
-  // Convert screen coordinates to game coordinates
-  const screenToGameCoords = useCallback(
-    (screenX: number, screenY: number) => {
-      if (!containerRef.current) return { x: screenX, y: screenY }
-
-      const container = containerRef.current
-      const rect = container.getBoundingClientRect()
-
-      const gameX = (screenX - rect.left) / scale
-      const gameY = (screenY - rect.top) / scale
-
-      return { x: gameX, y: gameY }
-    },
-    [scale, containerRef],
-  )
-
-  // Update joystick state
-  const updateJoystick = useCallback(
-    (touch: TouchPoint) => {
-      const joystick = joystickRef.current
-
-      if (!joystick.active) {
-        joystick.active = true
-        joystick.centerX = touch.startX
-        joystick.centerY = touch.startY
-        joystick.currentX = touch.x
-        joystick.currentY = touch.y
-        setJoystickVisible(true)
-      } else {
-        joystick.currentX = touch.x
-        joystick.currentY = touch.y
-      }
-
-      // Calculate delta and constrain to max distance
-      const deltaX = joystick.currentX - joystick.centerX
-      const deltaY = joystick.currentY - joystick.centerY
+      const deltaX = clientX - centerX
+      const deltaY = clientY - centerY
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = rect.width / 2 - 10 // Account for knob size
 
-      if (distance > JOYSTICK_MAX_DISTANCE) {
-        const angle = Math.atan2(deltaY, deltaX)
-        joystick.currentX = joystick.centerX + Math.cos(angle) * JOYSTICK_MAX_DISTANCE
-        joystick.currentY = joystick.centerY + Math.sin(angle) * JOYSTICK_MAX_DISTANCE
-        joystick.distance = JOYSTICK_MAX_DISTANCE
-      } else {
-        joystick.distance = distance
+      const force = Math.min(distance / maxDistance, 1)
+      const angle = Math.atan2(deltaY, deltaX)
+
+      const normalizedX = Math.cos(angle) * force
+      const normalizedY = Math.sin(angle) * force
+
+      const newData = {
+        x: normalizedX,
+        y: normalizedY,
+        angle,
+        force,
+        active: true,
       }
 
-      joystick.deltaX = joystick.currentX - joystick.centerX
-      joystick.deltaY = joystick.currentY - joystick.centerY
-      joystick.angle = Math.atan2(joystick.deltaY, joystick.deltaX)
-
-      // Normalize movement values (-1 to 1)
-      const normalizedX = joystick.deltaX / JOYSTICK_MAX_DISTANCE
-      const normalizedY = joystick.deltaY / JOYSTICK_MAX_DISTANCE
-
-      // Apply dead zone
-      if (joystick.distance > TOUCH_DEAD_ZONE) {
-        onMovement(normalizedX, normalizedY)
-      } else {
-        onMovement(0, 0)
-      }
+      setJoystickData(newData)
+      onMovement(normalizedX, normalizedY)
     },
-    [onMovement],
+    [disabled, onMovement],
   )
 
-  // Update action state
-  const updateAction = useCallback(
-    (touch: TouchPoint) => {
-      const action = actionRef.current
-
-      if (!action.active) {
-        action.active = true
-        action.startX = touch.startX
-        action.startY = touch.startY
-        action.currentX = touch.x
-        action.currentY = touch.y
-        setActionVisible(true)
-      } else {
-        action.currentX = touch.x
-        action.currentY = touch.y
-      }
-
-      // Calculate distance and angle
-      const deltaX = action.currentX - action.startX
-      const deltaY = action.currentY - action.startY
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-
-      action.distance = Math.min(distance, ACTION_MAX_DISTANCE)
-      action.angle = Math.atan2(-deltaY, -deltaX) // Opposite direction
-      action.power = Math.min(action.distance / ACTION_MAX_DISTANCE, 1)
-
-      // Only activate if minimum distance is reached
-      if (action.distance > TOUCH_DEAD_ZONE) {
-        onAction(true, action.angle, action.power)
-      }
-    },
-    [onAction],
-  )
-
-  // Reset joystick
-  const resetJoystick = useCallback(() => {
-    joystickRef.current.active = false
-    setJoystickVisible(false)
+  const handleJoystickEnd = useCallback(() => {
+    const newData = {
+      x: 0,
+      y: 0,
+      angle: 0,
+      force: 0,
+      active: false,
+    }
+    setJoystickData(newData)
     onMovement(0, 0)
   }, [onMovement])
 
-  // Reset action
-  const resetAction = useCallback(() => {
-    const action = actionRef.current
-    if (action.active && action.distance > TOUCH_DEAD_ZONE) {
-      onAction(false, action.angle, action.power)
-    }
-    action.active = false
-    setActionVisible(false)
-  }, [onAction])
+  // Action area handling (bow aiming)
+  const handleActionStart = useCallback(
+    (clientX: number, clientY: number) => {
+      if (disabled || !actionAreaRef.current) return
 
-  // Handle touch start
-  const handleTouchStart = useCallback(
-    (e: TouchEvent) => {
-      if (disabled || !isMobile) return
+      const rect = actionAreaRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
 
-      e.preventDefault()
+      const deltaX = clientX - centerX
+      const deltaY = clientY - centerY
+      const angle = Math.atan2(deltaY, deltaX)
 
-      Array.from(e.changedTouches).forEach((touch) => {
-        const gameCoords = screenToGameCoords(touch.clientX, touch.clientY)
-        const touchPoint: TouchPoint = {
-          id: touch.identifier,
-          x: gameCoords.x,
-          y: gameCoords.y,
-          startX: gameCoords.x,
-          startY: gameCoords.y,
-          timestamp: Date.now(),
-        }
+      const newData = {
+        active: true,
+        angle,
+        power: 0.1, // Start with minimum power
+      }
 
-        touchesRef.current.set(touch.identifier, touchPoint)
-
-        // Determine touch zone
-        const screenWidth = window.innerWidth
-        if (touch.clientX < screenWidth * 0.4) {
-          // Left side - movement joystick
-          updateJoystick(touchPoint)
-        } else if (touch.clientX > screenWidth * 0.6) {
-          // Right side - action
-          updateAction(touchPoint)
-        }
-      })
+      setActionData(newData)
+      onAction(true, angle, 0.1)
     },
-    [disabled, isMobile, screenToGameCoords, updateJoystick, updateAction],
+    [disabled, onAction],
   )
 
-  // Handle touch move
-  const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (disabled || !isMobile) return
+  const handleActionMove = useCallback(
+    (clientX: number, clientY: number) => {
+      if (disabled || !actionData.active || !actionAreaRef.current) return
 
-      e.preventDefault()
+      const rect = actionAreaRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
 
-      Array.from(e.changedTouches).forEach((touch) => {
-        const existingTouch = touchesRef.current.get(touch.identifier)
-        if (!existingTouch) return
+      const deltaX = clientX - centerX
+      const deltaY = clientY - centerY
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = Math.min(rect.width, rect.height) / 2
 
-        const gameCoords = screenToGameCoords(touch.clientX, touch.clientY)
-        const updatedTouch: TouchPoint = {
-          ...existingTouch,
-          x: gameCoords.x,
-          y: gameCoords.y,
-        }
+      const power = Math.min(distance / maxDistance, 1)
+      const angle = Math.atan2(deltaY, deltaX)
 
-        touchesRef.current.set(touch.identifier, updatedTouch)
+      const newData = {
+        ...actionData,
+        angle,
+        power: Math.max(power, 0.1),
+      }
 
-        // Update appropriate control
-        const screenWidth = window.innerWidth
-        if (existingTouch.startX < (screenWidth * 0.4) / scale) {
-          updateJoystick(updatedTouch)
-        } else if (existingTouch.startX > (screenWidth * 0.6) / scale) {
-          updateAction(updatedTouch)
-        }
-      })
+      setActionData(newData)
+      onAction(true, angle, newData.power)
     },
-    [disabled, isMobile, screenToGameCoords, updateJoystick, updateAction, scale],
+    [disabled, actionData, onAction],
   )
 
-  // Handle touch end
-  const handleTouchEnd = useCallback(
-    (e: TouchEvent) => {
-      if (disabled || !isMobile) return
+  const handleActionEnd = useCallback(() => {
+    if (!actionData.active) return
 
-      e.preventDefault()
+    onAction(false, actionData.angle, actionData.power)
+    setActionData({
+      active: false,
+      angle: 0,
+      power: 0,
+    })
+  }, [actionData, onAction])
 
-      Array.from(e.changedTouches).forEach((touch) => {
-        const existingTouch = touchesRef.current.get(touch.identifier)
-        if (!existingTouch) return
-
-        const touchDuration = Date.now() - existingTouch.timestamp
-        const screenWidth = window.innerWidth
-
-        // Check for special gestures
-        if (touchDuration < DOUBLE_TAP_TIME) {
-          // Quick tap - special actions
-          if (existingTouch.startX < (screenWidth * 0.3) / scale) {
-            onSpecialAction("dash")
-          } else if (existingTouch.startX > (screenWidth * 0.7) / scale) {
-            onSpecialAction("special")
-          }
-        }
-
-        // Reset appropriate control
-        if (existingTouch.startX < (screenWidth * 0.4) / scale) {
-          resetJoystick()
-        } else if (existingTouch.startX > (screenWidth * 0.6) / scale) {
-          resetAction()
-        }
-
-        touchesRef.current.delete(touch.identifier)
-      })
-    },
-    [disabled, isMobile, onSpecialAction, resetJoystick, resetAction, scale],
-  )
-
-  // Set up touch event listeners
+  // Touch event handlers
   useEffect(() => {
-    if (!isMobile || !containerRef.current) return
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const target = e.target as HTMLElement
+
+      if (target.closest(".joystick-area")) {
+        handleJoystickStart(touch.clientX, touch.clientY)
+      } else if (target.closest(".action-area")) {
+        handleActionStart(touch.clientX, touch.clientY)
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const target = e.target as HTMLElement
+
+      if (joystickData.active && target.closest(".joystick-area")) {
+        handleJoystickStart(touch.clientX, touch.clientY)
+      } else if (actionData.active) {
+        handleActionMove(touch.clientX, touch.clientY)
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault()
+      const target = e.target as HTMLElement
+
+      if (target.closest(".joystick-area")) {
+        handleJoystickEnd()
+      } else if (target.closest(".action-area")) {
+        handleActionEnd()
+      }
+    }
 
     const container = containerRef.current
-
-    container.addEventListener("touchstart", handleTouchStart, { passive: false })
-    container.addEventListener("touchmove", handleTouchMove, { passive: false })
-    container.addEventListener("touchend", handleTouchEnd, { passive: false })
-    container.addEventListener("touchcancel", handleTouchEnd, { passive: false })
+    if (container) {
+      container.addEventListener("touchstart", handleTouchStart, { passive: false })
+      container.addEventListener("touchmove", handleTouchMove, { passive: false })
+      container.addEventListener("touchend", handleTouchEnd, { passive: false })
+      container.addEventListener("touchcancel", handleTouchEnd, { passive: false })
+    }
 
     return () => {
-      container.removeEventListener("touchstart", handleTouchStart)
-      container.removeEventListener("touchmove", handleTouchMove)
-      container.removeEventListener("touchend", handleTouchEnd)
-      container.removeEventListener("touchcancel", handleTouchEnd)
+      if (container) {
+        container.removeEventListener("touchstart", handleTouchStart)
+        container.removeEventListener("touchmove", handleTouchMove)
+        container.removeEventListener("touchend", handleTouchEnd)
+        container.removeEventListener("touchcancel", handleTouchEnd)
+      }
     }
-  }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd, containerRef])
+  }, [
+    containerRef,
+    joystickData.active,
+    actionData.active,
+    handleJoystickStart,
+    handleJoystickEnd,
+    handleActionStart,
+    handleActionMove,
+    handleActionEnd,
+  ])
 
-  // Render touch control overlays
-  if (!isMobile || disabled) return null
+  if (disabled) return null
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-20">
+    <div className="absolute inset-0 pointer-events-none z-40">
       {/* Movement Joystick */}
-      {joystickVisible && (
+      <div className="absolute bottom-4 left-4 pointer-events-auto joystick-area">
         <div
-          className="absolute pointer-events-none"
-          style={{
-            left: `${joystickRef.current.centerX * scale - 40}px`,
-            top: `${joystickRef.current.centerY * scale - 40}px`,
-            width: "80px",
-            height: "80px",
-          }}
+          ref={joystickRef}
+          className="relative w-24 h-24 bg-white/10 rounded-full border-2 border-white/30 backdrop-blur-sm"
         >
-          {/* Joystick base */}
-          <div className="absolute inset-0 rounded-full border-2 border-white/40 bg-black/30 backdrop-blur-sm" />
-
-          {/* Joystick knob */}
           <div
-            className="absolute w-8 h-8 rounded-full bg-white/80 border-2 border-white/90 transition-transform shadow-lg"
+            className={cn(
+              "absolute w-8 h-8 bg-white/80 rounded-full transition-all duration-75",
+              "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
+              joystickData.active && "bg-cyan-400",
+            )}
             style={{
-              left: `${(joystickRef.current.deltaX / JOYSTICK_MAX_DISTANCE) * 20 + 36}px`,
-              top: `${(joystickRef.current.deltaY / JOYSTICK_MAX_DISTANCE) * 20 + 36}px`,
+              transform: `translate(-50%, -50%) translate(${joystickData.x * 32}px, ${joystickData.y * 32}px)`,
             }}
           />
+          <div className="absolute bottom-[-24px] left-1/2 transform -translate-x-1/2 text-white/60 text-xs font-mono">
+            MOVE
+          </div>
         </div>
-      )}
-
-      {/* Action Indicator */}
-      {actionVisible && (
-        <div className="absolute pointer-events-none">
-          {/* Draw line */}
-          <svg
-            className="absolute"
-            style={{
-              left: 0,
-              top: 0,
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            <line
-              x1={actionRef.current.startX * scale}
-              y1={actionRef.current.startY * scale}
-              x2={actionRef.current.currentX * scale}
-              y2={actionRef.current.currentY * scale}
-              stroke="rgba(255, 255, 255, 0.8)"
-              strokeWidth="3"
-              strokeDasharray="8,4"
-            />
-
-            {/* Trajectory preview */}
-            <line
-              x1={actionRef.current.startX * scale}
-              y1={actionRef.current.startY * scale}
-              x2={
-                (actionRef.current.startX + Math.cos(actionRef.current.angle) * 120 * actionRef.current.power) * scale
-              }
-              y2={
-                (actionRef.current.startY + Math.sin(actionRef.current.angle) * 120 * actionRef.current.power) * scale
-              }
-              stroke="rgba(255, 204, 51, 0.7)"
-              strokeWidth="4"
-            />
-          </svg>
-
-          {/* Power indicator */}
-          <div
-            className="absolute bg-yellow-400 rounded-full shadow-lg"
-            style={{
-              left: `${actionRef.current.startX * scale - 6}px`,
-              top: `${actionRef.current.startY * scale - 6}px`,
-              width: `${12 + actionRef.current.power * 24}px`,
-              height: `${12 + actionRef.current.power * 24}px`,
-              opacity: 0.8,
-            }}
-          />
-        </div>
-      )}
-
-      {/* Control hints */}
-      <div className="absolute bottom-4 left-4 right-4 flex justify-between pointer-events-none">
-        <div className="bg-black/60 text-white text-xs px-3 py-2 rounded-full backdrop-blur-sm">Left: Move</div>
-        <div className="bg-black/60 text-white text-xs px-3 py-2 rounded-full backdrop-blur-sm">Right: Aim & Fire</div>
       </div>
 
-      {/* Special action hints */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between pointer-events-none">
-        <div className="bg-black/60 text-white text-xs px-3 py-2 rounded-full backdrop-blur-sm">Quick Tap: Dash</div>
-        <div className="bg-black/60 text-white text-xs px-3 py-2 rounded-full backdrop-blur-sm">Quick Tap: Special</div>
+      {/* Action Area (Bow Aiming) */}
+      <div className="absolute bottom-4 right-4 pointer-events-auto action-area">
+        <div
+          ref={actionAreaRef}
+          className="relative w-32 h-32 bg-red-500/10 rounded-full border-2 border-red-500/30 backdrop-blur-sm"
+        >
+          {actionData.active && (
+            <>
+              {/* Aim line */}
+              <div
+                className="absolute top-1/2 left-1/2 w-16 h-0.5 bg-red-400 origin-left"
+                style={{
+                  transform: `translate(-50%, -50%) rotate(${actionData.angle}rad)`,
+                }}
+              />
+              {/* Power indicator */}
+              <div
+                className="absolute top-1/2 left-1/2 w-4 h-4 bg-red-400 rounded-full"
+                style={{
+                  transform: `translate(-50%, -50%) translate(${Math.cos(actionData.angle) * actionData.power * 48}px, ${Math.sin(actionData.angle) * actionData.power * 48}px)`,
+                }}
+              />
+            </>
+          )}
+          <div className="absolute bottom-[-24px] left-1/2 transform -translate-x-1/2 text-white/60 text-xs font-mono">
+            AIM & SHOOT
+          </div>
+        </div>
+      </div>
+
+      {/* Special Action Buttons */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto">
+        <button
+          className="w-12 h-12 bg-purple-600/80 hover:bg-purple-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg backdrop-blur-sm border border-purple-400/30"
+          onTouchStart={(e) => {
+            e.preventDefault()
+            onSpecialAction("special")
+          }}
+          onClick={(e) => {
+            e.preventDefault()
+            onSpecialAction("special")
+          }}
+        >
+          ⚡
+        </button>
+        <button
+          className="w-12 h-12 bg-blue-600/80 hover:bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg backdrop-blur-sm border border-blue-400/30"
+          onTouchStart={(e) => {
+            e.preventDefault()
+            onSpecialAction("dash")
+          }}
+          onClick={(e) => {
+            e.preventDefault()
+            onSpecialAction("dash")
+          }}
+        >
+          💨
+        </button>
+      </div>
+
+      {/* Control Instructions */}
+      <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm rounded-lg p-2 text-white/80 text-xs font-mono pointer-events-none">
+        <div>Left: Move</div>
+        <div>Right: Aim & Shoot</div>
+        <div>Top Right: Special Actions</div>
       </div>
     </div>
   )
