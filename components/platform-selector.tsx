@@ -17,15 +17,27 @@ interface PlatformSelectorProps {
 
 export default function PlatformSelector({ onPlatformSelected }: PlatformSelectorProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
   const { setPlatform } = usePlatform()
   const { styleMode } = useCyberpunkTheme()
 
   const isCyberpunk = styleMode === "cyberpunk"
 
-  const handlePlatformSelect = (platform: PlatformType) => {
+  const handlePlatformSelect = async (platform: PlatformType) => {
+    if (isProcessing) return
+
+    console.log(`User selected platform: ${platform}`)
     setSelectedPlatform(platform)
+    setIsProcessing(true)
+
+    // Set platform in context
     setPlatform(platform)
-    onPlatformSelected(platform)
+
+    // Small delay for visual feedback
+    setTimeout(() => {
+      onPlatformSelected(platform)
+      setIsProcessing(false)
+    }, 800)
   }
 
   const platforms = [
@@ -91,6 +103,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
               className={cn(
                 "relative overflow-hidden transition-all duration-300 hover:scale-105 cursor-pointer group",
                 "min-h-[400px] border-2",
+                isProcessing && "pointer-events-none opacity-75",
                 isCyberpunk
                   ? [
                       "bg-gradient-to-br from-slate-900/90 to-purple-900/90",
@@ -225,8 +238,14 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                     e.stopPropagation()
                     handlePlatformSelect(platform.type)
                   }}
+                  disabled={isProcessing}
                 >
-                  {isSelected ? (
+                  {isSelected && isProcessing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
+                      Loading...
+                    </>
+                  ) : isSelected ? (
                     <>
                       <Gamepad2 className="mr-3 h-6 w-6" />
                       Selected - Continue

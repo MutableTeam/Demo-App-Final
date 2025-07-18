@@ -24,21 +24,22 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
       setPlatformType(savedPlatform as PlatformType)
       setIsSelected(true)
+      console.log(`Loaded platform from storage: ${savedPlatform}`)
     }
   }, [])
 
   const setPlatform = (platform: PlatformType) => {
+    console.log(`Setting platform to: ${platform}`)
     setPlatformType(platform)
     setIsSelected(true)
     localStorage.setItem("mutable-platform", platform)
-    console.log(`Platform set to: ${platform}`)
   }
 
   const resetPlatform = () => {
+    console.log("Resetting platform")
     setPlatformType(null)
     setIsSelected(false)
     localStorage.removeItem("mutable-platform")
-    console.log("Platform reset")
   }
 
   return (

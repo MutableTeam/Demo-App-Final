@@ -22,7 +22,6 @@ import type { PlatformType } from "@/contexts/platform-context"
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
 function HomeContent() {
-  const [showPlatform, setShowPlatform] = useState(false)
   const [walletConnected, setWalletConnected] = useState(false)
   const [publicKey, setPublicKey] = useState("")
   const [balance, setBalance] = useState<number | null>(null)
@@ -53,23 +52,21 @@ function HomeContent() {
 
     // If wallet is disconnected, reset platform selection and go back to platform selector
     if (!connected) {
-      setShowPlatform(false)
       resetPlatform()
     }
   }
 
   const handlePlatformSelected = (platform: PlatformType) => {
-    // Small delay to show selection feedback
-    setTimeout(() => {
-      setShowPlatform(true)
-    }, 500)
+    console.log("Platform selected:", platform)
+    // Platform is already set in context by the PlatformSelector
+    // No need to do anything else here, the component will re-render
   }
 
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
-  // Show platform selector if platform not selected or showPlatform is false
-  if (!isPlatformSelected || !showPlatform) {
+  // Show platform selector if platform not selected
+  if (!isPlatformSelected) {
     return (
       <main className="min-h-screen bg-background relative">
         <PromoWatermark />
@@ -88,6 +85,7 @@ function HomeContent() {
     )
   }
 
+  // Show main platform with wallet connector
   return (
     <main className="min-h-screen bg-background relative">
       {/* PromoWatermark positioned at top left */}
