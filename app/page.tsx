@@ -7,6 +7,7 @@ import PromoWatermark from "@/components/promo-watermark"
 import GlobalAudioControls from "@/components/global-audio-controls"
 import DebugOverlay from "@/components/debug-overlay"
 import PlatformSelector from "@/components/platform-selector"
+import PlatformIndicator from "@/components/platform-indicator"
 import { registerGames } from "@/games/registry"
 import MutablePlatform from "@/components/mutable-platform"
 import RetroArcadeBackground from "@/components/retro-arcade-background"
@@ -67,7 +68,8 @@ function HomeContent() {
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
-  if (!showPlatform) {
+  // Show platform selector if platform not selected or showPlatform is false
+  if (!isPlatformSelected || !showPlatform) {
     return (
       <main className="min-h-screen bg-background relative">
         <PromoWatermark />
@@ -110,6 +112,9 @@ function HomeContent() {
       <div className={`fixed ${walletConnected ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90]`}>
         <GlobalAudioControls />
       </div>
+
+      {/* Platform indicator widget */}
+      <PlatformIndicator />
 
       <RetroArcadeBackground>
         <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">

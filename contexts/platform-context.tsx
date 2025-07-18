@@ -31,12 +31,14 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     setPlatformType(platform)
     setIsSelected(true)
     localStorage.setItem("mutable-platform", platform)
+    console.log(`Platform set to: ${platform}`)
   }
 
   const resetPlatform = () => {
     setPlatformType(null)
     setIsSelected(false)
     localStorage.removeItem("mutable-platform")
+    console.log("Platform reset")
   }
 
   return (
