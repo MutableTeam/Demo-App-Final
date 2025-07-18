@@ -15,7 +15,6 @@ interface MobileOptimizedContainerProps {
   centerContent?: boolean
   maxWidth?: string
   as?: React.ElementType
-  forceFullscreen?: boolean
 }
 
 // Define breakpoints locally to avoid import issues
@@ -48,7 +47,6 @@ const StyledContainer = styled.div<{
   fullWidthOnMobile: boolean
   centerContent: boolean
   maxWidth: string
-  forceFullscreen: boolean
 }>`
   display: flex;
   flex-direction: ${(props) => props.mobileStackDirection};
@@ -75,36 +73,10 @@ const StyledContainer = styled.div<{
     justify-content: center;
   `}
   
-  ${(props) =>
-    props.forceFullscreen &&
-    `
-    ${mediaQueries.mobile} {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      height: 100dvh !important;
-      z-index: 50;
-      overflow: hidden;
-      background: #000;
-    }
-  `}
-  
   ${mediaQueries.md} {
     flex-direction: ${(props) => props.desktopStackDirection};
     max-width: ${(props) => props.maxWidth || "none"};
     margin: ${(props) => (props.centerContent ? "0 auto" : "0")};
-    
-    ${(props) =>
-      props.forceFullscreen &&
-      `
-      position: relative !important;
-      width: 100% !important;
-      height: 100% !important;
-      z-index: auto;
-      background: transparent;
-    `}
   }
   
   /* Apply hardware acceleration for smoother animations */
@@ -115,34 +87,6 @@ const StyledContainer = styled.div<{
   ${mediaQueries.touch} {
     & > * {
       min-height: 44px; /* Minimum touch target size */
-    }
-  }
-  
-  /* Mobile viewport optimizations */
-  ${mediaQueries.mobile} {
-    /* Prevent scrolling and zooming */
-    touch-action: manipulation;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    -webkit-tap-highlight-color: transparent;
-    
-    /* Force landscape orientation hint */
-    @media (orientation: portrait) {
-      &::before {
-        content: 'Rotate device to landscape for best experience';
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        z-index: 1000;
-        text-align: center;
-        font-size: 16px;
-        white-space: nowrap;
-      }
     }
   }
 `
@@ -163,61 +107,23 @@ export function MobileOptimizedContainer({
   centerContent = false,
   maxWidth = "1200px",
   as = "div",
-  forceFullscreen = false,
 }: MobileOptimizedContainerProps) {
   const isMobile = useIsMobile()
 
   return (
-    <>
-      {/* Global mobile styles */}
-      {forceFullscreen && (
-        <style jsx global>{`
-          @media (max-width: 767px) {
-            html, body {
-              margin: 0;
-              padding: 0;
-              width: 100%;
-              height: 100%;
-              overflow: hidden;
-              position: fixed;
-              -webkit-user-select: none;
-              -webkit-touch-callout: none;
-              -webkit-tap-highlight-color: transparent;
-              touch-action: manipulation;
-            }
-            
-            /* Lock to landscape */
-            @media (orientation: portrait) {
-              body {
-                transform: rotate(90deg);
-                transform-origin: left top;
-                width: 100vh;
-                height: 100vw;
-                overflow: hidden;
-                position: fixed;
-                top: 100%;
-                left: 0;
-              }
-            }
-          }
-        `}</style>
-      )}
-
-      <StyledContainer
-        as={as}
-        className={cn("mobile-optimized-container", className)}
-        mobileStackDirection={mobileStackDirection}
-        desktopStackDirection={desktopStackDirection}
-        spacing={spacing}
-        fullWidthOnMobile={fullWidthOnMobile}
-        centerContent={centerContent}
-        maxWidth={maxWidth}
-        forceFullscreen={forceFullscreen}
-        data-mobile={isMobile ? "true" : "false"}
-      >
-        {children}
-      </StyledContainer>
-    </>
+    <StyledContainer
+      as={as}
+      className={cn("mobile-optimized-container", className)}
+      mobileStackDirection={mobileStackDirection}
+      desktopStackDirection={desktopStackDirection}
+      spacing={spacing}
+      fullWidthOnMobile={fullWidthOnMobile}
+      centerContent={centerContent}
+      maxWidth={maxWidth}
+      data-mobile={isMobile ? "true" : "false"}
+    >
+      {children}
+    </StyledContainer>
   )
 }
 

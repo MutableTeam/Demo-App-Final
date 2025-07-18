@@ -1,110 +1,68 @@
 "use client"
 
 import type React from "react"
+
+import * as PIXI from "pixi.js"
+import type { GameState } from "@/lib/game/GameState"
 import { useRef, useEffect } from "react"
 
-interface GameState {
-  players: {
-    [playerId: string]: {
-      x: number
-      y: number
-      color: string
-    }
-  }
-  bullets: {
-    x: number
-    y: number
-    playerId: string
-  }[]
-}
-
-interface GameRendererEnhancedProps {
+interface EnhancedGameRendererProps {
   gameState: GameState
   localPlayerId: string
   debugMode?: boolean
-  canvasRef?: React.RefObject<HTMLCanvasElement>
+  canvasRef: React.RefObject<HTMLCanvasElement>
 }
 
-export default function GameRendererEnhanced({
+export default function EnhancedGameRenderer({
   gameState,
   localPlayerId,
   debugMode = false,
-  canvasRef: externalCanvasRef,
-}: GameRendererEnhancedProps) {
-  const internalCanvasRef = useRef<HTMLCanvasElement>(null)
-  const canvasRef = externalCanvasRef || internalCanvasRef
+  canvasRef,
+}: EnhancedGameRendererProps) {
+  const pixiAppRef = useRef<PIXI.Application | null>(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvasRef.current) return
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
+    const app = new PIXI.Application({
+      view: canvasRef.current,
+      width: canvasRef.current.clientWidth,
+      height: canvasRef.current.clientHeight,
+      backgroundColor: 0x000000,
+      antialias: true,
+    })
 
-    const render = () => {
-      // Clear the canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    pixiAppRef.current = app
 
-      // Draw players
-      for (const playerId in gameState.players) {
-        const player = gameState.players[playerId]
-        ctx.fillStyle = player.color
-        ctx.fillRect(player.x, player.y, 20, 20)
+    // Load resources (if any)
+    // PIXI.Assets.load('path/to/asset.json').then(() => { ... });
 
-        if (debugMode) {
-          ctx.fillStyle = "white"
-          ctx.font = "12px sans-serif"
-          ctx.fillText(playerId, player.x, player.y - 5)
-        }
-      }
+    // Example: Add a simple sprite (replace with your game rendering logic)
+    const sprite = PIXI.Sprite.from(PIXI.Texture.WHITE) // Replace with your textures
+    sprite.tint = 0xff0000 // Red color
+    sprite.width = 50
+    sprite.height = 50
+    sprite.anchor.set(0.5)
+    sprite.x = app.screen.width / 2
+    sprite.y = app.screen.height / 2
+    app.stage.addChild(sprite)
 
-      // Draw bullets
-      gameState.bullets.forEach((bullet) => {
-        ctx.fillStyle = gameState.players[bullet.playerId].color
-        ctx.fillRect(bullet.x, bullet.y, 5, 5)
-      })
-
-      requestAnimationFrame(render)
-    }
-
-    const resizeCanvas = () => {
-      canvas.width = canvas.clientWidth
-      canvas.height = canvas.clientHeight
-    }
-
-    resizeCanvas()
-    window.addEventListener("resize", resizeCanvas)
-
-    requestAnimationFrame(render)
+    // Game loop (using PIXI ticker)
+    app.ticker.add((delta) => {
+      // Update game state based on delta (time since last frame)
+      // Example: sprite.rotation += 0.01 * delta;
+      // Render the updated game state
+      // This is where you'd use gameState to update the PIXI elements
+      // For example:
+      // sprite.x = gameState.player.x;
+      // sprite.y = gameState.player.y;
+    })
 
     return () => {
-      window.removeEventListener("resize", resizeCanvas)
+      app.destroy(true)
+      pixiAppRef.current = null
     }
-  }, [gameState, debugMode, canvasRef])
+  }, [gameState, localPlayerId, debugMode, canvasRef])
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (debugMode) {
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-
-      console.log(`Clicked at: x=${x}, y=${y}`)
-    }
-  }
-
-  return (
-    <canvas
-      ref={canvasRef}
-      onClick={handleCanvasClick}
-      style={{
-        width: "100%",
-        height: "100%",
-        backgroundColor: "black",
-        touchAction: "none", // Prevent default touch behaviors
-      }}
-    />
-  )
+  return <canvas ref={canvasRef} className="w-full h-full" />
 }

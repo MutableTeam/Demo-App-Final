@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import SoundButton from "./sound-button"
 import { withClickSound } from "@/utils/sound-utils"
 import { debugManager } from "@/utils/debug-utils"
-import { useIsMobile } from "@/components/ui/use-mobile"
 
 // Add after the imports
 const textShadowGlow = `
@@ -40,7 +39,6 @@ export default function GamePopOutContainer({
 }: GamePopOutContainerProps) {
   const [isFullscreen, setIsFullscreen] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
-  const isMobile = useIsMobile()
 
   // Handle escape key to close
   useEffect(() => {
@@ -79,53 +77,63 @@ export default function GamePopOutContainer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
 
-  // Mobile-specific setup
+  // Handle game sizing and resizing
   useEffect(() => {
-    if (isOpen && isMobile) {
-      // Lock orientation to landscape on mobile
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock("landscape").catch(() => {
-          // Fallback: just hide mobile browser UI
-          console.log("Could not lock orientation, using CSS fallback")
-        })
+    const resizeGameToFit = () => {
+      if (!containerRef.current) return
+
+      const containerWidth = containerRef.current.clientWidth
+      const containerHeight = containerRef.current.clientHeight - 56 // Subtract header height
+
+      // Find game canvas element
+      const gameCanvas = containerRef.current.querySelector("canvas")
+      if (!gameCanvas) return
+
+      // Calculate the aspect ratio
+      const gameAspectRatio = gameCanvas.width / gameCanvas.height
+      const containerAspectRatio = containerWidth / containerHeight
+
+      // Determine dimensions based on aspect ratio
+      let newWidth, newHeight
+
+      if (containerAspectRatio > gameAspectRatio) {
+        // Container is wider than game
+        newHeight = containerHeight * 0.95 // 95% of available height
+        newWidth = newHeight * gameAspectRatio
+      } else {
+        // Container is taller than game
+        newWidth = containerWidth * 0.95 // 95% of available width
+        newHeight = newWidth / gameAspectRatio
       }
 
-      // Hide mobile browser UI
-      const hideAddressBar = () => {
-        window.scrollTo(0, 1)
-        setTimeout(() => window.scrollTo(0, 0), 0)
-      }
-
-      hideAddressBar()
-
-      // Prevent scrolling
-      document.body.style.overflow = "hidden"
-      document.body.style.position = "fixed"
-      document.body.style.width = "100%"
-      document.body.style.height = "100%"
-
-      return () => {
-        // Restore normal scrolling
-        document.body.style.overflow = ""
-        document.body.style.position = ""
-        document.body.style.width = ""
-        document.body.style.height = ""
-
-        // Unlock orientation
-        if (screen.orientation && screen.orientation.unlock) {
-          screen.orientation.unlock()
-        }
-      }
+      // Apply scaling
+      gameCanvas.style.width = `${newWidth}px`
+      gameCanvas.style.height = `${newHeight}px`
+      gameCanvas.style.display = "block"
     }
-  }, [isOpen, isMobile])
 
-  // Auto-enter fullscreen on mobile
+    // Initial sizing
+    if (isOpen) {
+      // Small delay to ensure DOM is ready
+      setTimeout(resizeGameToFit, 100)
+    }
+
+    // Add resize listener
+    window.addEventListener("resize", resizeGameToFit)
+
+    // Cleanup
+    return () => window.removeEventListener("resize", resizeGameToFit)
+  }, [isOpen])
+
+  // Add a new useEffect to automatically enter fullscreen mode when the container opens
   useEffect(() => {
-    if (isOpen && isMobile && containerRef.current) {
+    if (isOpen && containerRef.current) {
+      // Small delay to ensure the component is fully rendered
       const timer = setTimeout(() => {
         if (containerRef.current && document.fullscreenEnabled) {
           containerRef.current.requestFullscreen().catch((err) => {
             debugManager.logWarning("Fullscreen", "Could not enter fullscreen mode automatically:", err)
+            // If fullscreen fails, we still want to show the container in a large size
             setIsFullscreen(false)
           })
         }
@@ -133,126 +141,71 @@ export default function GamePopOutContainer({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, isMobile])
+  }, [isOpen])
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Mobile-specific styles */}
-          <style jsx global>{`
-            @media (max-width: 768px) {
-              .game-popup-container {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                height: 100dvh !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                border-radius: 0 !important;
-                max-width: none !important;
-                max-height: none !important;
-              }
-              
-              .game-popup-backdrop {
-                background: #000 !important;
-              }
-              
-              /* Force landscape orientation hint */
-              @media (orientation: portrait) {
-                .game-popup-container::before {
-                  content: 'Please rotate your device to landscape mode';
-                  position: absolute;
-                  top: 50%;
-                  left: 50%;
-                  transform: translate(-50%, -50%);
-                  background: rgba(0, 0, 0, 0.9);
-                  color: white;
-                  padding: 20px;
-                  border-radius: 10px;
-                  z-index: 1000;
-                  text-align: center;
-                  font-size: 18px;
-                }
-              }
-            }
-          `}</style>
-
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        >
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`game-popup-backdrop fixed inset-0 z-50 flex items-center justify-center ${
-              isMobile ? "p-0 bg-black" : "p-4 bg-black/50 backdrop-blur-sm"
+            ref={containerRef}
+            className={`bg-[#fbf3de] dark:bg-gray-800 border-4 border-black dark:border-gray-700 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col ${
+              isFullscreen ? "w-full h-full" : "w-[95%] h-[95%] max-w-7xl"
             }`}
+            layoutId="game-container"
           >
-            <motion.div
-              ref={containerRef}
-              className={`game-popup-container bg-[#fbf3de] dark:bg-gray-800 border-4 border-black dark:border-gray-700 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col ${
-                isMobile || isFullscreen ? "w-full h-full" : "w-[95%] h-[95%] max-w-7xl"
-              }`}
-              layoutId="game-container"
-            >
-              {/* Header - hide on mobile landscape */}
+            {/* Header */}
+            <div className="bg-black border-b-2 border-cyan-500 p-3 flex items-center justify-between relative overflow-hidden">
+              {/* Cyberpunk background effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-900/30 to-cyan-900/30"></div>
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0)_0%,rgba(0,255,255,0.1)_20%,rgba(0,0,0,0)_40%,rgba(0,0,0,0)_60%,rgba(255,0,255,0.1)_80%,rgba(0,0,0,0)_100%)]"></div>
+
+              {/* Grid overlay */}
               <div
-                className={`bg-black border-b-2 border-cyan-500 p-3 flex items-center justify-between relative overflow-hidden ${
-                  isMobile ? "hidden landscape:flex landscape:h-12" : ""
-                }`}
-              >
-                {/* Cyberpunk background effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-900/30 to-cyan-900/30"></div>
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0)_0%,rgba(0,255,255,0.1)_20%,rgba(0,0,0,0)_40%,rgba(0,0,0,0)_60%,rgba(255,0,255,0.1)_80%,rgba(0,0,0,0)_100%)]"></div>
+                className="absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%, transparent)",
+                  backgroundSize: "30px 30px",
+                }}
+              ></div>
 
-                {/* Grid overlay */}
-                <div
-                  className="absolute inset-0 opacity-20"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%, transparent)",
-                    backgroundSize: "30px 30px",
-                  }}
-                ></div>
-
-                {/* Content */}
-                <h2 className="font-mono font-bold text-cyan-400 text-lg relative z-10 text-shadow-glow">{title}</h2>
-                <div className="flex items-center gap-2 relative z-10">
-                  {!isMobile && (
-                    <SoundButton
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 border-2 border-cyan-500 bg-black hover:bg-gray-900 text-cyan-400 hover:text-cyan-300 transition-colors"
-                      onClick={withClickSound(toggleFullscreen)}
-                    >
-                      {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                      <span className="sr-only">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
-                    </SoundButton>
-                  )}
-                  <SoundButton
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 border-2 border-cyan-500 bg-black hover:bg-gray-900 text-cyan-400 hover:text-cyan-300 transition-colors"
-                    onClick={withClickSound(onClose)}
-                  >
-                    <X size={16} />
-                    <span className="sr-only">Close</span>
-                  </SoundButton>
-                </div>
+              {/* Content */}
+              <h2 className="font-mono font-bold text-cyan-400 text-lg relative z-10 text-shadow-glow">{title}</h2>
+              <div className="flex items-center gap-2 relative z-10">
+                <SoundButton
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 border-2 border-cyan-500 bg-black hover:bg-gray-900 text-cyan-400 hover:text-cyan-300 transition-colors"
+                  onClick={withClickSound(toggleFullscreen)}
+                >
+                  {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                  <span className="sr-only">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+                </SoundButton>
+                <SoundButton
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 border-2 border-cyan-500 bg-black hover:bg-gray-900 text-cyan-400 hover:text-cyan-300 transition-colors"
+                  onClick={withClickSound(onClose)}
+                >
+                  <X size={16} />
+                  <span className="sr-only">Close</span>
+                </SoundButton>
               </div>
+            </div>
 
-              {/* Game Content */}
-              <div
-                className={`flex-1 overflow-hidden relative flex items-center justify-center bg-gray-900 ${
-                  isMobile ? "h-full" : ""
-                }`}
-              >
-                <div className="game-container-wrapper h-full w-full flex items-center justify-center">{children}</div>
-              </div>
-            </motion.div>
+            {/* Game Content */}
+            <div className="flex-1 overflow-hidden relative flex items-center justify-center bg-gray-900">
+              <div className="game-container-wrapper h-full w-full flex items-center justify-center">{children}</div>
+            </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   )
