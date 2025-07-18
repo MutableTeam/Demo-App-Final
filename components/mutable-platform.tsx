@@ -8,6 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Gamepad2, Trophy, Users, Coins, ArrowUpDown, Play, Zap, Target } from "lucide-react"
 import Image from "next/image"
 import MultiWalletConnector from "./multi-wallet-connector"
+import { MutableMarketplace } from "./mutable-marketplace"
+import { TokenSwapForm } from "./swap/token-swap-form"
+import { TransactionHistory } from "./swap/transaction-history"
+import { MarketOverview } from "./swap/market-overview"
+import { LiquidityPoolStatus } from "./swap/liquidity-pool-status"
+import { SignupBanner } from "./signup-banner"
 
 interface MutablePlatformProps {
   publicKey: string
@@ -75,13 +81,7 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Image
-                src="/images/mutable-logo.png"
-                alt="Mutable"
-                width={40}
-                height={40}
-                className="rounded-lg"
-              />
+              <Image src="/images/mutable-logo.png" alt="Mutable" width={40} height={40} className="rounded-lg" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Mutable</h1>
                 <p className="text-sm text-gray-600">Gaming Platform</p>
@@ -154,11 +154,11 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
                 >
                   <CardHeader className="pb-3">
                     <div className="aspect-video relative mb-3 rounded-lg overflow-hidden border border-gray-200">
-                      <Image 
-                        src={game.image || "/placeholder.svg"} 
-                        alt={game.title} 
-                        fill 
-                        className="object-cover group-hover:scale-105 transition-transform" 
+                      <Image
+                        src={game.image || "/placeholder.svg"}
+                        alt={game.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform"
                       />
                     </div>
                     <div className="flex items-center justify-between">
@@ -185,10 +185,7 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
                         <Coins className="w-4 h-4 inline mr-1" />
                         {game.rewards}
                       </span>
-                      <Button
-                        className="bg-orange-600 hover:bg-orange-700 text-white"
-                        disabled={!isWalletConnected}
-                      >
+                      <Button className="bg-orange-600 hover:bg-orange-700 text-white" disabled={!isWalletConnected}>
                         <Play className="w-4 h-4 mr-2" />
                         Play Now
                       </Button>
@@ -202,4 +199,41 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               <Card className="bg-yellow-50 border-yellow-200">
                 <CardContent className="p-6 text-center">
                   <Zap className="w-12 h-12 mx-auto mb-4 text-yellow-600" />
-                  <h3 className="text-xl font-bold text-gray\
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Connect Your Wallet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Connect your wallet to start playing games and earning MUTB tokens
+                  </p>
+                  <MultiWalletConnector onConnectionChange={handleWalletConnection} />
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Marketplace Tab */}
+          <TabsContent value="marketplace">
+            <MutableMarketplace />
+          </TabsContent>
+
+          {/* Swap Tab */}
+          <TabsContent value="swap" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <TokenSwapForm />
+              </div>
+              <div className="lg:col-span-2 space-y-6">
+                <MarketOverview />
+                <LiquidityPoolStatus />
+                <TransactionHistory />
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Signup Banner */}
+        <div className="mt-12">
+          <SignupBanner />
+        </div>
+      </main>
+    </div>
+  )
+}
