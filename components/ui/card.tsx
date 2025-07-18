@@ -263,12 +263,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   }
 
   return (
-    <div
-      ref={ref}
-      className={cn("rounded-lg border text-card-foreground shadow-sm", className)}
-      style={{ backgroundColor: "#F5EFDC", ...props.style }}
-      {...props}
-    />
+    <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
   )
 })
 Card.displayName = "Card"
@@ -307,7 +302,7 @@ const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
     const isCyberpunk = styleMode === "cyberpunk"
 
     if (isCyberpunk) {
-      return <div ref={ref} className={className} {...props} />
+      return <CyberCardDescription ref={ref} className={className} {...props} />
     }
 
     return <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />

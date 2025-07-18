@@ -4,7 +4,6 @@ import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 
@@ -512,74 +511,8 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const { styleMode } = useCyberpunkTheme()
-    const isCyberpunk = styleMode === "cyberpunk"
-
-    // Use Slot when asChild is true
     const Comp = asChild ? Slot : "button"
-
-    // For cyberpunk mode, use styled components based on variant
-    if (isCyberpunk && !asChild) {
-      const sizeClasses =
-        size === "sm"
-          ? "h-9 px-3 text-xs"
-          : size === "lg"
-            ? "h-11 px-8"
-            : size === "icon"
-              ? "h-10 w-10 p-0"
-              : "h-10 px-4 py-2"
-
-      const disabledClass = props.disabled ? "opacity-50 pointer-events-none" : ""
-      const combinedClassName = `${sizeClasses} ${disabledClass} ${className || ""}`
-
-      // Add data-text attribute for glitch effect
-      const buttonText = typeof props.children === "string" ? props.children : ""
-      const dataTextProps = buttonText ? { "data-text": buttonText } : {}
-
-      // Wrap children in span for text glitch
-      const wrappedChildren = <span>{props.children}</span>
-
-      switch (variant) {
-        case "outline":
-          return <CyberButtonOutline ref={ref} className={combinedClassName} {...dataTextProps} {...props} />
-        case "secondary":
-          return <CyberButtonSecondary ref={ref} className={combinedClassName} {...dataTextProps} {...props} />
-        case "ghost":
-          return <CyberButtonGhost ref={ref} className={combinedClassName} {...dataTextProps} {...props} />
-        case "destructive":
-          return <CyberButtonDestructive ref={ref} className={combinedClassName} {...dataTextProps} {...props} />
-        case "gradient":
-          return <CyberButtonGradient ref={ref} className={combinedClassName} {...dataTextProps} {...props} />
-        default:
-          return (
-            <CyberButtonPrimary ref={ref} className={combinedClassName} {...dataTextProps} {...props}>
-              {wrappedChildren}
-            </CyberButtonPrimary>
-          )
-      }
-    }
-
-    // Check if we're in archer arena context and should hide this button
-    const isArcherArenaContext =
-      typeof window !== "undefined" &&
-      (window.location.pathname.includes("archer") || document.querySelector('[data-game="archer-arena"]') !== null)
-
-    if (isArcherArenaContext && !isCyberpunk) {
-      return null
-    }
-
-    // For regular mode or when asChild is true, use the standard button with consistent light UI styling
-    return (
-      <Comp
-        className={cn(
-          buttonVariants({ variant, size, className }),
-          !isCyberpunk &&
-            "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono",
-        )}
-        ref={ref}
-        {...props}
-      />
-    )
+    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
   },
 )
 Button.displayName = "Button"

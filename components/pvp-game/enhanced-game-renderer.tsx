@@ -1,31 +1,31 @@
 "use client"
 
-import type React from "react"
-import { useRef, useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as PIXI from "pixi.js"
 import { ArcherGameIntegration } from "@/utils/archer-game-integration"
 import { textureManager } from "@/utils/rendering/texture-manager"
 import { ParticleSystem, ParticleType } from "@/utils/rendering/particle-system"
 import { debugManager } from "@/utils/debug-utils"
-import type { GameState } from "./game-engine" // Corrected import path
+import type { GameState } from "./game-engine"
 
 interface EnhancedGameRendererProps {
   gameState: GameState
   localPlayerId: string
   debugMode?: boolean
-  canvasRef: React.RefObject<HTMLCanvasElement>
 }
 
 export default function EnhancedGameRenderer({
   gameState,
   localPlayerId,
   debugMode = false,
-  canvasRef,
 }: EnhancedGameRendererProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const pixiAppRef = useRef<PIXI.Application | null>(null)
   const gameIntegrationRef = useRef<ArcherGameIntegration | null>(null)
   const particleSystemRef = useRef<ParticleSystem | null>(null)
   const lastGameStateRef = useRef<GameState | null>(null)
+  const playerSpritesRef = useRef<Map<string, PIXI.AnimatedSprite>>(new Map())
+  const arrowSpritesRef = useRef<Map<string, PIXI.Sprite>>(new Map())
   const [isInitialized, setIsInitialized] = useState(false)
   const [showFps, setShowFps] = useState(debugMode)
   const fpsTextRef = useRef<PIXI.Text | null>(null)
@@ -62,7 +62,8 @@ export default function EnhancedGameRenderer({
         particleSystemRef.current = particleSystem
 
         // Create game integration
-        const gameIntegration = new ArcherGameIntegration(app, gameState.arenaSize.width, gameState.arenaSize.height)
+        const gameIntegration = new ArcherGameIntegration(gameState.arenaSize.width, gameState.arenaSize.height)
+        await gameIntegration.initialize(canvasRef.current.parentElement || document.body)
         gameIntegrationRef.current = gameIntegration
 
         // Create FPS counter if debug mode is enabled
@@ -92,6 +93,9 @@ export default function EnhancedGameRenderer({
           })
         }
 
+        // Start game loop
+        gameIntegration.start()
+
         setIsInitialized(true)
         debugManager.logInfo("RENDERER", "Enhanced game renderer initialized successfully")
       } catch (error) {
@@ -119,8 +123,11 @@ export default function EnhancedGameRenderer({
         pixiAppRef.current.destroy(true, { children: true, texture: true, baseTexture: true })
         pixiAppRef.current = null
       }
+
+      playerSpritesRef.current.clear()
+      arrowSpritesRef.current.clear()
     }
-  }, [gameState.arenaSize.width, gameState.arenaSize.height, debugMode, canvasRef])
+  }, [gameState.arenaSize.width, gameState.arenaSize.height, debugMode])
 
   // Update game state
   useEffect(() => {
@@ -218,7 +225,7 @@ export default function EnhancedGameRenderer({
         particleSystem.createEmitter(ParticleType.ARROW_TRAIL, arrow.position, {
           interval: 0.05,
           count: 1,
-          // followSprite: arrowSpritesRef.current.get(arrow.id) || undefined, // This needs to be handled by ArcherGameIntegration
+          followSprite: arrowSpritesRef.current.get(arrow.id) || undefined,
         })
 
         debugManager.logDebug("RENDERER", `Created arrow: ${arrow.id}`)
@@ -298,7 +305,7 @@ export default function EnhancedGameRenderer({
     return () => {
       window.removeEventListener("resize", handleResize)
     }
-  }, [gameState.arenaSize.width, gameState.arenaSize.height, canvasRef])
+  }, [gameState.arenaSize.width, gameState.arenaSize.height])
 
   // Toggle debug mode
   const handleCanvasClick = () => {
