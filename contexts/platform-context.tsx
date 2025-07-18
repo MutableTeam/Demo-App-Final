@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 
 export type PlatformType = "desktop" | "mobile"
 
@@ -11,26 +12,15 @@ interface PlatformContextType {
   resetPlatform: () => void
 }
 
-const PlatformContext = createContext<PlatformContextType>({
-  platformType: null,
-  isSelected: false,
-  setPlatform: () => {},
-  resetPlatform: () => {},
-})
+const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
 
-export const usePlatform = () => useContext(PlatformContext)
-
-interface PlatformProviderProps {
-  children: ReactNode
-}
-
-export function PlatformProvider({ children }: PlatformProviderProps) {
+export function PlatformProvider({ children }: { children: React.ReactNode }) {
   const [platformType, setPlatformType] = useState<PlatformType | null>(null)
   const [isSelected, setIsSelected] = useState(false)
 
-  // Load platform preference from localStorage on mount
+  // Load platform from localStorage on mount
   useEffect(() => {
-    const savedPlatform = localStorage.getItem("mutable-platform-type")
+    const savedPlatform = localStorage.getItem("mutable-platform")
     if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
       setPlatformType(savedPlatform as PlatformType)
       setIsSelected(true)
@@ -40,13 +30,13 @@ export function PlatformProvider({ children }: PlatformProviderProps) {
   const setPlatform = (platform: PlatformType) => {
     setPlatformType(platform)
     setIsSelected(true)
-    localStorage.setItem("mutable-platform-type", platform)
+    localStorage.setItem("mutable-platform", platform)
   }
 
   const resetPlatform = () => {
     setPlatformType(null)
     setIsSelected(false)
-    localStorage.removeItem("mutable-platform-type")
+    localStorage.removeItem("mutable-platform")
   }
 
   return (
@@ -61,4 +51,12 @@ export function PlatformProvider({ children }: PlatformProviderProps) {
       {children}
     </PlatformContext.Provider>
   )
+}
+
+export function usePlatform() {
+  const context = useContext(PlatformContext)
+  if (context === undefined) {
+    throw new Error("usePlatform must be used within a PlatformProvider")
+  }
+  return context
 }

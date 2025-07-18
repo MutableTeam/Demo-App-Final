@@ -66,7 +66,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
   return (
     <div className="w-full max-w-5xl mx-auto p-6">
       {/* Logo */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-12">
         <Image
           src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
           alt="Mutable Logo"
@@ -77,28 +77,6 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
             isCyberpunk ? "filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)] animate-pulse" : "filter drop-shadow-lg",
           )}
         />
-      </div>
-
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1
-          className={cn(
-            "text-4xl font-bold mb-4",
-            isCyberpunk
-              ? "text-cyan-400 font-mono tracking-wider text-shadow-[0_0_10px_rgba(0,255,255,0.7)]"
-              : "bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent",
-          )}
-        >
-          Choose Your Gaming Platform
-        </h1>
-        <p
-          className={cn(
-            "text-lg max-w-2xl mx-auto",
-            isCyberpunk ? "text-cyan-300/80 font-mono" : "text-muted-foreground",
-          )}
-        >
-          Select your preferred gaming experience. This will optimize controls and interface for your device.
-        </p>
       </div>
 
       {/* Platform Cards */}
