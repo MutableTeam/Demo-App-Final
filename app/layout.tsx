@@ -2,23 +2,32 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Mutable Platform",
-  description: "Web3 Gaming Platform on Solana",
-  generator: "v0.dev",
+  title: "Mutable - Gaming Platform",
+  description: "Play games, earn tokens, and trade in our decentralized gaming ecosystem",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+          {children}
+          <Toaster />
+          <SonnerToaster />
+        </ThemeProvider>
+      </body>
     </html>
   )
 }
