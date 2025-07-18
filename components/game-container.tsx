@@ -9,7 +9,9 @@ import { cyberpunkColors } from "@/styles/cyberpunk-theme"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
-import EnhancedResponsiveGameContainer from "@/components/enhanced-responsive-game-container"
+import { MobileGameController } from "@/components/mobile-game-controller"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { useRef } from "react"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -187,6 +189,8 @@ export function GameContainer({
 }: GameContainerProps) {
   const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
   const { toast } = useToast()
+  const isMobile = useIsMobile()
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Get the game from registry
   const game = gameRegistry.getGame(gameId)
@@ -229,6 +233,22 @@ export function GameContainer({
     })
   }
 
+  // Mobile game control handlers
+  const handleMovement = (deltaX: number, deltaY: number) => {
+    // Handle movement input for mobile
+    console.log("Movement:", deltaX, deltaY)
+  }
+
+  const handleAction = (active: boolean, angle: number, power: number) => {
+    // Handle action input for mobile (bow draw, etc.)
+    console.log("Action:", active, angle, power)
+  }
+
+  const handleSpecialAction = (type: "dash" | "special") => {
+    // Handle special actions for mobile
+    console.log("Special action:", type)
+  }
+
   // Initialize game state
   const initialGameState = game.initializeGameState({
     playerId,
@@ -256,44 +276,44 @@ export function GameContainer({
 
   // Cyberpunk styled game container
   return (
-    <EnhancedResponsiveGameContainer
-      gameWidth={800}
-      gameHeight={600}
-      enableDebugOverlay={process.env.NODE_ENV === "development"}
-      onScaleChange={(scale) => {
-        debugManager.logInfo("GameContainer", "Scale changed", { scale })
-      }}
-      onOrientationChange={(isLandscape) => {
-        debugManager.logInfo("GameContainer", "Orientation changed", { isLandscape })
-      }}
-      className={className}
-    >
-      <CyberpunkGameContainer>
-        {/* Development Banner */}
-        <CyberpunkDevBanner>Demo Game : Does Not Represent Final Product</CyberpunkDevBanner>
+    <CyberpunkGameContainer ref={containerRef} className={className}>
+      {/* Development Banner - smaller on mobile */}
+      <CyberpunkDevBanner style={{ padding: isMobile ? "0.25rem" : "0.5rem" }}>
+        {isMobile ? "Demo Game" : "Demo Game : Does Not Represent Final Product"}
+      </CyberpunkDevBanner>
 
-        <GameErrorBoundary>
-          {game.id === "archer-arena" || game.id === "last-stand" ? (
-            <GameControllerEnhanced
-              playerId={playerId}
-              playerName={playerName}
-              isHost={isHost}
-              gameMode={gameMode}
-              onGameEnd={onGameEnd}
-            />
-          ) : (
-            <GameComponent
-              playerId={playerId}
-              playerName={playerName}
-              isHost={isHost}
-              gameMode={gameMode}
-              initialGameState={initialGameState}
-              onGameEnd={onGameEnd}
-              onError={handleError}
-            />
-          )}
-        </GameErrorBoundary>
-      </CyberpunkGameContainer>
-    </EnhancedResponsiveGameContainer>
+      <GameErrorBoundary>
+        {game.id === "archer-arena" || game.id === "last-stand" ? (
+          <GameControllerEnhanced
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            onGameEnd={onGameEnd}
+          />
+        ) : (
+          <GameComponent
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            initialGameState={initialGameState}
+            onGameEnd={onGameEnd}
+            onError={handleError}
+          />
+        )}
+      </GameErrorBoundary>
+
+      {/* Mobile touch controls overlay */}
+      {isMobile && gameMode === "mobile" && (
+        <MobileGameController
+          onMovement={handleMovement}
+          onAction={handleAction}
+          onSpecialAction={handleSpecialAction}
+          containerRef={containerRef}
+          disabled={gameState !== "playing"}
+        />
+      )}
+    </CyberpunkGameContainer>
   )
 }

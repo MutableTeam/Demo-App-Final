@@ -12,29 +12,28 @@ import RetroArcadeBackground from "@/components/retro-arcade-background"
 import { Connection, clusterApiUrl } from "@solana/web3.js"
 import "@/styles/retro-arcade.css"
 import { initializeGoogleAnalytics } from "@/utils/analytics"
-import { SignUpBanner } from "@/components/signup-banner"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
+import { MobileNavigation } from "@/components/mobile-navigation"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
-export default function Home() {
-  // Wallet connection state
+export default function HomePage() {
   const [walletConnected, setWalletConnected] = useState(false)
   const [publicKey, setPublicKey] = useState("")
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
+  const [mounted, setMounted] = useState(false)
+  const isMobile = useIsMobile()
 
-  // Initialize Google Analytics
   useEffect(() => {
     initializeGoogleAnalytics(GA_MEASUREMENT_ID)
+    setMounted(true)
   }, [])
 
-  // Initialize games registry
   useEffect(() => {
     registerGames()
-
-    // Initialize enhanced renderer
     initializeEnhancedRenderer()
   }, [])
 
@@ -46,15 +45,19 @@ export default function Home() {
     setProvider(provider)
   }
 
-  // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
+
+  if (!mounted) {
+    return null
+  }
+
+  if (isMobile) {
+    return <MobileNavigation />
+  }
 
   return (
     <main className="min-h-screen relative">
-      {/* PromoWatermark positioned at top left */}
       <PromoWatermark />
-
-      {/* Wallet connector always positioned at top right when connected */}
       <div
         className={`fixed ${
           walletConnected
@@ -68,22 +71,17 @@ export default function Home() {
           className={`${!walletConnected ? "logo-glow" : ""} wallet-foreground`}
         />
       </div>
-
-      {/* Audio controls positioned at top right below wallet when connected */}
       <div className={`fixed ${walletConnected ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90]`}>
         <GlobalAudioControls />
       </div>
-
       <RetroArcadeBackground>
         <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
           <DemoWatermark />
-
           {walletConnected && publicKey && (
             <div className="mt-16">
               <MutablePlatform publicKey={publicKey} balance={balance} provider={provider} connection={connection} />
             </div>
           )}
-
           <DebugOverlay initiallyVisible={false} position="bottom-right" />
         </div>
       </RetroArcadeBackground>

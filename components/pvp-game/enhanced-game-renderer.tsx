@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useRef, useEffect } from "react"
-import { useViewportScaling } from "@/hooks/use-viewport-scaling"
 
 interface GameState {
   players: {
@@ -24,9 +23,6 @@ interface GameRendererEnhancedProps {
   localPlayerId: string
   debugMode?: boolean
   canvasRef?: React.RefObject<HTMLCanvasElement>
-  gameWidth?: number
-  gameHeight?: number
-  enableResponsiveScaling?: boolean
 }
 
 export default function GameRendererEnhanced({
@@ -34,19 +30,9 @@ export default function GameRendererEnhanced({
   localPlayerId,
   debugMode = false,
   canvasRef: externalCanvasRef,
-  gameWidth = 800,
-  gameHeight = 600,
-  enableResponsiveScaling = true,
 }: GameRendererEnhancedProps) {
   const internalCanvasRef = useRef<HTMLCanvasElement>(null)
   const canvasRef = externalCanvasRef || internalCanvasRef
-
-  // Add viewport scaling
-  const { viewportInfo, getScaledDimensions, getGamePosition } = useViewportScaling({
-    gameWidth,
-    gameHeight,
-    maintainAspectRatio: true,
-  })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -56,19 +42,6 @@ export default function GameRendererEnhanced({
     if (!ctx) return
 
     const render = () => {
-      // Set canvas size based on viewport scaling if enabled
-      if (enableResponsiveScaling) {
-        const scaledDimensions = getScaledDimensions()
-        canvas.width = scaledDimensions.width
-        canvas.height = scaledDimensions.height
-
-        // Scale the context to match
-        ctx.scale(viewportInfo.scale, viewportInfo.scale)
-      } else {
-        canvas.width = canvas.clientWidth
-        canvas.height = canvas.clientHeight
-      }
-
       // Clear the canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
@@ -95,19 +68,8 @@ export default function GameRendererEnhanced({
     }
 
     const resizeCanvas = () => {
-      if (enableResponsiveScaling) {
-        const scaledDimensions = getScaledDimensions()
-        const position = getGamePosition()
-
-        canvas.style.width = `${scaledDimensions.width}px`
-        canvas.style.height = `${scaledDimensions.height}px`
-        canvas.style.position = "absolute"
-        canvas.style.left = `${position.x}px`
-        canvas.style.top = `${position.y}px`
-      } else {
-        canvas.width = canvas.clientWidth
-        canvas.height = canvas.clientHeight
-      }
+      canvas.width = canvas.clientWidth
+      canvas.height = canvas.clientHeight
     }
 
     resizeCanvas()
@@ -118,7 +80,7 @@ export default function GameRendererEnhanced({
     return () => {
       window.removeEventListener("resize", resizeCanvas)
     }
-  }, [gameState, debugMode, canvasRef, enableResponsiveScaling, viewportInfo, getScaledDimensions, getGamePosition])
+  }, [gameState, debugMode, canvasRef])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (debugMode) {

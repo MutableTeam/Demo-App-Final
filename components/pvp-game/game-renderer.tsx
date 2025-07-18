@@ -13,13 +13,10 @@ import {
   generateParticle,
   generateDeathEffect,
 } from "@/utils/sprite-generator"
-import { useViewportScaling } from "@/hooks/use-viewport-scaling"
 
 interface GameRendererProps {
   gameState: GameState
   localPlayerId: string
-  enableResponsiveScaling?: boolean
-  onScaleChange?: (scale: number) => void
 }
 
 // Particle system interface
@@ -53,12 +50,7 @@ const mapAnimationState = (state: string): string => {
   return result
 }
 
-export default function GameRenderer({
-  gameState,
-  localPlayerId,
-  enableResponsiveScaling = true,
-  onScaleChange,
-}: GameRendererProps) {
+export default function GameRenderer({ gameState, localPlayerId }: GameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animatorsRef = useRef<Record<string, SpriteAnimator>>({})
   const lastUpdateTimeRef = useRef<number>(Date.now())
@@ -66,22 +58,6 @@ export default function GameRenderer({
   const [particles, setParticles] = useState<Particle[]>([])
   const particlesRef = useRef<Particle[]>([])
   const [debugMode, setDebugMode] = useState<boolean>(false)
-  const [currentScale, setCurrentScale] = useState<number>(1)
-
-  // Add viewport scaling
-  const { viewportInfo, getScaledDimensions, getGamePosition } = useViewportScaling({
-    gameWidth: gameState.arenaSize.width,
-    gameHeight: gameState.arenaSize.height,
-    maintainAspectRatio: true,
-  })
-
-  // Update scale when viewport changes
-  useEffect(() => {
-    if (enableResponsiveScaling && viewportInfo.scale !== currentScale) {
-      setCurrentScale(viewportInfo.scale)
-      onScaleChange?.(viewportInfo.scale)
-    }
-  }, [viewportInfo.scale, currentScale, enableResponsiveScaling, onScaleChange])
 
   // Draw background with tiles
   const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
@@ -1160,37 +1136,21 @@ export default function GameRenderer({
       const canvas = canvasRef.current
       if (!canvas) return
 
-      if (enableResponsiveScaling) {
-        // Use viewport scaling
-        const scaledDimensions = getScaledDimensions()
-        const position = getGamePosition()
+      // Maintain the game's aspect ratio while fitting in container
+      const container = canvas.parentElement
+      if (!container) return
 
-        // Set canvas display size
-        canvas.style.width = `${scaledDimensions.width}px`
-        canvas.style.height = `${scaledDimensions.height}px`
-        canvas.style.position = "absolute"
-        canvas.style.left = `${position.x}px`
-        canvas.style.top = `${position.y}px`
+      // Get the container dimensions
+      const containerWidth = container.clientWidth
+      const containerHeight = container.clientHeight
 
-        // Set canvas internal size for crisp rendering
-        canvas.width = gameState.arenaSize.width
-        canvas.height = gameState.arenaSize.height
-      } else {
-        // Maintain the game's aspect ratio while fitting in container
-        const container = canvas.parentElement
-        if (!container) return
-
-        // Get the container dimensions
-        const containerWidth = container.clientWidth
-        const containerHeight = container.clientHeight
-
-        // Set canvas style dimensions for display scaling
-        canvas.style.width = "100%"
-        canvas.style.height = "100%"
-        canvas.style.maxWidth = `${gameState.arenaSize.width}px`
-        canvas.style.maxHeight = `${gameState.arenaSize.height}px`
-        canvas.style.objectFit = "contain"
-      }
+      // Set canvas style dimensions for display scaling
+      // (while keeping the internal canvas dimensions for game logic)
+      canvas.style.width = "100%"
+      canvas.style.height = "100%"
+      canvas.style.maxWidth = `${gameState.arenaSize.width}px`
+      canvas.style.maxHeight = `${gameState.arenaSize.height}px`
+      canvas.style.objectFit = "contain"
     }
 
     // Initial sizing
@@ -1201,13 +1161,7 @@ export default function GameRenderer({
 
     // Cleanup
     return () => window.removeEventListener("resize", handleResize)
-  }, [
-    gameState.arenaSize.width,
-    gameState.arenaSize.height,
-    enableResponsiveScaling,
-    getScaledDimensions,
-    getGamePosition,
-  ])
+  }, [gameState.arenaSize.width, gameState.arenaSize.height])
 
   // Add particle effect
   const addParticle = (x: number, y: number, type: string, color: string, count = 1, size = 5) => {
