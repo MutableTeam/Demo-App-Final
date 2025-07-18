@@ -1,6 +1,45 @@
-import { type Player, type GameState, createInitialGameState } from "./game-engine"
+export interface Player {
+  id: string
+  name: string
+  position: { x: number; y: number }
+  color: string
+  health: number
+  score: number
+  isActive: boolean
+  controls: {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+    shoot: boolean
+    special: boolean
+    dash: boolean
+  }
+  angle: number
+  ammo: number
+}
 
-// Helper function to create a player (can be moved to a utils file if needed)
+export interface GameState {
+  players: Record<string, Player>
+  projectiles: Array<{ x: number; y: number; dx: number; dy: number; id: number }>
+  powerUps: any[]
+  gameTime: number
+  isGameOver: boolean
+  winner: string | null
+}
+
+export function createInitialGameState(): GameState {
+  return {
+    players: {},
+    projectiles: [],
+    powerUps: [],
+    gameTime: 0,
+    isGameOver: false,
+    winner: null,
+  }
+}
+
+// Helper function to create a player
 function createPlayerWithControls(id: string, name: string, position: { x: number; y: number }, color: string): Player {
   return {
     id,

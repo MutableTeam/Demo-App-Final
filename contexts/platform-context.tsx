@@ -2,11 +2,11 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
-export type PlatformType = "desktop" | "mobile" | null
+type PlatformType = "desktop" | "mobile" | null
 
 interface PlatformContextType {
   platform: PlatformType
-  setPlatform: (type: PlatformType) => void
+  setPlatform: (platform: PlatformType) => void
 }
 
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
