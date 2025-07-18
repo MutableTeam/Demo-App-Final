@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { MultiWalletConnector } from "@/components/multi-wallet-connector"
+import MultiWalletConnector from "@/components/multi-wallet-connector"
 import { SignUpBanner } from "@/components/signup-banner"
 import { TokenSwapForm } from "@/components/swap/token-swap-form"
 import { TransactionHistory } from "@/components/swap/transaction-history"
@@ -123,7 +123,7 @@ export function MutablePlatform() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Mutable Platform</h1>
             <p className="text-gray-600">Play games, earn tokens, and trade on Solana</p>
           </div>
-          <MultiWalletConnector onConnect={handleWalletConnect} />
+          <MultiWalletConnector onConnectionChange={handleWalletConnect} />
         </div>
 
         {/* Show signup banner if wallet not connected */}
@@ -300,6 +300,11 @@ export function MutablePlatform() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* SignUp Banner at bottom */}
+        <div className="mt-12">
+          <SignUpBanner walletConnected={isWalletConnected} />
+        </div>
       </div>
     </div>
   )
