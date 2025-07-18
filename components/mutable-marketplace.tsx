@@ -1,323 +1,577 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Filter, Star, Trophy, Gamepad2, Coins } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ArrowLeftRight, TrendingUp, Info, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import Image from "next/image"
+import { type Connection, PublicKey } from "@solana/web3.js"
+import { withClickSound } from "@/utils/sound-utils"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/components/ui/use-toast"
+import { ToastAction } from "@/components/ui/toast"
+import { createJupiterApiClient } from "@/utils/jupiter-sdk"
+import { TokenSwapForm } from "./swap/token-swap-form"
+import { MarketOverview } from "./swap/market-overview"
+import { TransactionHistory } from "./swap/transaction-history"
+import { SOL_TOKEN, MUTB_TOKEN, DEFAULT_SWAP_PAIR, SUPPORTED_TOKENS } from "@/config/token-registry"
+import { getTokenBalance } from "@/utils/token-utils"
+import type { SwapResult } from "@/types/token-types"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
 
-interface MarketplaceItem {
-  id: string
-  type: "nft" | "game_item" | "token"
-  name: string
-  description: string
-  price: number
-  currency: "MUTB" | "SOL"
-  image: string
-  seller: string
-  rarity: "common" | "rare" | "epic" | "legendary"
-  category: string
-  stats?: {
-    power?: number
-    defense?: number
-    speed?: number
+// Cyberpunk styled components
+const scanline = keyframes`
+  0% {
+    transform: translateY(-100%);
   }
+  100% {
+    transform: translateY(100%);
+  }
+`
+
+const CyberTabs = styled(Tabs)`
+  .cyber-tab-list {
+    background: linear-gradient(90deg, rgba(16, 16, 48, 0.7) 0%, rgba(32, 16, 64, 0.7) 100%);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    overflow: hidden;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
+      z-index: 1;
+    }
+  }
+  
+  .cyber-tab {
+    color: rgba(255, 255, 255, 0.7);
+    font-family: monospace;
+    position: relative;
+    transition: all 0.3s ease;
+    
+    &[data-state="active"] {
+      background: rgba(0, 255, 255, 0.1);
+      color: #0ff;
+      text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+      
+      &::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #0ff, transparent);
+      }
+    }
+    
+    &:hover:not([data-state="active"]) {
+      background: rgba(0, 255, 255, 0.05);
+      color: rgba(0, 255, 255, 0.9);
+    }
+  }
+`
+
+const CyberAlert = styled(Alert)`
+  background: rgba(16, 16, 48, 0.7);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+  
+  &.cyber-success {
+    border-color: rgba(0, 255, 128, 0.5);
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 128, 0.8), transparent);
+    }
+  }
+  
+  &.cyber-warning {
+    border-color: rgba(255, 255, 0, 0.5);
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 0, 0.8), transparent);
+    }
+  }
+  
+  &.cyber-error {
+    border-color: rgba(255, 0, 0, 0.5);
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 0, 0, 0.8), transparent);
+    }
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+    animation: ${scanline} 4s linear infinite;
+    z-index: 1;
+    opacity: 0.3;
+  }
+`
+
+interface MutableMarketplaceProps {
+  publicKey: string
+  balance: number | null
+  provider: any
+  connection: Connection
+  onBalanceChange?: (currency: "sol" | "mutb", newBalance: number) => void
 }
 
-const MOCK_ITEMS: MarketplaceItem[] = [
-  {
-    id: "1",
-    type: "game_item",
-    name: "Legendary Bow",
-    description: "A powerful bow that increases accuracy by 25%",
-    price: 150,
-    currency: "MUTB",
-    image: "/images/archer-game.png",
-    seller: "GameMaster",
-    rarity: "legendary",
-    category: "Weapons",
-    stats: { power: 95, speed: 80 },
-  },
-  {
-    id: "2",
-    type: "nft",
-    name: "Pixel Pool Champion",
-    description: "Exclusive NFT for top pool players",
-    price: 2.5,
-    currency: "SOL",
-    image: "/images/pixel-art-pool.png",
-    seller: "PoolPro",
-    rarity: "epic",
-    category: "Collectibles",
-  },
-  {
-    id: "3",
-    type: "game_item",
-    name: "Shield of Defense",
-    description: "Reduces incoming damage by 30%",
-    price: 75,
-    currency: "MUTB",
-    image: "/images/last-stand.jpg",
-    seller: "DefenderX",
-    rarity: "rare",
-    category: "Armor",
-    stats: { defense: 90, power: 20 },
-  },
-]
+export default function MutableMarketplace({
+  publicKey,
+  balance,
+  provider,
+  connection,
+  onBalanceChange,
+}: MutableMarketplaceProps) {
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("swap")
+  const [mutbBalance, setMutbBalance] = useState<number>(0)
+  const [isTokenTradable, setIsTokenTradable] = useState<boolean>(false)
+  const [checkingTradability, setCheckingTradability] = useState<boolean>(true)
+  const [jupiterClient, setJupiterClient] = useState<any>(null)
+  const [availableTokens, setAvailableTokens] = useState<any[]>([])
+  const { styleMode } = useCyberpunkTheme()
+  const isCyberpunk = styleMode === "cyberpunk"
 
-export function MutableMarketplace() {
-  const [items] = useState<MarketplaceItem[]>(MOCK_ITEMS)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [selectedRarity, setSelectedRarity] = useState("all")
-  const [sortBy, setSortBy] = useState("price_low")
+  // Transaction history
+  const [transactionHistory, setTransactionHistory] = useState<SwapResult[]>([])
 
-  const filteredItems = items
-    .filter((item) => {
-      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesCategory = selectedCategory === "all" || item.category.toLowerCase() === selectedCategory
-      const matchesRarity = selectedRarity === "all" || item.rarity === selectedRarity
-      return matchesSearch && matchesCategory && matchesRarity
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "price_low":
-          return a.price - b.price
-        case "price_high":
-          return b.price - a.price
-        case "name":
-          return a.name.localeCompare(b.name)
-        default:
-          return 0
+  // Initialize Jupiter client and check token tradability
+  useEffect(() => {
+    if (connection) {
+      const client = createJupiterApiClient(connection)
+      setJupiterClient(client)
+
+      // Check available tokens and tradability
+      const initializeJupiter = async () => {
+        setCheckingTradability(true)
+        try {
+          // First, get available tokens
+          const tokens = await client.getAvailableTokens()
+          setAvailableTokens(tokens)
+
+          // Then check tradability
+          console.log(`🔍 Checking tradability for MUTB token: ${MUTB_TOKEN.mintAddress}`)
+          console.log(`🔍 Testing against SOL: ${SOL_TOKEN.mintAddress}`)
+
+          // Test both directions
+          const mutbToSol = await client.isTokenTradable(MUTB_TOKEN.mintAddress, SOL_TOKEN.mintAddress)
+          const solToMutb = await client.isTokenTradable(SOL_TOKEN.mintAddress, MUTB_TOKEN.mintAddress)
+
+          console.log("📊 MUTB -> SOL tradability:", mutbToSol)
+          console.log("📊 SOL -> MUTB tradability:", solToMutb)
+
+          const tradable = mutbToSol || solToMutb
+          setIsTokenTradable(tradable)
+        } catch (error) {
+          console.error("❌ Error initializing Jupiter:", error)
+          setIsTokenTradable(false)
+        } finally {
+          setCheckingTradability(false)
+        }
       }
-    })
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-100 text-gray-800 border-gray-200"
-      case "rare":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "epic":
-        return "bg-purple-100 text-purple-800 border-purple-200"
-      case "legendary":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+      initializeJupiter()
+
+      // Load transaction history from localStorage
+      try {
+        const savedHistory = localStorage.getItem("mutb_transaction_history")
+        if (savedHistory) {
+          setTransactionHistory(JSON.parse(savedHistory))
+        }
+      } catch (error) {
+        console.error("Error loading transaction history:", error)
+      }
+    }
+  }, [connection])
+
+  // Save transaction history to localStorage when it changes
+  useEffect(() => {
+    if (transactionHistory.length > 0) {
+      try {
+        localStorage.setItem("mutb_transaction_history", JSON.stringify(transactionHistory))
+      } catch (error) {
+        console.error("Error saving transaction history:", error)
+      }
+    }
+  }, [transactionHistory])
+
+  // Fetch token balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (!publicKey || !connection) return
+
+      try {
+        // Fetch MUTB balance
+        const mutbBalance = await getTokenBalance(connection, publicKey, MUTB_TOKEN)
+        setMutbBalance(mutbBalance)
+      } catch (error) {
+        console.error("Error fetching token balances:", error)
+      }
+    }
+
+    if (publicKey) {
+      fetchBalances()
+    }
+  }, [publicKey, connection])
+
+  // Manual refresh function
+  const handleRefreshTradability = async () => {
+    if (!jupiterClient) return
+
+    setCheckingTradability(true)
+    try {
+      // Refresh available tokens
+      const tokens = await jupiterClient.getAvailableTokens()
+      setAvailableTokens(tokens)
+
+      // Re-check tradability
+      const mutbToSol = await jupiterClient.isTokenTradable(MUTB_TOKEN.mintAddress, SOL_TOKEN.mintAddress)
+      const solToMutb = await jupiterClient.isTokenTradable(SOL_TOKEN.mintAddress, MUTB_TOKEN.mintAddress)
+
+      const tradable = mutbToSol || solToMutb
+      setIsTokenTradable(tradable)
+
+      toast({
+        title: "Refresh Complete",
+        description: tradable ? "Token is now tradable!" : "Token still not indexed",
+        variant: tradable ? "default" : "destructive",
+      })
+    } catch (error) {
+      console.error("Error refreshing tradability:", error)
+      toast({
+        title: "Refresh Failed",
+        description: "Could not check token status",
+        variant: "destructive",
+      })
+    } finally {
+      setCheckingTradability(false)
     }
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "nft":
-        return <Star className="h-4 w-4" />
-      case "game_item":
-        return <Gamepad2 className="h-4 w-4" />
-      case "token":
-        return <Coins className="h-4 w-4" />
-      default:
-        return <Trophy className="h-4 w-4" />
+  // Handle successful swap
+  const handleSwapComplete = (inputToken, outputToken, inputAmount, outputAmount, txId) => {
+    const newTransaction: SwapResult = {
+      type: "swap",
+      timestamp: Date.now(),
+      inputAmount,
+      inputToken: inputToken.symbol,
+      outputAmount,
+      outputToken: outputToken.symbol,
+      txId,
     }
+
+    setTransactionHistory((prev) => [newTransaction, ...prev.slice(0, 9)])
+
+    toast({
+      title: "Swap Successful!",
+      description: `You swapped ${inputAmount} ${inputToken.symbol} for ${outputAmount.toFixed(2)} ${outputToken.symbol}`,
+      variant: "default",
+      className: isCyberpunk
+        ? "border border-[#0ff]/50 bg-[#0a0a24] text-[#0ff] shadow-[0_0_10px_rgba(0,255,255,0.3)]"
+        : "border-2 border-black bg-[#FFD54F] text-black font-mono",
+      action: (
+        <ToastAction altText="OK" className={isCyberpunk ? "border border-[#0ff]/50" : "border border-black"}>
+          OK
+        </ToastAction>
+      ),
+    })
+
+    refreshBalances()
+  }
+
+  // Function to refresh balances
+  const refreshBalances = async () => {
+    if (!publicKey || !connection) return
+
+    try {
+      const solBalance = await connection.getBalance(new PublicKey(publicKey))
+      if (onBalanceChange) {
+        onBalanceChange("sol", solBalance / 1e9)
+      }
+
+      const mutbBalance = await getTokenBalance(connection, publicKey, MUTB_TOKEN)
+      setMutbBalance(mutbBalance)
+      if (onBalanceChange) {
+        onBalanceChange("mutb", mutbBalance)
+      }
+    } catch (error) {
+      console.error("Error refreshing balances:", error)
+    }
+  }
+
+  // Render alerts
+  const renderAlert = () => {
+    if (checkingTradability) {
+      return (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className={`h-6 w-6 animate-spin mr-2 ${isCyberpunk ? "text-[#0ff]" : ""}`} />
+          <span className={isCyberpunk ? "text-[#0ff] font-mono" : ""}>
+            Testing mainnet MUTB token (4Eey...QbW) on Jupiter devnet...
+          </span>
+        </div>
+      )
+    }
+
+    if (!isTokenTradable) {
+      const mutbInList = availableTokens.find((token) => token.address === MUTB_TOKEN.mintAddress)
+
+      if (isCyberpunk) {
+        return (
+          <CyberAlert className="mb-4 cyber-warning">
+            <AlertCircle className="h-4 w-4 text-yellow-400" />
+            <AlertTitle className="text-yellow-400 font-mono">Testing Mainnet Token on Devnet</AlertTitle>
+            <AlertDescription className="text-yellow-300 font-mono space-y-2">
+              <div>Testing mainnet MUTB token (4Eey...QbW) on Jupiter devnet.</div>
+              <div>Status: {mutbInList ? "Found in token list but no routes" : "Not in Jupiter token list"}</div>
+              <div>Available tokens on devnet: {availableTokens.length}</div>
+              <div>Note: Mainnet tokens typically aren't available on devnet</div>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRefreshTradability}
+                  disabled={checkingTradability}
+                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Refresh
+                </Button>
+              </div>
+            </AlertDescription>
+          </CyberAlert>
+        )
+      }
+
+      return (
+        <Alert className="mb-4 border-2 border-yellow-500 bg-yellow-50">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle className="text-yellow-800">Testing Mainnet Token on Devnet</AlertTitle>
+          <AlertDescription className="text-yellow-700 space-y-2">
+            <div>Testing mainnet MUTB token (4Eey...QbW) on Jupiter devnet.</div>
+            <div>Status: {mutbInList ? "Found in token list but no routes" : "Not in Jupiter token list"}</div>
+            <div>Available tokens on devnet: {availableTokens.length}</div>
+            <div>Note: Mainnet tokens typically aren't available on devnet</div>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" variant="outline" onClick={handleRefreshTradability} disabled={checkingTradability}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Refresh
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )
+    }
+
+    if (isCyberpunk) {
+      return (
+        <CyberAlert className="mb-4 cyber-success">
+          <Info className="h-4 w-4 text-[#0ff]" />
+          <AlertTitle className="text-[#0ff] font-mono">MUTB Token Found!</AlertTitle>
+          <AlertDescription className="text-[#0ff]/80 font-mono">
+            MUTB token is available on Jupiter devnet!
+          </AlertDescription>
+        </CyberAlert>
+      )
+    }
+
+    return (
+      <Alert className="mb-4 border-2 border-green-500 bg-green-50">
+        <Info className="h-4 w-4 text-green-600" />
+        <AlertTitle className="text-green-800">MUTB Token Found!</AlertTitle>
+        <AlertDescription className="text-green-700">MUTB token is available on Jupiter devnet!</AlertDescription>
+      </Alert>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-gray-900">Mutable Marketplace</h2>
-        <p className="text-gray-600">Trade game items, NFTs, and tokens with other players</p>
-      </div>
-
-      {/* Market Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">1,234</div>
-            <div className="text-sm text-gray-600">Items Listed</div>
-            <div className="text-xs text-green-600 font-medium">+12% this week</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">567</div>
-            <div className="text-sm text-gray-600">Active Traders</div>
-            <div className="text-xs text-green-600 font-medium">+8% this week</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">89K</div>
-            <div className="text-sm text-gray-600">MUTB Volume</div>
-            <div className="text-xs text-green-600 font-medium">+15% this week</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-gray-900">45</div>
-            <div className="text-sm text-gray-600">SOL Volume</div>
-            <div className="text-xs text-green-600 font-medium">+22% this week</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card className="bg-white border-gray-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Filter className="h-5 w-5 text-orange-600" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search items..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white border-gray-300"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Category</label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="bg-white border-gray-300">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-gray-200">
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="weapons">Weapons</SelectItem>
-                  <SelectItem value="armor">Armor</SelectItem>
-                  <SelectItem value="collectibles">Collectibles</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Rarity</label>
-              <Select value={selectedRarity} onValueChange={setSelectedRarity}>
-                <SelectTrigger className="bg-white border-gray-300">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-gray-200">
-                  <SelectItem value="all">All Rarities</SelectItem>
-                  <SelectItem value="common">Common</SelectItem>
-                  <SelectItem value="rare">Rare</SelectItem>
-                  <SelectItem value="epic">Epic</SelectItem>
-                  <SelectItem value="legendary">Legendary</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Sort By</label>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-white border-gray-300">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-gray-200">
-                  <SelectItem value="price_low">Price: Low to High</SelectItem>
-                  <SelectItem value="price_high">Price: High to Low</SelectItem>
-                  <SelectItem value="name">Name: A to Z</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <Card className={isCyberpunk ? "" : "bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ArrowLeftRight className={`h-5 w-5 ${isCyberpunk ? "text-[#0ff]" : ""}`} />
+            <CardTitle className={isCyberpunk ? "" : "font-mono"}>EXCHANGE</CardTitle>
+            <Badge variant="outline" className="text-orange-600 border-orange-500">
+              DEVNET
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={
+                isCyberpunk
+                  ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
+                  : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
+              }
+            >
+              <Image
+                src={MUTB_TOKEN.logoURI || "/placeholder.svg"}
+                alt={MUTB_TOKEN.symbol}
+                width={16}
+                height={16}
+                className="rounded-full"
+              />
+              {mutbBalance.toFixed(2)} {MUTB_TOKEN.symbol}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={
+                isCyberpunk
+                  ? "bg-[#0a0a24]/80 text-[#f0f] border border-[#f0f]/50 font-mono"
+                  : "bg-white text-black border-2 border-black font-mono"
+              }
+            >
+              {balance !== null ? `${balance.toFixed(2)} ${SOL_TOKEN.symbol}` : "..."}
+            </Badge>
+          </div>
+        </div>
+        <CardDescription className={isCyberpunk ? "text-[#0ff]/70" : ""}>
+          Swap between {SOL_TOKEN.symbol} and {MUTB_TOKEN.symbol} tokens using Jupiter on Solana devnet
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {renderAlert()}
 
-      {/* Items Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredItems.map((item) => (
-          <Card key={item.id} className="bg-white border-gray-200 hover:border-orange-300 transition-colors group">
-            <CardHeader className="pb-3">
-              <div className="aspect-square relative mb-3 rounded-lg overflow-hidden border border-gray-200">
-                <Image
-                  src={item.image || "/placeholder.svg"}
-                  alt={item.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform"
-                />
-                <div className="absolute top-2 left-2">
-                  <Badge className={getRarityColor(item.rarity)}>
-                    {item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)}
-                  </Badge>
+        {isCyberpunk ? (
+          <CyberTabs defaultValue="swap" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="cyber-tab-list mb-4">
+              <TabsTrigger value="swap" className="cyber-tab" onClick={withClickSound()}>
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="h-4 w-4" />
+                  <span>SWAP</span>
                 </div>
-                <div className="absolute top-2 right-2">
-                  <Badge className="bg-white/90 text-gray-700 border-gray-200">
-                    {getTypeIcon(item.type)}
-                    <span className="ml-1">{item.type.replace("_", " ")}</span>
-                  </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="market" className="cyber-tab" onClick={withClickSound()}>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>MARKET</span>
                 </div>
-              </div>
-              <CardTitle className="text-lg font-bold text-gray-900">{item.name}</CardTitle>
-              <CardDescription className="text-gray-600">{item.description}</CardDescription>
-            </CardHeader>
+              </TabsTrigger>
+              <TabsTrigger value="history" className="cyber-tab" onClick={withClickSound()}>
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  <span>HISTORY</span>
+                </div>
+              </TabsTrigger>
+            </TabsList>
 
-            <CardContent className="space-y-4">
-              {/* Stats */}
-              {item.stats && (
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {item.stats.power && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Power:</span>
-                      <span className="font-medium text-gray-900">{item.stats.power}</span>
-                    </div>
-                  )}
-                  {item.stats.defense && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Defense:</span>
-                      <span className="font-medium text-gray-900">{item.stats.defense}</span>
-                    </div>
-                  )}
-                  {item.stats.speed && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Speed:</span>
-                      <span className="font-medium text-gray-900">{item.stats.speed}</span>
-                    </div>
-                  )}
-                </div>
-              )}
+            <TabsContent value="swap">
+              <TokenSwapForm
+                connection={connection}
+                publicKey={publicKey}
+                provider={provider}
+                swapPair={DEFAULT_SWAP_PAIR}
+                inputBalance={balance}
+                outputBalance={mutbBalance}
+                isTokenTradable={isTokenTradable}
+                onSwap={handleSwapComplete}
+                checkingTradability={checkingTradability}
+              />
+            </TabsContent>
 
-              {/* Price and Seller */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-gray-600">Seller</div>
-                  <div className="font-medium text-gray-900">{item.seller}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {item.price} {item.currency}
-                  </div>
-                </div>
-              </div>
+            <TabsContent value="market">
+              <MarketOverview tokens={SUPPORTED_TOKENS} recentTransactions={transactionHistory} />
+            </TabsContent>
 
-              <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
-                <Coins className="h-4 w-4 mr-2" />
-                Buy Now
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            <TabsContent value="history">
+              <TransactionHistory transactions={transactionHistory} />
+            </TabsContent>
+          </CyberTabs>
+        ) : (
+          <Tabs defaultValue="swap" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4 border-2 border-black bg-[#FFD54F]">
+              <TabsTrigger
+                value="swap"
+                className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
+                onClick={withClickSound()}
+              >
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="h-4 w-4" />
+                  <span>SWAP</span>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger
+                value="market"
+                className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
+                onClick={withClickSound()}
+              >
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>MARKET</span>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger
+                value="history"
+                className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
+                onClick={withClickSound()}
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  <span>HISTORY</span>
+                </div>
+              </TabsTrigger>
+            </TabsList>
 
-      {filteredItems.length === 0 && (
-        <Card className="bg-white border-gray-200">
-          <CardContent className="text-center py-12">
-            <Trophy className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-            <p className="text-gray-600">Try adjusting your search or filter criteria</p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+            <TabsContent value="swap">
+              <TokenSwapForm
+                connection={connection}
+                publicKey={publicKey}
+                provider={provider}
+                swapPair={DEFAULT_SWAP_PAIR}
+                inputBalance={balance}
+                outputBalance={mutbBalance}
+                isTokenTradable={isTokenTradable}
+                onSwap={handleSwapComplete}
+                checkingTradability={checkingTradability}
+              />
+            </TabsContent>
+
+            <TabsContent value="market">
+              <MarketOverview tokens={SUPPORTED_TOKENS} recentTransactions={transactionHistory} />
+            </TabsContent>
+
+            <TabsContent value="history">
+              <TransactionHistory transactions={transactionHistory} />
+            </TabsContent>
+          </Tabs>
+        )}
+      </CardContent>
+    </Card>
   )
 }

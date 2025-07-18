@@ -1,210 +1,231 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Activity, Zap } from "lucide-react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
+import { Loader2 } from "lucide-react"
+import type { TokenConfig } from "@/types/token-types"
+import { getTokenPrice } from "@/utils/token-utils"
+import type { SwapResult } from "@/types/token-types"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
 
-interface TokenData {
-  symbol: string
-  name: string
-  price: number
-  change24h: number
-  volume24h: number
-  marketCap: number
-  icon: string
-}
-
-interface MarketStats {
-  totalVolume: number
-  totalLiquidity: number
-  activePairs: number
-  totalTransactions: number
-}
-
-const MOCK_TOKENS: TokenData[] = [
-  {
-    symbol: "MUTB",
-    name: "Mutable Token",
-    price: 0.0234,
-    change24h: 5.3,
-    volume24h: 125000,
-    marketCap: 2340000,
-    icon: "/images/mutable-token.png",
-  },
-  {
-    symbol: "SOL",
-    name: "Solana",
-    price: 125.78,
-    change24h: -2.1,
-    volume24h: 890000,
-    marketCap: 52000000000,
-    icon: "/solana-logo.png",
-  },
-]
-
-const MOCK_STATS: MarketStats = {
-  totalVolume: 2400000,
-  totalLiquidity: 8900000,
-  activePairs: 12,
-  totalTransactions: 15234,
-}
-
-export function MarketOverview() {
-  const [tokens] = useState<TokenData[]>(MOCK_TOKENS)
-  const [stats] = useState<MarketStats>(MOCK_STATS)
-  const [selectedTimeframe, setSelectedTimeframe] = useState("24h")
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) {
-      return `$${(num / 1000000).toFixed(1)}M`
-    }
-    if (num >= 1000) {
-      return `$${(num / 1000).toFixed(1)}K`
-    }
-    return `$${num.toFixed(2)}`
+// Cyberpunk styled components
+const scanline = keyframes`
+  0% {
+    transform: translateY(-100%);
   }
-
-  const formatPrice = (price: number) => {
-    if (price < 0.01) {
-      return `$${price.toFixed(4)}`
-    }
-    return `$${price.toFixed(2)}`
+  100% {
+    transform: translateY(100%);
   }
+`
 
-  return (
-    <div className="space-y-6">
-      {/* Market Stats */}
-      <Card className="bg-white border-gray-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <BarChart3 className="h-5 w-5 text-orange-600" />
-            Market Overview
-          </CardTitle>
-          <CardDescription className="text-gray-600">Real-time market statistics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-orange-600" />
-                <span className="text-sm font-medium text-orange-700">Total Volume</span>
-              </div>
-              <div className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalVolume)}</div>
-              <div className="text-xs text-green-600 font-medium">+12.5% (24h)</div>
-            </div>
+const CyberCard = styled.div`
+  background: rgba(10, 10, 40, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
+  }
+`
 
-            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-700">Total Liquidity</span>
-              </div>
-              <div className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalLiquidity)}</div>
-              <div className="text-xs text-green-600 font-medium">+8.2% (24h)</div>
-            </div>
+const CyberTitle = styled.h3`
+  color: rgba(0, 255, 255, 0.9);
+  font-family: monospace;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
+  }
+`
 
-            <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-700">Active Pairs</span>
-              </div>
-              <div className="text-2xl font-bold text-gray-900">{stats.activePairs}</div>
-              <div className="text-xs text-green-600 font-medium">+2 new pairs</div>
-            </div>
+interface MarketOverviewProps {
+  tokens: TokenConfig[]
+  recentTransactions: SwapResult[]
+}
 
-            <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium text-purple-700">Transactions</span>
-              </div>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalTransactions.toLocaleString()}</div>
-              <div className="text-xs text-green-600 font-medium">+15.7% (24h)</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+export function MarketOverview({ tokens, recentTransactions }: MarketOverviewProps) {
+  const { styleMode } = useCyberpunkTheme()
+  const isCyberpunk = styleMode === "cyberpunk"
 
-      {/* Top Tokens */}
-      <Card className="bg-white border-gray-200">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-gray-900">Top Tokens</CardTitle>
-              <CardDescription className="text-gray-600">Most traded tokens on the platform</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              {["24h", "7d", "30d"].map((timeframe) => (
-                <Button
-                  key={timeframe}
-                  variant={selectedTimeframe === timeframe ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedTimeframe(timeframe)}
-                  className={
-                    selectedTimeframe === timeframe
-                      ? "bg-orange-600 hover:bg-orange-700 text-white"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
-                  }
-                >
-                  {timeframe}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {tokens.map((token, index) => (
-              <div
-                key={token.symbol}
-                className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors bg-white"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-mono text-gray-500 w-6">#{index + 1}</span>
-                    <Image
-                      src={token.icon || "/placeholder.svg"}
-                      alt={token.symbol}
-                      width={32}
-                      height={32}
-                      className="rounded-full"
-                    />
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{token.symbol}</div>
-                    <div className="text-sm text-gray-600">{token.name}</div>
-                  </div>
+  const [tokenPrices, setTokenPrices] = useState<Record<string, number>>({})
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchPrices = async () => {
+      setIsLoading(true)
+      try {
+        const prices: Record<string, number> = {}
+
+        for (const token of tokens) {
+          const price = await getTokenPrice(token)
+          prices[token.id] = price.usdPrice
+        }
+
+        setTokenPrices(prices)
+      } catch (error) {
+        console.error("Error fetching token prices:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPrices()
+    // Refresh prices every 60 seconds
+    const intervalId = setInterval(fetchPrices, 60000)
+
+    return () => clearInterval(intervalId)
+  }, [tokens])
+
+  if (isCyberpunk) {
+    return (
+      <div className="space-y-4">
+        <CyberCard className="p-4">
+          <CyberTitle className="mb-2 font-mono">MARKET OVERVIEW</CyberTitle>
+          <div className="space-y-3">
+            {tokens.map((token) => (
+              <div key={token.id} className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Image
+                    src={token.logoURI || "/placeholder.svg"}
+                    alt={token.symbol}
+                    width={24}
+                    height={24}
+                    className="rounded-full"
+                  />
+                  <span className="font-medium text-cyan-200">{token.name}</span>
                 </div>
-
                 <div className="text-right">
-                  <div className="font-medium text-gray-900">{formatPrice(token.price)}</div>
-                  <div className="flex items-center gap-1">
-                    {token.change24h >= 0 ? (
-                      <TrendingUp className="h-3 w-3 text-green-600" />
+                  <div className="font-medium text-cyan-100">
+                    {isLoading ? (
+                      <span className="flex items-center gap-1 text-cyan-300">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading...
+                      </span>
                     ) : (
-                      <TrendingDown className="h-3 w-3 text-red-600" />
+                      `$${tokenPrices[token.id]?.toFixed(2) || "..."} USD`
                     )}
-                    <span className={`text-sm font-medium ${token.change24h >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {token.change24h >= 0 ? "+" : ""}
-                      {token.change24h.toFixed(1)}%
-                    </span>
                   </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-sm text-gray-600">Volume</div>
-                  <div className="font-medium text-gray-900">{formatNumber(token.volume24h)}</div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-sm text-gray-600">Market Cap</div>
-                  <div className="font-medium text-gray-900">{formatNumber(token.marketCap)}</div>
+                  <div className="text-sm text-green-400">
+                    {token.fixedPrice !== undefined ? "Fixed Price" : "Live Price"}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </CyberCard>
+
+        <CyberCard className="p-4">
+          <CyberTitle className="mb-2 font-mono">RECENT TRADES</CyberTitle>
+          <div className="space-y-2">
+            {recentTransactions.length > 0 ? (
+              recentTransactions
+                .filter((tx) => tx.type === "swap")
+                .slice(0, 4)
+                .map((tx, index) => (
+                  <div key={index} className="flex justify-between items-center text-sm text-cyan-200">
+                    <span>
+                      {tx.inputAmount.toFixed(2)} {tx.inputToken} → {tx.outputAmount.toFixed(2)} {tx.outputToken}
+                    </span>
+                    <span className="text-cyan-400">{new Date(tx.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                ))
+            ) : (
+              <div className="text-center py-2 text-cyan-400">
+                <p>No recent trades</p>
+              </div>
+            )}
+          </div>
+        </CyberCard>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
+        <h3 className="font-bold mb-2 font-mono">MARKET OVERVIEW</h3>
+        <div className="space-y-3">
+          {tokens.map((token) => (
+            <div key={token.id} className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Image
+                  src={token.logoURI || "/placeholder.svg"}
+                  alt={token.symbol}
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
+                <span className="font-medium">{token.name}</span>
+              </div>
+              <div className="text-right">
+                <div className="font-medium">
+                  {isLoading ? (
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    `$${tokenPrices[token.id]?.toFixed(2) || "..."} USD`
+                  )}
+                </div>
+                <div className="text-sm text-green-600">
+                  {token.fixedPrice !== undefined ? "Fixed Price" : "Live Price"}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
+        <h3 className="font-bold mb-2 font-mono">RECENT TRADES</h3>
+        <div className="space-y-2">
+          {recentTransactions.length > 0 ? (
+            recentTransactions
+              .filter((tx) => tx.type === "swap")
+              .slice(0, 4)
+              .map((tx, index) => (
+                <div key={index} className="flex justify-between items-center text-sm">
+                  <span>
+                    {tx.inputAmount.toFixed(2)} {tx.inputToken} → {tx.outputAmount.toFixed(2)} {tx.outputToken}
+                  </span>
+                  <span className="text-gray-500">{new Date(tx.timestamp).toLocaleTimeString()}</span>
+                </div>
+              ))
+          ) : (
+            <div className="text-center py-2 text-gray-500">
+              <p>No recent trades</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,239 +1,357 @@
 "use client"
+import { Info, ExternalLink, Loader2 } from "lucide-react"
+import SoundButton from "@/components/sound-button"
+import { useToast } from "@/components/ui/use-toast"
+import type { TokenConfig } from "@/types/token-types"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { Droplets, TrendingUp, AlertTriangle, Plus, Minus } from "lucide-react"
-import Image from "next/image"
+// Cyberpunk styled components
+const glowPulse = keyframes`
+  0% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3); }
+`
 
-interface LiquidityPool {
-  id: string
-  tokenA: {
-    symbol: string
-    amount: number
-    icon: string
+const CyberCard = styled.div`
+  background: rgba(10, 10, 40, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
   }
-  tokenB: {
-    symbol: string
-    amount: number
-    icon: string
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
   }
-  totalLiquidity: number
-  volume24h: number
-  fees24h: number
-  apr: number
-  userShare: number
-  status: "active" | "low_liquidity" | "high_volume"
+`
+
+const CyberTitle = styled.h3`
+  color: rgba(0, 255, 255, 0.9);
+  font-family: monospace;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
+  }
+`
+
+const CyberButton = styled(SoundButton)`
+  background: linear-gradient(90deg, rgba(0, 128, 255, 0.5), rgba(0, 255, 255, 0.5));
+  border: 1px solid rgba(0, 255, 255, 0.8);
+  color: white;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.8);
+  font-family: monospace;
+  position: relative;
+  overflow: hidden;
+  
+  &:hover:not(:disabled) {
+    background: linear-gradient(90deg, rgba(0, 128, 255, 0.7), rgba(0, 255, 255, 0.7));
+    animation: ${glowPulse} 2s infinite;
+  }
+  
+  &:disabled {
+    background: rgba(50, 50, 70, 0.5);
+    border-color: rgba(100, 100, 150, 0.3);
+    color: rgba(200, 200, 220, 0.5);
+  }
+`
+
+const CyberLink = styled.a`
+  color: rgba(0, 150, 255, 0.9);
+  text-decoration: none;
+  position: relative;
+  
+  &:hover {
+    color: rgba(0, 200, 255, 1);
+    text-shadow: 0 0 5px rgba(0, 200, 255, 0.5);
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.8), transparent);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+  
+  &:hover::after {
+    transform: scaleX(1);
+  }
+`
+
+const CyberInfoBox = styled.div`
+  background: ${(props) => (props.color === "green" ? "rgba(0, 100, 50, 0.3)" : "rgba(100, 100, 0, 0.3)")};
+  border: 1px solid ${(props) => (props.color === "green" ? "rgba(0, 255, 100, 0.3)" : "rgba(255, 255, 0, 0.3)")};
+  border-radius: 4px;
+  color: ${(props) => (props.color === "green" ? "rgba(100, 255, 150, 0.9)" : "rgba(255, 255, 150, 0.9)")};
+`
+
+interface LiquidityPoolStatusProps {
+  tokenA: TokenConfig
+  tokenB: TokenConfig
+  isTokenTradable: boolean
+  checkingTradability: boolean
+  onCheckTradability: () => Promise<boolean>
 }
 
-const MOCK_POOLS: LiquidityPool[] = [
-  {
-    id: "1",
-    tokenA: {
-      symbol: "MUTB",
-      amount: 125000,
-      icon: "/images/mutable-token.png",
-    },
-    tokenB: {
-      symbol: "SOL",
-      amount: 850.5,
-      icon: "/solana-logo.png",
-    },
-    totalLiquidity: 234000,
-    volume24h: 45000,
-    fees24h: 135,
-    apr: 24.5,
-    userShare: 2.3,
-    status: "active",
-  },
-  {
-    id: "2",
-    tokenA: {
-      symbol: "MUTB",
-      amount: 89000,
-      icon: "/images/mutable-token.png",
-    },
-    tokenB: {
-      symbol: "USDC",
-      amount: 2100,
-      icon: "/placeholder.svg",
-    },
-    totalLiquidity: 156000,
-    volume24h: 28000,
-    fees24h: 84,
-    apr: 18.2,
-    userShare: 0,
-    status: "high_volume",
-  },
-]
+export function LiquidityPoolStatus({
+  tokenA,
+  tokenB,
+  isTokenTradable,
+  checkingTradability,
+  onCheckTradability,
+}: LiquidityPoolStatusProps) {
+  const { styleMode } = useCyberpunkTheme()
+  const isCyberpunk = styleMode === "cyberpunk"
+  const { toast } = useToast()
 
-export function LiquidityPoolStatus() {
-  const [pools] = useState<LiquidityPool[]>(MOCK_POOLS)
+  const handleCheckStatus = async () => {
+    try {
+      const tradable = await onCheckTradability()
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M`
-    }
-    if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}K`
-    }
-    return num.toFixed(2)
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "low_liquidity":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "high_volume":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
+      toast({
+        title: tradable ? "Token is Tradable!" : "Token Not Yet Tradable",
+        description: tradable
+          ? `Your ${tokenA.symbol} token is now tradable on Jupiter.`
+          : `Your token is not yet indexed by Jupiter. Please check back later.`,
+        variant: "default",
+        className: tradable
+          ? "border-2 border-green-500 bg-green-50 text-green-800"
+          : "border-2 border-yellow-500 bg-yellow-50 text-yellow-800",
+      })
+    } catch (error) {
+      console.error("Error checking token tradability:", error)
+      toast({
+        title: "Error Checking Token",
+        description: "Failed to check if your token is tradable. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Active"
-      case "low_liquidity":
-        return "Low Liquidity"
-      case "high_volume":
-        return "High Volume"
-      default:
-        return "Unknown"
-    }
-  }
+  if (isCyberpunk) {
+    return (
+      <div className="space-y-4">
+        <CyberCard className="p-4">
+          <CyberTitle className="mb-2 font-mono">LIQUIDITY POOL STATUS</CyberTitle>
+          <CyberInfoBox className="p-3 rounded-md text-sm mb-3" color={isTokenTradable ? "green" : "yellow"}>
+            <p className="flex items-start gap-2">
+              <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>
+                {isTokenTradable
+                  ? `Your ${tokenA.symbol} token is now tradable on Jupiter! The liquidity pool has been successfully created and indexed.`
+                  : `Your liquidity pool has been created but may not be indexed by Jupiter yet. This typically takes 24-48 hours.`}
+              </span>
+            </p>
+          </CyberInfoBox>
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Droplets className="h-3 w-3" />
-      case "low_liquidity":
-        return <AlertTriangle className="h-3 w-3" />
-      case "high_volume":
-        return <TrendingUp className="h-3 w-3" />
-      default:
-        return <Droplets className="h-3 w-3" />
-    }
+          <div className="space-y-2 mt-4">
+            <div className="flex justify-between">
+              <span className="text-sm text-cyan-200">Pool Status:</span>
+              <span className="text-sm font-medium">
+                {isTokenTradable ? (
+                  <span className="text-green-400">Active & Indexed</span>
+                ) : (
+                  <span className="text-yellow-400">Created, Awaiting Indexing</span>
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-cyan-200">Jupiter Integration:</span>
+              <span className="text-sm font-medium">
+                {isTokenTradable ? (
+                  <span className="text-green-400">Available</span>
+                ) : (
+                  <span className="text-yellow-400">Pending</span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <CyberLink
+              href={`https://explorer.solana.com/address/${tokenA.mintAddress}?cluster=devnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-sm"
+            >
+              View {tokenA.symbol} Token on Solana Explorer <ExternalLink className="h-3 w-3 ml-1" />
+            </CyberLink>
+          </div>
+        </CyberCard>
+
+        <CyberCard className="p-4">
+          <CyberTitle className="mb-2 font-mono">CHECK JUPITER INTEGRATION</CyberTitle>
+          <p className="text-sm mb-3 text-cyan-200">
+            You can manually check if your token is tradable on Jupiter using these methods:
+          </p>
+          <ol className="list-decimal list-inside text-sm space-y-2 text-cyan-100">
+            <li>
+              <strong className="text-cyan-300">Jupiter Swap UI:</strong> Visit{" "}
+              <CyberLink
+                href={`https://jup.ag/swap/${tokenB.symbol}-${tokenA.symbol}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Jupiter Swap
+              </CyberLink>{" "}
+              and try to swap {tokenB.symbol} to {tokenA.symbol}.
+            </li>
+            <li>
+              <strong className="text-cyan-300">API Check:</strong> Use the Jupiter API to check if your token is
+              tradable by making a request to:{" "}
+              <code className="bg-[rgba(16,16,48,0.6)] p-1 rounded text-cyan-300">
+                https://quote-api.jup.ag/v6/quote?inputMint={tokenB.mintAddress}&outputMint={tokenA.mintAddress}
+                &amount=10000000
+              </code>
+            </li>
+            <li>
+              <strong className="text-cyan-300">Refresh Token Status:</strong> Click the button below to check if your
+              token is now tradable on Jupiter.
+            </li>
+          </ol>
+          <div className="mt-4">
+            <CyberButton className="w-full font-mono" onClick={handleCheckStatus} disabled={checkingTradability}>
+              {checkingTradability ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  CHECKING...
+                </span>
+              ) : (
+                "CHECK TOKEN STATUS"
+              )}
+            </CyberButton>
+          </div>
+        </CyberCard>
+      </div>
+    )
   }
 
   return (
-    <Card className="bg-white border-gray-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-gray-900">
-          <Droplets className="h-5 w-5 text-orange-600" />
-          Liquidity Pools
-        </CardTitle>
-        <CardDescription className="text-gray-600">Manage your liquidity positions</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {pools.map((pool) => (
-          <div
-            key={pool.id}
-            className="p-4 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors bg-white"
-          >
-            {/* Pool Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center -space-x-2">
-                  <Image
-                    src={pool.tokenA.icon || "/placeholder.svg"}
-                    alt={pool.tokenA.symbol}
-                    width={32}
-                    height={32}
-                    className="rounded-full border-2 border-white"
-                  />
-                  <Image
-                    src={pool.tokenB.icon || "/placeholder.svg"}
-                    alt={pool.tokenB.symbol}
-                    width={32}
-                    height={32}
-                    className="rounded-full border-2 border-white"
-                  />
-                </div>
-                <div>
-                  <div className="font-medium text-gray-900">
-                    {pool.tokenA.symbol}/{pool.tokenB.symbol}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {formatNumber(pool.tokenA.amount)} {pool.tokenA.symbol} • {formatNumber(pool.tokenB.amount)}{" "}
-                    {pool.tokenB.symbol}
-                  </div>
-                </div>
-              </div>
-              <Badge className={getStatusColor(pool.status)}>
-                {getStatusIcon(pool.status)}
-                <span className="ml-1">{getStatusLabel(pool.status)}</span>
-              </Badge>
-            </div>
+    <div className="space-y-4">
+      <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
+        <h3 className="font-bold mb-2 font-mono">LIQUIDITY POOL STATUS</h3>
+        <div
+          className={`bg-${isTokenTradable ? "green" : "yellow"}-100 border border-${isTokenTradable ? "green" : "yellow"}-300 p-3 rounded-md text-sm mb-3`}
+        >
+          <p className="flex items-start gap-2">
+            <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>
+              {isTokenTradable
+                ? `Your ${tokenA.symbol} token is now tradable on Jupiter! The liquidity pool has been successfully created and indexed.`
+                : `Your liquidity pool has been created but may not be indexed by Jupiter yet. This typically takes 24-48 hours.`}
+            </span>
+          </p>
+        </div>
 
-            {/* Pool Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div>
-                <div className="text-sm text-gray-600">Total Liquidity</div>
-                <div className="font-medium text-gray-900">${formatNumber(pool.totalLiquidity)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">24h Volume</div>
-                <div className="font-medium text-gray-900">${formatNumber(pool.volume24h)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">24h Fees</div>
-                <div className="font-medium text-green-600">${formatNumber(pool.fees24h)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">APR</div>
-                <div className="font-medium text-orange-600">{pool.apr}%</div>
-              </div>
-            </div>
-
-            {/* User Position */}
-            {pool.userShare > 0 && (
-              <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-orange-700">Your Position</span>
-                  <span className="text-sm font-medium text-orange-700">{pool.userShare}% of pool</span>
-                </div>
-                <Progress value={pool.userShare} className="h-2" />
-                <div className="flex justify-between text-xs text-orange-600 mt-1">
-                  <span>Share: {pool.userShare}%</span>
-                  <span>Value: ${((pool.totalLiquidity * pool.userShare) / 100).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <Button size="sm" className="flex-1 bg-orange-600 hover:bg-orange-700 text-white">
-                <Plus className="h-4 w-4 mr-1" />
-                Add Liquidity
-              </Button>
-              {pool.userShare > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
-                >
-                  <Minus className="h-4 w-4 mr-1" />
-                  Remove
-                </Button>
+        <div className="space-y-2 mt-4">
+          <div className="flex justify-between">
+            <span className="text-sm">Pool Status:</span>
+            <span className="text-sm font-medium">
+              {isTokenTradable ? (
+                <span className="text-green-600">Active & Indexed</span>
+              ) : (
+                <span className="text-yellow-600">Created, Awaiting Indexing</span>
               )}
-            </div>
+            </span>
           </div>
-        ))}
+          <div className="flex justify-between">
+            <span className="text-sm">Jupiter Integration:</span>
+            <span className="text-sm font-medium">
+              {isTokenTradable ? (
+                <span className="text-green-600">Available</span>
+              ) : (
+                <span className="text-yellow-600">Pending</span>
+              )}
+            </span>
+          </div>
+        </div>
 
-        {pools.length === 0 && (
-          <div className="text-center py-8">
-            <Droplets className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <div className="text-gray-500 mb-2">No liquidity pools found</div>
-            <div className="text-sm text-gray-400">Create your first liquidity position to get started</div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        <div className="mt-4">
+          <a
+            href={`https://explorer.solana.com/address/${tokenA.mintAddress}?cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline flex items-center text-sm"
+          >
+            View {tokenA.symbol} Token on Solana Explorer <ExternalLink className="h-3 w-3 ml-1" />
+          </a>
+        </div>
+      </div>
+
+      <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
+        <h3 className="font-bold mb-2 font-mono">CHECK JUPITER INTEGRATION</h3>
+        <p className="text-sm mb-3">You can manually check if your token is tradable on Jupiter using these methods:</p>
+        <ol className="list-decimal list-inside text-sm space-y-2">
+          <li>
+            <strong>Jupiter Swap UI:</strong> Visit{" "}
+            <a
+              href={`https://jup.ag/swap/${tokenB.symbol}-${tokenA.symbol}?cluster=devnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              Jupiter Swap
+            </a>{" "}
+            and try to swap {tokenB.symbol} to {tokenA.symbol}.
+          </li>
+          <li>
+            <strong>API Check:</strong> Use the Jupiter API to check if your token is tradable by making a request to:{" "}
+            <code className="bg-gray-100 p-1 rounded">
+              https://quote-api.jup.ag/v6/quote?inputMint={tokenB.mintAddress}&outputMint={tokenA.mintAddress}
+              &amount=10000000
+            </code>
+          </li>
+          <li>
+            <strong>Refresh Token Status:</strong> Click the button below to check if your token is now tradable on
+            Jupiter.
+          </li>
+        </ol>
+        <div className="mt-4">
+          <SoundButton
+            className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+            onClick={handleCheckStatus}
+            disabled={checkingTradability}
+          >
+            {checkingTradability ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                CHECKING...
+              </span>
+            ) : (
+              "CHECK TOKEN STATUS"
+            )}
+          </SoundButton>
+        </div>
+      </div>
+    </div>
   )
 }

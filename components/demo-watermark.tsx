@@ -1,56 +1,48 @@
 "use client"
 
-import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { X, ExternalLink, Sparkles } from "lucide-react"
+import { useState, useEffect } from "react"
+import { AlertCircle } from "lucide-react"
+import { createPortal } from "react-dom"
 
-export function DemoWatermark() {
-  const [isVisible, setIsVisible] = useState(true)
+export default function DemoWatermark() {
+  const [expanded, setExpanded] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  if (!isVisible) return null
+  // Use a portal to render the component at the root level of the DOM
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
 
-  return (
-    <div className="fixed bottom-4 left-4 z-50 max-w-sm">
-      <Card className="bg-white/95 backdrop-blur-sm border-2 border-orange-200 shadow-lg">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-orange-600" />
-              <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">DEMO</Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsVisible(false)}
-              className="h-6 w-6 p-0 hover:bg-orange-100"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-900">Mutable Gaming Platform Demo</p>
-            <p className="text-xs text-gray-600">
-              This is a demonstration of the Mutable gaming platform. Connect your wallet to explore games and features.
-            </p>
-            <div className="flex gap-2 pt-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-7 border-orange-200 text-orange-700 hover:bg-orange-50 bg-transparent"
-                onClick={() => window.open("https://mutable.ai", "_blank")}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Learn More
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  const watermarkContent = (
+    <div
+      className="fixed top-3 left-1/2 transform -translate-x-1/2 z-[9999] flex items-start gap-2 bg-black/60 text-white/80 text-xs px-2 py-1 rounded-md backdrop-blur-sm transition-all duration-300 cursor-pointer border border-red-500/40 shadow-sm hover:bg-black/70"
+      style={{
+        maxWidth: expanded ? "350px" : "200px",
+        width: expanded ? "auto" : "auto",
+        pointerEvents: "auto",
+        position: "fixed",
+        isolation: "isolate",
+      }}
+      onClick={() => setExpanded(!expanded)}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
+      <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 text-red-400/80 mt-0.5" />
+      <div className={expanded ? "" : "overflow-hidden"}>
+        {expanded ? (
+          <p className="text-xs font-medium text-white/80">
+            No Real Transactions
+            <br />
+            Mobile Support In Development
+          </p>
+        ) : (
+          <p className="whitespace-nowrap text-xs font-medium text-white/80">DEMO PURPOSES ONLY</p>
+        )}
+      </div>
     </div>
   )
-}
 
-export default DemoWatermark
+  // Use a portal to render at the root level of the DOM
+  return mounted ? createPortal(watermarkContent, document.body) : null
+}

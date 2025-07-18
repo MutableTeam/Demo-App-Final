@@ -1,139 +1,171 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Mail, Gift, Trophy, Coins, Users } from "lucide-react"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
+import Image from "next/image"
+
+const slideUp = keyframes`
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+`
+
+const pulse = keyframes`
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 0, 128, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 0, 128, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 0, 128, 0);
+  }
+`
+
+const CyberBanner = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, rgba(16, 16, 48, 0.95) 0%, rgba(32, 16, 64, 0.95) 100%);
+  border-top: 2px solid rgba(0, 255, 255, 0.5);
+  padding: 1rem;
+  z-index: 9999;
+  animation: ${slideUp} 0.5s ease-out forwards;
+  backdrop-filter: blur(10px);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #0ff, #f0f, #0ff);
+    z-index: 1;
+  }
+`
+
+const TokenImage = styled.div`
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(0, 255, 255, 0.5);
+  animation: ${pulse} 2s infinite;
+  
+  @media (min-width: 640px) {
+    width: 50px;
+    height: 50px;
+  }
+`
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  
+  &:hover {
+    color: white;
+  }
+`
 
 interface SignUpBannerProps {
-  walletConnected?: boolean
+  onSignUp?: () => void
+  walletConnected?: boolean // New prop to check wallet connection status
 }
 
-export function SignUpBanner({ walletConnected = false }: SignUpBannerProps) {
-  const [email, setEmail] = useState("")
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBannerProps) {
+  const [isVisible, setIsVisible] = useState(false)
+  const { styleMode } = useCyberpunkTheme()
+  const isCyberpunk = styleMode === "cyberpunk"
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
+  useEffect(() => {
+    // Only show banner if wallet is connected and banner wasn't dismissed
+    if (walletConnected && !localStorage.getItem("signupBannerDismissed")) {
+      setIsVisible(true)
+    } else {
+      setIsVisible(false)
+    }
+  }, [walletConnected])
 
-    setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsSubmitted(true)
-    setIsLoading(false)
+  const handleClose = () => {
+    setIsVisible(false)
+    // Remember that user dismissed the banner
+    localStorage.setItem("signupBannerDismissed", "true")
   }
 
-  const benefits = [
-    {
-      icon: <Gift className="w-5 h-5 text-orange-500" />,
-      title: "Welcome Bonus",
-      description: "Get 100 MUTB tokens when you sign up",
-    },
-    {
-      icon: <Trophy className="w-5 h-5 text-blue-500" />,
-      title: "Exclusive Games",
-      description: "Access to premium games and tournaments",
-    },
-    {
-      icon: <Coins className="w-5 h-5 text-green-500" />,
-      title: "Higher Rewards",
-      description: "Earn 25% more tokens on all games",
-    },
-    {
-      icon: <Users className="w-5 h-5 text-purple-500" />,
-      title: "Community Access",
-      description: "Join our Discord and get insider updates",
-    },
-  ]
+  const handleSignUp = () => {
+    if (onSignUp) {
+      onSignUp()
+    }
+    // For demo purposes, just close the banner
+    handleClose()
+  }
 
-  if (isSubmitted) {
+  if (!isVisible) return null
+
+  if (!isCyberpunk) {
     return (
-      <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-        <CardContent className="p-8 text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Mutable!</h3>
-          <p className="text-gray-600 mb-4">Check your email for your welcome bonus and next steps.</p>
-          <Badge className="bg-green-100 text-green-800 border-green-200">
-            100 MUTB tokens will be credited to your account
-          </Badge>
-        </CardContent>
-      </Card>
+      <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-blue-500 p-4 z-[9999] flex flex-col sm:flex-row items-center justify-between gap-4 backdrop-blur-sm text-white">
+        <div className="flex items-center gap-3">
+          <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-blue-500">
+            <Image src="/images/mutable-token.png" alt="MUTB Token" fill className="object-cover" />
+          </div>
+          <p className="font-medium">Sign up now and receive up to 100 Free MUTB Tokens!</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSignUp} className="whitespace-nowrap bg-blue-600 hover:bg-blue-700">
+            Sign Up Now
+          </Button>
+          <button onClick={handleClose} className="p-1 text-gray-300 hover:text-white">
+            <X size={20} />
+          </button>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
-      <CardHeader className="text-center pb-4">
-        <CardTitle className="text-3xl font-bold text-gray-900 mb-2">Join the Mutable Gaming Revolution</CardTitle>
-        <CardDescription className="text-lg text-gray-600">
-          Sign up now and get exclusive benefits, bonus tokens, and early access to new games
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-8">
-        {/* Benefits Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {benefits.map((benefit, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                {benefit.icon}
-                <h4 className="font-semibold text-gray-900">{benefit.title}</h4>
-              </div>
-              <p className="text-sm text-gray-600">{benefit.description}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Email Signup Form */}
-        <div className="max-w-md mx-auto">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  type="email"
-                  placeholder="Enter your email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-white border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isLoading || !email}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-2 whitespace-nowrap"
-              >
-                {isLoading ? "Signing Up..." : "Get Started"}
-              </Button>
-            </div>
-          </form>
-
-          <p className="text-xs text-gray-500 text-center mt-3">
-            By signing up, you agree to our Terms of Service and Privacy Policy.
-            {walletConnected && " Your wallet is already connected - you're ready to play!"}
+    <CyberBanner className="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <TokenImage>
+          <Image src="/images/mutable-token.png" alt="MUTB Token" fill className="object-cover" />
+        </TokenImage>
+        <div>
+          <p className="text-cyan-300 font-bold text-lg tracking-wide">
+            <span className="text-pink-500">FREE</span> TOKEN OFFER
           </p>
+          <p className="text-white text-sm sm:text-base">Sign up now and receive up to 100 Free MUTB Tokens!</p>
         </div>
-
-        {/* Call to Action */}
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 border border-orange-200">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-gray-700">
-              {Math.floor(Math.random() * 500) + 1000} players online now
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleSignUp}
+          variant={isCyberpunk ? "default" : "default"}
+          className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold"
+        >
+          CLAIM YOUR TOKENS
+        </Button>
+        <CloseButton onClick={handleClose} aria-label="Close banner">
+          <X size={20} />
+        </CloseButton>
+      </div>
+    </CyberBanner>
   )
 }

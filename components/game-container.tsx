@@ -1,505 +1,316 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
+import { gameRegistry } from "@/types/game-registry"
+import { useToast } from "@/hooks/use-toast"
+import GameErrorBoundary from "@/components/game-error-boundary"
+import { debugManager } from "@/utils/debug-utils"
+import { cyberpunkColors } from "@/styles/cyberpunk-theme"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
+import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
+import { usePlatform } from "@/contexts/platform-context"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import { Play, Pause, RotateCcw, Trophy, Target, Volume2, VolumeX } from "lucide-react"
+import { Monitor, Smartphone } from "lucide-react"
+
+// Cyberpunk styled components for the game container
+const CyberpunkGameContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: ${cyberpunkColors.background.dark};
+  border: 1px solid ${cyberpunkColors.border.cyan};
+  box-shadow: 0 0 15px ${cyberpunkColors.shadow.cyan};
+  overflow: hidden;
+  
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      transparent, 
+      ${cyberpunkColors.primary.cyan}, 
+      transparent
+    );
+    z-index: 1;
+  }
+  
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      ${cyberpunkColors.primary.magenta}, 
+      ${cyberpunkColors.primary.cyan}
+    );
+    z-index: 1;
+  }
+`
+
+const CyberpunkDevBanner = styled.div`
+  width: 100%;
+  background: linear-gradient(90deg, 
+    ${cyberpunkColors.primary.magenta}80, 
+    ${cyberpunkColors.primary.cyan}80
+  );
+  color: ${cyberpunkColors.text.primary};
+  font-family: monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 2px solid ${cyberpunkColors.border.cyanBright};
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px ${cyberpunkColors.primary.cyan};
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: ${keyframes`
+      from { left: -100%; }
+      to { left: 200%; }
+    `} 3s linear infinite;
+  }
+`
+
+const PlatformBadge = styled(Badge)`
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  color: #0ff;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+`
+
+const pulseAnimation = keyframes`
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 15px ${cyberpunkColors.primary.cyan}, 0 0 30px ${cyberpunkColors.primary.cyan}80;
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 25px ${cyberpunkColors.primary.magenta}, 0 0 40px ${cyberpunkColors.primary.magenta}80;
+  }
+`
+
+const CyberpunkLoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 600px;
+  background-color: ${cyberpunkColors.background.darker};
+  color: ${cyberpunkColors.text.primary};
+  border: 1px solid ${cyberpunkColors.border.cyan};
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    transform: perspective(500px) rotateX(60deg);
+    transform-origin: center bottom;
+    opacity: 0.3;
+  }
+`
+
+const CyberpunkSpinner = styled.div`
+  width: 60px;
+  height: 60px;
+  margin-bottom: 20px;
+  border: 3px solid transparent;
+  border-top-color: ${cyberpunkColors.primary.cyan};
+  border-right-color: ${cyberpunkColors.primary.magenta};
+  border-radius: 50%;
+  animation: ${keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  `} 1s linear infinite;
+  box-shadow: 0 0 15px ${cyberpunkColors.shadow.cyan};
+`
+
+const CyberpunkLoadingText = styled.p`
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: ${cyberpunkColors.text.cyan};
+  text-shadow: 0 0 10px ${cyberpunkColors.shadow.cyan};
+  animation: ${pulseAnimation} 2s infinite;
+  
+  &::after {
+    content: "...";
+    animation: ${keyframes`
+      0% { content: "."; }
+      33% { content: ".."; }
+      66% { content: "..."; }
+      100% { content: "."; }
+    `} 1.5s infinite;
+  }
+`
 
 interface GameContainerProps {
   gameId: string
   playerId: string
   playerName: string
   isHost: boolean
-  gameMode: "single" | "multiplayer"
+  gameMode: string
   onGameEnd: (winner: string | null) => void
 }
 
-interface GameState {
-  score: number
-  level: number
-  lives: number
-  timeRemaining: number
-  isPlaying: boolean
-  isPaused: boolean
-  gameOver: boolean
-  highScore: number
-}
-
-interface GameObject {
-  x: number
-  y: number
-  width: number
-  height: number
-  color: string
-  velocity?: { x: number; y: number }
-}
-
 export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationFrameRef = useRef<number>()
-  const gameLoopRef = useRef<number>()
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true)
+  const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
+  const { toast } = useToast()
+  const { platformType } = usePlatform()
 
-  const [gameState, setGameState] = useState<GameState>({
-    score: 0,
-    level: 1,
-    lives: 3,
-    timeRemaining: 60,
-    isPlaying: false,
-    isPaused: false,
-    gameOver: false,
-    highScore: Number.parseInt(localStorage.getItem(`highScore_${gameId}`) || "0"),
-  })
+  // Get the game from registry
+  const game = gameRegistry.getGame(gameId)
 
-  const [gameObjects, setGameObjects] = useState<GameObject[]>([])
-  const [player, setPlayer] = useState<GameObject>({
-    x: 50,
-    y: 250,
-    width: 30,
-    height: 30,
-    color: "#f97316",
-    velocity: { x: 0, y: 0 },
-  })
-
-  const [targets, setTargets] = useState<GameObject[]>([])
-  const [projectiles, setProjectiles] = useState<GameObject[]>([])
-
-  // Initialize game objects
   useEffect(() => {
-    initializeGame()
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-      if (gameLoopRef.current) {
-        clearInterval(gameLoopRef.current)
-      }
-    }
-  }, [gameId])
+    // Log initialization for debugging
+    debugManager.logInfo("GameContainer", "Initializing game container", {
+      gameId,
+      playerId,
+      playerName,
+      isHost,
+      gameMode,
+      platformType,
+    })
 
-  const initializeGame = () => {
-    // Reset game state
-    setGameState((prev) => ({
-      ...prev,
-      score: 0,
-      level: 1,
-      lives: 3,
-      timeRemaining: 60,
-      isPlaying: false,
-      isPaused: false,
-      gameOver: false,
-    }))
+    // Set game to playing state after a short delay to ensure proper initialization
+    const timer = setTimeout(() => {
+      setGameState("playing")
+      debugManager.logInfo("GameContainer", "Game state set to playing")
+    }, 500)
 
-    // Initialize targets based on game type
-    const initialTargets: GameObject[] = []
-    for (let i = 0; i < 5; i++) {
-      initialTargets.push({
-        x: 200 + Math.random() * 400,
-        y: 50 + Math.random() * 300,
-        width: 25,
-        height: 25,
-        color: "#ef4444",
-        velocity: {
-          x: (Math.random() - 0.5) * 2,
-          y: (Math.random() - 0.5) * 2,
-        },
-      })
-    }
-    setTargets(initialTargets)
-    setProjectiles([])
-  }
+    return () => clearTimeout(timer)
+  }, [gameId, playerId, playerName, isHost, gameMode, platformType])
 
-  const startGame = () => {
-    setGameState((prev) => ({ ...prev, isPlaying: true, isPaused: false }))
-
-    // Start game timer
-    gameLoopRef.current = window.setInterval(() => {
-      setGameState((prev) => {
-        if (prev.timeRemaining <= 1) {
-          endGame()
-          return { ...prev, timeRemaining: 0, gameOver: true, isPlaying: false }
-        }
-        return { ...prev, timeRemaining: prev.timeRemaining - 1 }
-      })
-    }, 1000)
-
-    // Start animation loop
-    gameLoop()
-  }
-
-  const pauseGame = () => {
-    setGameState((prev) => ({ ...prev, isPaused: !prev.isPaused }))
-  }
-
-  const resetGame = () => {
-    if (gameLoopRef.current) {
-      clearInterval(gameLoopRef.current)
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
-    initializeGame()
-  }
-
-  const endGame = () => {
-    if (gameLoopRef.current) {
-      clearInterval(gameLoopRef.current)
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
-
-    // Update high score
-    const newHighScore = Math.max(gameState.score, gameState.highScore)
-    localStorage.setItem(`highScore_${gameId}`, newHighScore.toString())
-
-    setGameState((prev) => ({
-      ...prev,
-      highScore: newHighScore,
-      gameOver: true,
-      isPlaying: false,
-    }))
-
-    // Notify parent component
-    onGameEnd(gameState.score > gameState.highScore ? playerId : null)
-  }
-
-  const gameLoop = useCallback(() => {
-    if (!gameState.isPlaying || gameState.isPaused || gameState.gameOver) {
-      return
-    }
-
-    // Update game objects
-    updateGameObjects()
-    checkCollisions()
-    render()
-
-    animationFrameRef.current = requestAnimationFrame(gameLoop)
-  }, [gameState.isPlaying, gameState.isPaused, gameState.gameOver])
-
-  const updateGameObjects = () => {
-    // Update targets
-    setTargets((prev) =>
-      prev.map((target) => {
-        const newX = target.x + (target.velocity?.x || 0)
-        const newY = target.y + (target.velocity?.y || 0)
-
-        // Bounce off walls
-        let newVelX = target.velocity?.x || 0
-        let newVelY = target.velocity?.y || 0
-
-        if (newX <= 0 || newX >= 750) newVelX *= -1
-        if (newY <= 0 || newY >= 350) newVelY *= -1
-
-        return {
-          ...target,
-          x: Math.max(0, Math.min(750, newX)),
-          y: Math.max(0, Math.min(350, newY)),
-          velocity: { x: newVelX, y: newVelY },
-        }
-      }),
-    )
-
-    // Update projectiles
-    setProjectiles((prev) =>
-      prev
-        .map((projectile) => ({
-          ...projectile,
-          x: projectile.x + (projectile.velocity?.x || 0),
-          y: projectile.y + (projectile.velocity?.y || 0),
-        }))
-        .filter((projectile) => projectile.x > 0 && projectile.x < 800 && projectile.y > 0 && projectile.y < 400),
+  if (!game) {
+    return (
+      <CyberpunkLoadingContainer>
+        <CyberpunkLoadingText>Game not found</CyberpunkLoadingText>
+      </CyberpunkLoadingContainer>
     )
   }
 
-  const checkCollisions = () => {
-    // Check projectile-target collisions
-    setProjectiles((prevProjectiles) => {
-      const remainingProjectiles: GameObject[] = []
+  const GameComponent = game.GameComponent
 
-      prevProjectiles.forEach((projectile) => {
-        let hit = false
-
-        setTargets((prevTargets) => {
-          return prevTargets.filter((target) => {
-            const collision =
-              projectile.x < target.x + target.width &&
-              projectile.x + projectile.width > target.x &&
-              projectile.y < target.y + target.height &&
-              projectile.y + projectile.height > target.y
-
-            if (collision && !hit) {
-              hit = true
-              // Increase score
-              setGameState((prev) => ({ ...prev, score: prev.score + 10 }))
-              return false // Remove target
-            }
-            return true // Keep target
-          })
-        })
-
-        if (!hit) {
-          remainingProjectiles.push(projectile)
-        }
-      })
-
-      return remainingProjectiles
+  const handleError = (error: Error) => {
+    console.error("Game error:", error)
+    toast({
+      title: "System Error",
+      description: error.message,
+      variant: "destructive",
     })
   }
 
-  const render = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  // Initialize game state
+  const initialGameState = game.initializeGameState({
+    playerId,
+    playerName,
+    isHost,
+    gameMode,
+    players: [
+      { id: playerId, name: playerName, isHost },
+      // Mock players for testing
+      { id: "ai-1", name: "AI Player 1", isHost: false },
+      { id: "ai-2", name: "AI Player 2", isHost: false },
+      { id: "ai-3", name: "AI Player 3", isHost: false },
+    ],
+  })
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.fillStyle = "#f8fafc"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Draw player
-    ctx.fillStyle = player.color
-    ctx.fillRect(player.x, player.y, player.width, player.height)
-
-    // Draw targets
-    targets.forEach((target) => {
-      ctx.fillStyle = target.color
-      ctx.fillRect(target.x, target.y, target.width, target.height)
-    })
-
-    // Draw projectiles
-    projectiles.forEach((projectile) => {
-      ctx.fillStyle = projectile.color
-      ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height)
-    })
-
-    // Draw UI elements
-    ctx.fillStyle = "#1f2937"
-    ctx.font = "16px Arial"
-    ctx.fillText(`Score: ${gameState.score}`, 10, 25)
-    ctx.fillText(`Level: ${gameState.level}`, 10, 50)
-    ctx.fillText(`Lives: ${gameState.lives}`, 10, 75)
-    ctx.fillText(`Time: ${gameState.timeRemaining}`, 10, 100)
+  // Cyberpunk styled loading state
+  if (gameState === "loading") {
+    return (
+      <CyberpunkLoadingContainer>
+        <CyberpunkSpinner />
+        <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
+      </CyberpunkLoadingContainer>
+    )
   }
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!gameState.isPlaying || gameState.isPaused) return
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
-    const clickX = e.clientX - rect.left
-    const clickY = e.clientY - rect.top
-
-    // Create projectile
-    const newProjectile: GameObject = {
-      x: player.x + player.width / 2,
-      y: player.y + player.height / 2,
-      width: 5,
-      height: 5,
-      color: "#3b82f6",
-      velocity: {
-        x: (clickX - (player.x + player.width / 2)) * 0.1,
-        y: (clickY - (player.y + player.height / 2)) * 0.1,
-      },
-    }
-
-    setProjectiles((prev) => [...prev, newProjectile])
-  }
-
-  const handleKeyPress = useCallback(
-    (e: KeyboardEvent) => {
-      if (!gameState.isPlaying || gameState.isPaused) return
-
-      const speed = 5
-      setPlayer((prev) => {
-        let newX = prev.x
-        let newY = prev.y
-
-        switch (e.key) {
-          case "ArrowUp":
-          case "w":
-            newY = Math.max(0, prev.y - speed)
-            break
-          case "ArrowDown":
-          case "s":
-            newY = Math.min(350, prev.y + speed)
-            break
-          case "ArrowLeft":
-          case "a":
-            newX = Math.max(0, prev.x - speed)
-            break
-          case "ArrowRight":
-          case "d":
-            newX = Math.min(750, prev.x + speed)
-            break
-        }
-
-        return { ...prev, x: newX, y: newY }
-      })
-    },
-    [gameState.isPlaying, gameState.isPaused],
-  )
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyPress)
-    return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [handleKeyPress])
-
-  useEffect(() => {
-    if (gameState.isPlaying && !gameState.isPaused) {
-      gameLoop()
-    }
-  }, [gameState.isPlaying, gameState.isPaused, gameLoop])
-
+  // Cyberpunk styled game container
   return (
-    <div className="space-y-6">
-      {/* Game Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-orange-500" />
-                {gameId === "last-stand" ? "Last Stand" : gameId === "pixel-pool" ? "Pixel Pool" : "Cyber Arena"}
-              </CardTitle>
-              <CardDescription>
-                Player: {playerName} | Mode: {gameMode}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsSoundEnabled(!isSoundEnabled)}>
-                {isSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+    <CyberpunkGameContainer>
+      {/* Development Banner with Platform Info */}
+      <CyberpunkDevBanner>
+        <span>Demo Game : Does Not Represent Final Product</span>
+        <PlatformBadge>
+          {platformType === "desktop" ? (
+            <>
+              <Monitor className="h-3 w-3" />
+              Desktop Mode
+            </>
+          ) : (
+            <>
+              <Smartphone className="h-3 w-3" />
+              Mobile Mode
+            </>
+          )}
+        </PlatformBadge>
+      </CyberpunkDevBanner>
 
-      {/* Game Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{gameState.score}</div>
-            <div className="text-sm text-gray-600">Score</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{gameState.level}</div>
-            <div className="text-sm text-gray-600">Level</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{gameState.lives}</div>
-            <div className="text-sm text-gray-600">Lives</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{gameState.highScore}</div>
-            <div className="text-sm text-gray-600">High Score</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Game Controls */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {!gameState.isPlaying ? (
-                <Button onClick={startGame} className="bg-green-600 hover:bg-green-700">
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Game
-                </Button>
-              ) : (
-                <Button onClick={pauseGame} variant="outline">
-                  {gameState.isPaused ? <Play className="w-4 h-4 mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
-                  {gameState.isPaused ? "Resume" : "Pause"}
-                </Button>
-              )}
-              <Button onClick={resetGame} variant="outline">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-600">
-                Time: {Math.floor(gameState.timeRemaining / 60)}:
-                {(gameState.timeRemaining % 60).toString().padStart(2, "0")}
-              </div>
-              <Progress value={(gameState.timeRemaining / 60) * 100} className="w-32" />
-            </div>
-          </div>
-
-          <Separator className="mb-4" />
-
-          {/* Game Canvas */}
-          <div className="relative">
-            <canvas
-              ref={canvasRef}
-              width={800}
-              height={400}
-              className="border border-gray-300 rounded-lg cursor-crosshair bg-slate-50"
-              onClick={handleCanvasClick}
-            />
-
-            {gameState.gameOver && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                <Card className="bg-white">
-                  <CardContent className="p-6 text-center">
-                    <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold mb-2">Game Over!</h3>
-                    <p className="text-gray-600 mb-4">Final Score: {gameState.score}</p>
-                    {gameState.score > gameState.highScore && (
-                      <Badge className="bg-yellow-100 text-yellow-800 mb-4">New High Score!</Badge>
-                    )}
-                    <div className="flex gap-2 justify-center">
-                      <Button onClick={resetGame} className="bg-orange-600 hover:bg-orange-700">
-                        Play Again
-                      </Button>
-                      <Button variant="outline" onClick={() => onGameEnd(null)}>
-                        Back to Games
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {gameState.isPaused && !gameState.gameOver && (
-              <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center rounded-lg">
-                <Card className="bg-white">
-                  <CardContent className="p-4 text-center">
-                    <Pause className="w-8 h-8 mx-auto mb-2 text-gray-600" />
-                    <p className="font-medium">Game Paused</p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
-
-          {/* Game Instructions */}
-          <div className="mt-4 text-sm text-gray-600">
-            <p>
-              <strong>Controls:</strong> Use WASD or arrow keys to move. Click to shoot at targets.
-            </p>
-            <p>
-              <strong>Objective:</strong> Hit as many moving targets as possible before time runs out!
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      <GameErrorBoundary>
+        {game.id === "archer-arena" || game.id === "last-stand" ? (
+          <GameControllerEnhanced
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            onGameEnd={onGameEnd}
+            platformType={platformType}
+          />
+        ) : (
+          <GameComponent
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            initialGameState={initialGameState}
+            onGameEnd={onGameEnd}
+            onError={handleError}
+            platformType={platformType}
+          />
+        )}
+      </GameErrorBoundary>
+    </CyberpunkGameContainer>
   )
 }
