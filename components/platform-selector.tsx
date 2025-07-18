@@ -7,6 +7,7 @@ import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { LOGOS } from "@/utils/image-paths"
 
 interface PlatformSelectorProps {
   onPlatformSelected: (platform: PlatformType) => void
@@ -42,6 +43,20 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6">
+      {/* Logo */}
+      <div className="text-center mb-8">
+        <Image
+          src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
+          alt="Mutable Logo"
+          width={200}
+          height={120}
+          className={cn(
+            "w-auto h-auto max-w-[200px] mx-auto",
+            isCyberpunk ? "filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)]" : "filter drop-shadow-lg",
+          )}
+        />
+      </div>
+
       {/* Platform Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {platforms.map((platform) => {
@@ -63,10 +78,11 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                       "hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]",
                     ]
                   : [
-                      "bg-gradient-to-br from-background to-muted/30",
-                      isSelected
-                        ? "border-primary shadow-lg shadow-primary/25 dark:shadow-primary/50"
-                        : "border-border hover:border-primary/50",
+                      "bg-gradient-to-br from-slate-900/90 to-purple-900/90",
+                      "border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]",
+                      "backdrop-blur-sm",
+                      isSelected && "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]",
+                      "hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]",
                     ],
               )}
               onClick={() => handlePlatformSelect(platform.type)}
@@ -82,20 +98,16 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                 <div
                   className={cn(
                     "absolute inset-0 bg-gradient-to-t transition-all duration-300",
-                    isCyberpunk
-                      ? "from-slate-900/80 via-slate-900/40 to-slate-900/20"
-                      : "from-background/80 via-background/40 to-background/20",
+                    "from-slate-900/80 via-slate-900/40 to-slate-900/20",
                     isSelected && "from-primary/30 via-primary/15 to-transparent",
                   )}
                 />
               </div>
 
-              {/* Cyberpunk shine effect */}
-              {isCyberpunk && (
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                </div>
-              )}
+              {/* Shine effect */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              </div>
 
               {/* Content */}
               <div className="relative h-full flex flex-col items-center justify-center p-8">
@@ -103,37 +115,22 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                 <div
                   className={cn(
                     "p-6 rounded-full mb-4 transition-all duration-300",
-                    isCyberpunk
-                      ? [
-                          "bg-gradient-to-br from-cyan-500/30 to-purple-500/30",
-                          "border border-cyan-500/50",
-                          "shadow-[0_0_15px_rgba(0,255,255,0.3)]",
-                          "group-hover:shadow-[0_0_25px_rgba(0,255,255,0.5)]",
-                          isSelected && "scale-110 shadow-[0_0_30px_rgba(0,255,255,0.7)]",
-                        ]
-                      : [
-                          "bg-gradient-to-br from-primary/30 to-primary/20",
-                          "group-hover:from-primary/40 group-hover:to-primary/30",
-                          "border border-primary/30 group-hover:border-primary/50",
-                          "shadow-lg group-hover:shadow-xl",
-                          isSelected && "scale-110 border-primary shadow-2xl shadow-primary/50",
-                        ],
+                    "bg-gradient-to-br from-cyan-500/30 to-purple-500/30",
+                    "border border-cyan-500/50",
+                    "shadow-[0_0_15px_rgba(0,255,255,0.3)]",
+                    "group-hover:shadow-[0_0_25px_rgba(0,255,255,0.5)]",
+                    isSelected && "scale-110 shadow-[0_0_30px_rgba(0,255,255,0.7)]",
                   )}
                 >
                   <IconComponent
-                    className={cn(
-                      "h-12 w-12 transition-all duration-300",
-                      isCyberpunk ? "text-cyan-400" : "text-primary",
-                      isSelected && "scale-110",
-                    )}
+                    className={cn("h-12 w-12 transition-all duration-300 text-cyan-400", isSelected && "scale-110")}
                   />
                 </div>
 
                 {/* Title */}
                 <h3
                   className={cn(
-                    "text-3xl font-bold transition-all duration-300",
-                    isCyberpunk ? "text-cyan-400 font-mono tracking-wider" : "text-foreground",
+                    "text-3xl font-bold transition-all duration-300 text-cyan-400 font-mono tracking-wider",
                     isSelected && "scale-110",
                   )}
                 >
