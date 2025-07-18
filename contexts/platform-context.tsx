@@ -1,24 +1,55 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 export type PlatformType = "desktop" | "mobile"
 
 interface PlatformContextType {
-  platform: PlatformType
+  platform: PlatformType | null
+  isSelected: boolean
   setPlatform: (platform: PlatformType) => void
+  resetPlatform: () => void
 }
 
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
 
-interface PlatformProviderProps {
-  children: ReactNode
-}
+export function PlatformProvider({ children }: { children: ReactNode }) {
+  const [platform, setPlatformState] = useState<PlatformType | null>(null)
+  const [isSelected, setIsSelected] = useState(false)
 
-export function PlatformProvider({ children }: PlatformProviderProps) {
-  const [platform, setPlatform] = useState<PlatformType>("desktop")
+  // Load platform preference from localStorage on mount
+  useEffect(() => {
+    const savedPlatform = localStorage.getItem("mutable-platform-type")
+    if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
+      setPlatformState(savedPlatform as PlatformType)
+      setIsSelected(true)
+    }
+  }, [])
 
-  return <PlatformContext.Provider value={{ platform, setPlatform }}>{children}</PlatformContext.Provider>
+  const setPlatform = (platform: PlatformType) => {
+    setPlatformState(platform)
+    setIsSelected(true)
+    localStorage.setItem("mutable-platform-type", platform)
+  }
+
+  const resetPlatform = () => {
+    setPlatformState(null)
+    setIsSelected(false)
+    localStorage.removeItem("mutable-platform-type")
+  }
+
+  return (
+    <PlatformContext.Provider
+      value={{
+        platform,
+        isSelected,
+        setPlatform,
+        resetPlatform,
+      }}
+    >
+      {children}
+    </PlatformContext.Provider>
+  )
 }
 
 export function usePlatform() {
