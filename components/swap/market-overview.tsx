@@ -1,247 +1,210 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, RefreshCw, Activity } from "lucide-react"
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Activity, Zap } from "lucide-react"
 import Image from "next/image"
-import type { TokenConfig, SwapResult } from "@/types/token-types"
-import { getTokenPrice } from "@/utils/token-utils"
 
-interface MarketOverviewProps {
-  tokens: TokenConfig[]
-  recentTransactions: SwapResult[]
-}
-
-interface TokenMarketData {
-  token: TokenConfig
+interface TokenData {
+  symbol: string
+  name: string
   price: number
   change24h: number
   volume24h: number
-  isLoading: boolean
+  marketCap: number
+  icon: string
 }
 
-export function MarketOverview({ tokens, recentTransactions }: MarketOverviewProps) {
-  const [marketData, setMarketData] = useState<TokenMarketData[]>([])
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+interface MarketStats {
+  totalVolume: number
+  totalLiquidity: number
+  activePairs: number
+  totalTransactions: number
+}
 
-  // Fetch market data for tokens
-  const fetchMarketData = async () => {
-    setIsRefreshing(true)
+const MOCK_TOKENS: TokenData[] = [
+  {
+    symbol: "MUTB",
+    name: "Mutable Token",
+    price: 0.0234,
+    change24h: 5.3,
+    volume24h: 125000,
+    marketCap: 2340000,
+    icon: "/images/mutable-token.png",
+  },
+  {
+    symbol: "SOL",
+    name: "Solana",
+    price: 125.78,
+    change24h: -2.1,
+    volume24h: 890000,
+    marketCap: 52000000000,
+    icon: "/solana-logo.png",
+  },
+]
 
-    const dataPromises = tokens.map(async (token) => {
-      try {
-        const priceData = await getTokenPrice(token)
-        return {
-          token,
-          price: priceData.usdPrice || 0,
-          change24h: priceData.change24h || 0,
-          volume24h: priceData.volume24h || 0,
-          isLoading: false,
-        }
-      } catch (error) {
-        console.error(`Error fetching data for ${token.symbol}:`, error)
-        return {
-          token,
-          price: 0,
-          change24h: 0,
-          volume24h: 0,
-          isLoading: false,
-        }
-      }
-    })
+const MOCK_STATS: MarketStats = {
+  totalVolume: 2400000,
+  totalLiquidity: 8900000,
+  activePairs: 12,
+  totalTransactions: 15234,
+}
 
-    const data = await Promise.all(dataPromises)
-    setMarketData(data)
-    setLastUpdated(new Date())
-    setIsRefreshing(false)
-  }
+export function MarketOverview() {
+  const [tokens] = useState<TokenData[]>(MOCK_TOKENS)
+  const [stats] = useState<MarketStats>(MOCK_STATS)
+  const [selectedTimeframe, setSelectedTimeframe] = useState("24h")
 
-  useEffect(() => {
-    fetchMarketData()
-
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchMarketData, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [tokens])
-
-  // Calculate total portfolio value from recent transactions
-  const calculatePortfolioStats = () => {
-    const totalTransactions = recentTransactions.length
-    const successfulSwaps = recentTransactions.filter((tx) => tx.type === "swap").length
-    const totalVolume = recentTransactions.reduce((sum, tx) => sum + tx.inputAmount, 0)
-
-    return {
-      totalTransactions,
-      successfulSwaps,
-      totalVolume,
-      successRate: totalTransactions > 0 ? (successfulSwaps / totalTransactions) * 100 : 0,
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return `$${(num / 1000000).toFixed(1)}M`
     }
+    if (num >= 1000) {
+      return `$${(num / 1000).toFixed(1)}K`
+    }
+    return `$${num.toFixed(2)}`
   }
-
-  const portfolioStats = calculatePortfolioStats()
 
   const formatPrice = (price: number) => {
-    if (price === 0) return "N/A"
-    if (price < 0.01) return `$${price.toFixed(6)}`
+    if (price < 0.01) {
+      return `$${price.toFixed(4)}`
+    }
     return `$${price.toFixed(2)}`
-  }
-
-  const formatVolume = (volume: number) => {
-    if (volume === 0) return "N/A"
-    if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`
-    if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`
-    return `$${volume.toFixed(0)}`
-  }
-
-  const formatChange = (change: number) => {
-    const isPositive = change >= 0
-    return (
-      <span className={`flex items-center gap-1 ${isPositive ? "text-green-600" : "text-red-600"}`}>
-        {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-        {Math.abs(change).toFixed(2)}%
-      </span>
-    )
   }
 
   return (
     <div className="space-y-6">
-      {/* Portfolio Overview */}
+      {/* Market Stats */}
       <Card className="bg-white border-gray-200">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-orange-600" />
-                Portfolio Overview
-              </CardTitle>
-              <CardDescription className="text-gray-600">Your trading activity summary</CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchMarketData}
-              disabled={isRefreshing}
-              className="border-gray-300 hover:border-orange-500 bg-transparent"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2 text-gray-900">
+            <BarChart3 className="h-5 w-5 text-orange-600" />
+            Market Overview
+          </CardTitle>
+          <CardDescription className="text-gray-600">Real-time market statistics</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-2xl font-bold text-gray-900">{portfolioStats.totalTransactions}</div>
-              <div className="text-sm text-gray-600">Total Transactions</div>
+            <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-700">Total Volume</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalVolume)}</div>
+              <div className="text-xs text-green-600 font-medium">+12.5% (24h)</div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-2xl font-bold text-green-600">{portfolioStats.successfulSwaps}</div>
-              <div className="text-sm text-gray-600">Successful Swaps</div>
+
+            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-700">Total Liquidity</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalLiquidity)}</div>
+              <div className="text-xs text-green-600 font-medium">+8.2% (24h)</div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-2xl font-bold text-orange-600">{portfolioStats.totalVolume.toFixed(2)}</div>
-              <div className="text-sm text-gray-600">Total Volume</div>
+
+            <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium text-green-700">Active Pairs</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{stats.activePairs}</div>
+              <div className="text-xs text-green-600 font-medium">+2 new pairs</div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-2xl font-bold text-blue-600">{portfolioStats.successRate.toFixed(1)}%</div>
-              <div className="text-sm text-gray-600">Success Rate</div>
+
+            <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-4 w-4 text-purple-600" />
+                <span className="text-sm font-medium text-purple-700">Transactions</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{stats.totalTransactions.toLocaleString()}</div>
+              <div className="text-xs text-green-600 font-medium">+15.7% (24h)</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Token Market Data */}
+      {/* Top Tokens */}
       <Card className="bg-white border-gray-200">
         <CardHeader>
-          <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-orange-600" />
-            Market Data
-          </CardTitle>
-          <CardDescription className="text-gray-600">
-            Current prices and 24h changes • Last updated: {lastUpdated.toLocaleTimeString()}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-gray-900">Top Tokens</CardTitle>
+              <CardDescription className="text-gray-600">Most traded tokens on the platform</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {["24h", "7d", "30d"].map((timeframe) => (
+                <Button
+                  key={timeframe}
+                  variant={selectedTimeframe === timeframe ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedTimeframe(timeframe)}
+                  className={
+                    selectedTimeframe === timeframe
+                      ? "bg-orange-600 hover:bg-orange-700 text-white"
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+                  }
+                >
+                  {timeframe}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {marketData.map((data, index) => (
+            {tokens.map((token, index) => (
               <div
-                key={data.token.symbol}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors"
+                key={token.symbol}
+                className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-orange-300 transition-colors bg-white"
               >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono text-gray-500 w-6">#{index + 1}</span>
                     <Image
-                      src={data.token.logoURI || "/placeholder.svg"}
-                      alt={data.token.symbol}
-                      width={40}
-                      height={40}
-                      className="rounded-full border border-gray-200"
+                      src={token.icon || "/placeholder.svg"}
+                      alt={token.symbol}
+                      width={32}
+                      height={32}
+                      className="rounded-full"
                     />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900">{data.token.name}</div>
-                    <div className="text-sm text-gray-600">{data.token.symbol}</div>
+                    <div className="font-medium text-gray-900">{token.symbol}</div>
+                    <div className="text-sm text-gray-600">{token.name}</div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <div className="font-bold text-gray-900">{formatPrice(data.price)}</div>
-                    <div className="text-sm">{formatChange(data.change24h)}</div>
+                <div className="text-right">
+                  <div className="font-medium text-gray-900">{formatPrice(token.price)}</div>
+                  <div className="flex items-center gap-1">
+                    {token.change24h >= 0 ? (
+                      <TrendingUp className="h-3 w-3 text-green-600" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-600" />
+                    )}
+                    <span className={`text-sm font-medium ${token.change24h >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {token.change24h >= 0 ? "+" : ""}
+                      {token.change24h.toFixed(1)}%
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-600">24h Volume</div>
-                    <div className="font-medium text-gray-900">{formatVolume(data.volume24h)}</div>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={`${data.token.symbol === "SOL" ? "border-blue-300 text-blue-700" : "border-orange-300 text-orange-700"}`}
-                  >
-                    {data.token.symbol}
-                  </Badge>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">Volume</div>
+                  <div className="font-medium text-gray-900">{formatNumber(token.volume24h)}</div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">Market Cap</div>
+                  <div className="font-medium text-gray-900">{formatNumber(token.marketCap)}</div>
                 </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
-
-      {/* Recent Activity */}
-      {recentTransactions.length > 0 && (
-        <Card className="bg-white border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-              <Activity className="h-5 w-5 text-orange-600" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription className="text-gray-600">Your latest transactions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentTransactions.slice(0, 5).map((tx, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        Swapped {tx.inputAmount} {tx.inputToken} → {tx.outputAmount.toFixed(4)} {tx.outputToken}
-                      </div>
-                      <div className="text-sm text-gray-600">{new Date(tx.timestamp).toLocaleString()}</div>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">Success</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

@@ -1,418 +1,253 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertCircle, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Info, Loader2, ArrowDownUp } from "lucide-react"
-import { TokenSelector } from "./token-selector"
-import { SwapSettings } from "./swap-settings"
-import SoundButton from "@/components/sound-button"
-import type { TokenConfig, SwapPair } from "@/types/token-types"
-import { formatTokenAmount, getTokenPrice } from "@/utils/token-utils"
-import { createJupiterApiClient, type JupiterQuoteResponse } from "@/utils/jupiter-sdk"
-import { type Connection, PublicKey } from "@solana/web3.js"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowUpDown, Settings, Zap, AlertCircle } from "lucide-react"
+import Image from "next/image"
 
-interface TokenSwapFormProps {
-  connection: Connection
-  publicKey: string | null
-  provider: any
-  swapPair: SwapPair
-  inputBalance: number | null
-  outputBalance: number | null
-  isTokenTradable: boolean
-  onSwap: (
-    inputToken: TokenConfig,
-    outputToken: TokenConfig,
-    inputAmount: number,
-    outputAmount: number,
-    txId: string,
-  ) => void
-  checkingTradability?: boolean
-  connectedWallet?: any
-  isTestMode?: boolean
-  setWalletAddress?: (address: string) => void
+interface Token {
+  symbol: string
+  name: string
+  icon: string
+  balance: number
+  price: number
 }
 
-export function TokenSwapForm({
-  connection,
-  publicKey,
-  provider,
-  swapPair,
-  inputBalance,
-  outputBalance,
-  isTokenTradable,
-  onSwap,
-  checkingTradability = false,
-  connectedWallet,
-  isTestMode,
-  setWalletAddress,
-}: TokenSwapFormProps) {
-  // State for the swap form
-  const [inputToken, setInputToken] = useState<TokenConfig>(swapPair.inputToken)
-  const [outputToken, setOutputToken] = useState<TokenConfig>(swapPair.outputToken)
-  const [swapAmount, setSwapAmount] = useState<string>("1")
-  const [slippageBps, setSlippageBps] = useState<number>(50) // 0.5% default slippage
-  const [isSwapping, setIsSwapping] = useState<boolean>(false)
-  const [swapError, setSwapError] = useState<string | null>(null)
-  const [jupiterClient, setJupiterClient] = useState<any>(null)
-  const [jupiterQuote, setJupiterQuote] = useState<JupiterQuoteResponse | null>(null)
-  const [isLoadingQuote, setIsLoadingQuote] = useState<boolean>(false)
-  const [exchangeRate, setExchangeRate] = useState<number>(0)
-  const [isLoadingPrice, setIsLoadingPrice] = useState<boolean>(false)
-  const [inputTokenPrice, setInputTokenPrice] = useState<number | null>(null)
-  const [outputTokenPrice, setOutputTokenPrice] = useState<number | null>(null)
+const AVAILABLE_TOKENS: Token[] = [
+  {
+    symbol: "SOL",
+    name: "Solana",
+    icon: "/solana-logo.png",
+    balance: 5.234,
+    price: 125.78,
+  },
+  {
+    symbol: "MUTB",
+    name: "Mutable Token",
+    icon: "/images/mutable-token.png",
+    balance: 1250.5,
+    price: 0.0234,
+  },
+  {
+    symbol: "USDC",
+    name: "USD Coin",
+    icon: "/placeholder.svg",
+    balance: 100.0,
+    price: 1.0,
+  },
+]
 
-  // Initialize Jupiter client
-  useEffect(() => {
-    if (connection) {
-      const client = createJupiterApiClient(connection)
-      setJupiterClient(client)
+export function TokenSwapForm() {
+  const [fromToken, setFromToken] = useState<Token>(AVAILABLE_TOKENS[0])
+  const [toToken, setToToken] = useState<Token>(AVAILABLE_TOKENS[1])
+  const [fromAmount, setFromAmount] = useState("")
+  const [toAmount, setToAmount] = useState("")
+  const [slippage, setSlippage] = useState("0.5")
+  const [isSwapping, setIsSwapping] = useState(false)
+
+  const handleSwapTokens = () => {
+    const temp = fromToken
+    setFromToken(toToken)
+    setToToken(temp)
+    setFromAmount(toAmount)
+    setToAmount(fromAmount)
+  }
+
+  const handleFromAmountChange = (value: string) => {
+    setFromAmount(value)
+    if (value && !isNaN(Number(value))) {
+      const fromValue = Number(value) * fromToken.price
+      const toValue = fromValue / toToken.price
+      setToAmount(toValue.toFixed(6))
+    } else {
+      setToAmount("")
     }
-  }, [connection])
+  }
 
-  // Fetch token prices
-  useEffect(() => {
-    const fetchPrices = async () => {
-      setIsLoadingPrice(true)
-      try {
-        const [inPrice, outPrice] = await Promise.all([getTokenPrice(inputToken), getTokenPrice(outputToken)])
-
-        setInputTokenPrice(inPrice.usdPrice)
-        setOutputTokenPrice(outPrice.usdPrice)
-
-        // Calculate exchange rate based on prices
-        if (inPrice.usdPrice && outPrice.usdPrice) {
-          setExchangeRate(inPrice.usdPrice / outPrice.usdPrice)
-        }
-      } catch (error) {
-        console.error("Failed to fetch token prices:", error)
-      } finally {
-        setIsLoadingPrice(false)
-      }
-    }
-
-    fetchPrices()
-    // Refresh prices every 60 seconds
-    const intervalId = setInterval(fetchPrices, 60000)
-
-    return () => clearInterval(intervalId)
-  }, [inputToken, outputToken])
-
-  // Get Jupiter quote when amount or tokens change
-  useEffect(() => {
-    if (jupiterClient && publicKey && isTokenTradable) {
-      const getQuote = async () => {
-        setIsLoadingQuote(true)
-        setSwapError(null)
-
-        try {
-          const amount = Number.parseFloat(swapAmount)
-          if (isNaN(amount) || amount <= 0) {
-            setIsLoadingQuote(false)
-            return
-          }
-
-          // Convert to the smallest unit based on decimals
-          const inputDecimals = inputToken.decimals
-          const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals))
-
-          console.log(`Getting Jupiter quote for ${amount} ${inputToken.symbol}`)
-          const quote = await jupiterClient.getQuote(
-            inputToken.mintAddress,
-            outputToken.mintAddress,
-            amountInSmallestUnit,
-            slippageBps,
-            false, // Allow indirect routes
-          )
-
-          setJupiterQuote(quote)
-
-          // Update the exchange rate based on the quote
-          if (quote) {
-            const inAmount = Number.parseFloat(quote.inAmount) / Math.pow(10, inputToken.decimals)
-            const outAmount = Number.parseFloat(quote.outAmount) / Math.pow(10, outputToken.decimals)
-            const quoteRate = inAmount / outAmount
-            setExchangeRate(quoteRate)
-          }
-        } catch (error) {
-          console.error("Error getting Jupiter quote:", error)
-          setSwapError("Failed to get quote. Please try again.")
-        } finally {
-          setIsLoadingQuote(false)
-        }
-      }
-
-      const timer = setTimeout(() => {
-        getQuote()
-      }, 500) // Debounce
-
-      return () => clearTimeout(timer)
-    }
-  }, [swapAmount, inputToken, outputToken, jupiterClient, publicKey, slippageBps, isTokenTradable])
-
-  // Auto-populate wallet address when not in test mode
-  useEffect(() => {
-    if (!isTestMode && connectedWallet && connectedWallet.publicKey && setWalletAddress) {
-      setWalletAddress(connectedWallet.publicKey.toString())
-    }
-  }, [connectedWallet, isTestMode, setWalletAddress])
-
-  // Function to swap tokens
   const handleSwap = async () => {
-    if (!publicKey || !jupiterClient || !isTokenTradable) return
-
-    setSwapError(null)
     setIsSwapping(true)
-
-    try {
-      const amount = Number.parseFloat(swapAmount)
-      if (isNaN(amount) || amount <= 0) {
-        setSwapError("Please enter a valid amount")
-        setIsSwapping(false)
-        return
-      }
-
-      if (!provider) {
-        setSwapError("Wallet not connected")
-        setIsSwapping(false)
-        return
-      }
-
-      // Check balance
-      if (inputBalance !== null && amount > inputBalance) {
-        setSwapError(`Insufficient ${inputToken.symbol} balance`)
-        setIsSwapping(false)
-        return
-      }
-
-      // Get a fresh quote if needed
-      if (!jupiterQuote) {
-        const inputDecimals = inputToken.decimals
-        const amountInSmallestUnit = Math.floor(amount * Math.pow(10, inputDecimals))
-
-        try {
-          const quote = await jupiterClient.getQuote(
-            inputToken.mintAddress,
-            outputToken.mintAddress,
-            amountInSmallestUnit,
-            slippageBps,
-            false,
-          )
-          setJupiterQuote(quote)
-        } catch (error) {
-          console.error("Error getting Jupiter quote:", error)
-          setSwapError("Failed to get quote. Please try again.")
-          setIsSwapping(false)
-          return
-        }
-      }
-
-      if (!jupiterQuote) {
-        setSwapError("Failed to get quote. Please try again.")
-        setIsSwapping(false)
-        return
-      }
-
-      try {
-        // Get the swap transaction
-        const swapResponse = await jupiterClient.getSwapTransaction(jupiterQuote, publicKey)
-
-        // Execute the swap
-        const swapResult = await jupiterClient.executeSwap(
-          swapResponse.swapTransaction,
-          new PublicKey(publicKey),
-          provider.signTransaction.bind(provider),
-          jupiterQuote,
-        )
-
-        console.log("Jupiter swap completed:", swapResult)
-
-        // Calculate output amount
-        const outputAmount = Number.parseFloat(jupiterQuote.outAmount) / Math.pow(10, outputToken.decimals)
-
-        // Call the onSwap callback
-        onSwap(inputToken, outputToken, amount, outputAmount, swapResult.txid)
-
-        // Reset the form
-        setSwapAmount("1")
-        setJupiterQuote(null)
-      } catch (error) {
-        console.error("Error executing Jupiter swap:", error)
-        setSwapError("Transaction failed. Please try again.")
-      }
-    } catch (error) {
-      console.error("Swap error:", error)
-      setSwapError("An unexpected error occurred")
-    } finally {
-      setIsSwapping(false)
-    }
+    // Simulate swap transaction
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    setIsSwapping(false)
+    setFromAmount("")
+    setToAmount("")
   }
 
-  // Function to toggle the swap direction
-  const toggleSwapDirection = () => {
-    setInputToken(outputToken)
-    setOutputToken(inputToken)
-    setSwapAmount("1")
-    setJupiterQuote(null)
+  const getExchangeRate = () => {
+    if (!fromAmount || !toAmount) return null
+    const rate = Number(toAmount) / Number(fromAmount)
+    return `1 ${fromToken.symbol} = ${rate.toFixed(6)} ${toToken.symbol}`
   }
 
-  // Calculate the receive amount
-  const calculateReceiveAmount = () => {
-    const amount = Number.parseFloat(swapAmount)
-    if (isNaN(amount) || amount <= 0) return "0"
-
-    if (jupiterQuote) {
-      // Use Jupiter quote for calculation
-      const outputAmount = Number.parseFloat(jupiterQuote.outAmount) / Math.pow(10, outputToken.decimals)
-      return formatTokenAmount(outputAmount, outputToken)
-    } else if (exchangeRate > 0) {
-      // Use our exchange rate as fallback
-      return formatTokenAmount(amount / exchangeRate, outputToken)
-    }
-
-    return "0"
+  const getPriceImpact = () => {
+    // Mock price impact calculation
+    const impact = Math.random() * 2
+    return impact.toFixed(2)
   }
 
   return (
-    <div className="space-y-4">
-      {/* Input token section */}
-      <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-medium font-mono">FROM</span>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">
-              Balance:{" "}
-              {inputBalance !== null ? `${formatTokenAmount(inputBalance, inputToken)} ${inputToken.symbol}` : "..."}
-            </span>
-            <SoundButton
-              variant="outline"
-              size="sm"
-              className="h-6 text-xs border border-black"
-              onClick={() => {
-                if (inputBalance !== null) {
-                  setSwapAmount(inputBalance.toString())
-                }
-              }}
-              disabled={inputBalance === null || inputBalance === 0}
-            >
-              MAX
-            </SoundButton>
+    <Card className="bg-white border-gray-200">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-gray-900">
+              <ArrowUpDown className="h-5 w-5 text-orange-600" />
+              Token Swap
+            </CardTitle>
+            <CardDescription className="text-gray-600">Exchange tokens instantly</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" className="text-gray-600 hover:bg-gray-100">
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* From Token */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">From</label>
+          <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between mb-2">
+              <Select
+                value={fromToken.symbol}
+                onValueChange={(value) => {
+                  const token = AVAILABLE_TOKENS.find((t) => t.symbol === value)
+                  if (token) setFromToken(token)
+                }}
+              >
+                <SelectTrigger className="w-32 bg-white border-gray-300">
+                  <div className="flex items-center gap-2">
+                    <Image src={fromToken.icon || "/placeholder.svg"} alt={fromToken.symbol} width={20} height={20} />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-white border-gray-200">
+                  {AVAILABLE_TOKENS.map((token) => (
+                    <SelectItem key={token.symbol} value={token.symbol}>
+                      <div className="flex items-center gap-2">
+                        <Image src={token.icon || "/placeholder.svg"} alt={token.symbol} width={20} height={20} />
+                        <span>{token.symbol}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                placeholder="0.0"
+                value={fromAmount}
+                onChange={(e) => handleFromAmountChange(e.target.value)}
+                className="text-right text-xl font-medium border-0 bg-transparent p-0 focus:ring-0"
+              />
+            </div>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Balance: {fromToken.balance.toFixed(4)}</span>
+              <span>${(Number(fromAmount) * fromToken.price || 0).toFixed(2)}</span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <Input
-              type="number"
-              value={swapAmount}
-              onChange={(e) => setSwapAmount(e.target.value)}
-              className="border-2 border-black font-mono"
-              min="0"
-              step="0.01"
-              disabled={isSwapping || !isTokenTradable}
-            />
-          </div>
-          <TokenSelector
-            selectedToken={inputToken}
-            onTokenSelect={setInputToken}
-            otherToken={outputToken}
-            disabled={isSwapping || !isTokenTradable}
-          />
-        </div>
-      </div>
 
-      {/* Swap direction toggle */}
-      <div className="flex justify-center">
-        <SoundButton
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 border-2 border-black rounded-full bg-white"
-          onClick={toggleSwapDirection}
-          disabled={isSwapping || !isTokenTradable}
+        {/* Swap Button */}
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSwapTokens}
+            className="rounded-full p-2 border border-gray-200 bg-white hover:bg-gray-50"
+          >
+            <ArrowUpDown className="h-4 w-4 text-gray-600" />
+          </Button>
+        </div>
+
+        {/* To Token */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">To</label>
+          <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between mb-2">
+              <Select
+                value={toToken.symbol}
+                onValueChange={(value) => {
+                  const token = AVAILABLE_TOKENS.find((t) => t.symbol === value)
+                  if (token) setToToken(token)
+                }}
+              >
+                <SelectTrigger className="w-32 bg-white border-gray-300">
+                  <div className="flex items-center gap-2">
+                    <Image src={toToken.icon || "/placeholder.svg"} alt={toToken.symbol} width={20} height={20} />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-white border-gray-200">
+                  {AVAILABLE_TOKENS.map((token) => (
+                    <SelectItem key={token.symbol} value={token.symbol}>
+                      <div className="flex items-center gap-2">
+                        <Image src={token.icon || "/placeholder.svg"} alt={token.symbol} width={20} height={20} />
+                        <span>{token.symbol}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="text-right text-xl font-medium text-gray-900">{toAmount || "0.0"}</div>
+            </div>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Balance: {toToken.balance.toFixed(4)}</span>
+              <span>${(Number(toAmount) * toToken.price || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Swap Details */}
+        {fromAmount && toAmount && (
+          <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Exchange Rate</span>
+              <span className="font-medium text-gray-900">{getExchangeRate()}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Price Impact</span>
+              <span className="font-medium text-orange-600">{getPriceImpact()}%</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Slippage Tolerance</span>
+              <span className="font-medium text-gray-900">{slippage}%</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Network Fee</span>
+              <span className="font-medium text-gray-900">~0.0025 SOL</span>
+            </div>
+          </div>
+        )}
+
+        {/* Warning */}
+        {Number(getPriceImpact()) > 1 && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <span className="text-sm text-yellow-700">High price impact. Consider reducing swap amount.</span>
+          </div>
+        )}
+
+        {/* Swap Button */}
+        <Button
+          onClick={handleSwap}
+          disabled={!fromAmount || !toAmount || isSwapping}
+          className="w-full bg-orange-600 hover:bg-orange-700 text-white"
         >
-          <ArrowDownUp className="h-4 w-4" />
-        </SoundButton>
-      </div>
-
-      {/* Output token section */}
-      <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-medium font-mono">TO</span>
-          <span className="text-sm">
-            You receive: {calculateReceiveAmount()} {outputToken.symbol}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <Input
-              type="text"
-              value={calculateReceiveAmount()}
-              readOnly
-              className="border-2 border-black font-mono bg-gray-100"
-            />
-          </div>
-          <TokenSelector
-            selectedToken={outputToken}
-            onTokenSelect={setOutputToken}
-            otherToken={inputToken}
-            disabled={isSwapping || !isTokenTradable}
-          />
-        </div>
-      </div>
-
-      {/* Settings and info */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Slippage Tolerance:</span>
-          <span className="text-sm font-bold">{(slippageBps / 100).toFixed(2)}%</span>
-        </div>
-        <SwapSettings slippageBps={slippageBps} onSlippageChange={setSlippageBps} />
-      </div>
-
-      {/* Error display */}
-      {swapError && (
-        <Alert variant="destructive" className="border-2 border-red-500">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{swapError}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Exchange rate info */}
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-        <p className="flex items-start gap-2">
-          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <span>
-            {isLoadingPrice || isLoadingQuote ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading prices...
-              </span>
-            ) : (
-              <>
-                Exchange Rate: 1 {inputToken.symbol} = {(1 / exchangeRate).toFixed(exchangeRate < 0.01 ? 4 : 2)}{" "}
-                {outputToken.symbol}
-                {inputTokenPrice && outputTokenPrice && (
-                  <>
-                    {" "}
-                    ({inputToken.symbol}: ${inputTokenPrice.toFixed(2)}, {outputToken.symbol}: $
-                    {outputTokenPrice.toFixed(2)})
-                  </>
-                )}
-                {" Swaps are executed on Solana devnet using Jupiter."}
-              </>
-            )}
-          </span>
-        </p>
-      </div>
-
-      {/* Swap button */}
-      <SoundButton
-        className="w-full bg-gray-400 hover:bg-gray-400 text-gray-600 border-2 border-gray-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-mono cursor-not-allowed"
-        onClick={handleSwap}
-        disabled={true} // Always disabled for now
-      >
-        SWAP TEMPORARILY DISABLED
-      </SoundButton>
-    </div>
+          {isSwapping ? (
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              Swapping...
+            </div>
+          ) : (
+            <>
+              <Zap className="h-4 w-4 mr-2" />
+              Swap Tokens
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
