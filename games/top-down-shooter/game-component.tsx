@@ -48,9 +48,9 @@ export default function TopDownShooterGame({ gameId }: GameComponentProps) {
   const mouseRef = useRef({ x: 0, y: 0, pressed: false })
   const touchRef = useRef({ x: 0, y: 0, active: false })
 
-  const { platformType } = usePlatform()
+  const { platform } = usePlatform()
   const { setGameStatus, setGameScore, setGameTimeRemaining } = useGameContext()
-  const isMobile = platformType === "mobile"
+  const isMobile = platform === "mobile"
 
   const [gameState, setGameState] = useState<"menu" | "playing" | "paused" | "gameOver">("menu")
   const [gameStats, setGameStats] = useState<GameStats>({
@@ -440,6 +440,20 @@ export default function TopDownShooterGame({ gameId }: GameComponentProps) {
     isMobile,
   ])
 
+  const handleTouchInput = useCallback(
+    (key: string, isPressed: boolean) => {
+      if (isPressed) {
+        keysRef.current.add(key)
+        if (key === " " && gameStats.ammo > 0) {
+          shoot()
+        }
+      } else {
+        keysRef.current.delete(key)
+      }
+    },
+    [gameStats.ammo, shoot],
+  )
+
   const renderGameContent = () => (
     <div className="relative w-full h-full flex items-center justify-center">
       <canvas ref={canvasRef} className="w-full h-full bg-black" />
@@ -697,4 +711,3 @@ export default function TopDownShooterGame({ gameId }: GameComponentProps) {
     </MobileOptimizedContainer>
   )
 }
-</merged_code>

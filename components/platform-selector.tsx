@@ -1,6 +1,4 @@
 "use client"
-
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Monitor, Smartphone, Gamepad2 } from "lucide-react"
@@ -15,18 +13,16 @@ interface PlatformSelectorProps {
 }
 
 export default function PlatformSelector({ onPlatformSelected }: PlatformSelectorProps) {
-  const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
-  const { setPlatform } = usePlatform()
+  const { platform, setPlatform } = usePlatform()
   const { styleMode } = useCyberpunkTheme()
 
   const isCyberpunk = styleMode === "cyberpunk"
 
-  const handlePlatformSelect = (platform: PlatformType) => {
-    setSelectedPlatform(platform)
-    setPlatform(platform)
+  const handlePlatformSelect = (selectedPlatform: PlatformType) => {
+    setPlatform(selectedPlatform)
     // Small delay for visual feedback
     setTimeout(() => {
-      onPlatformSelected(platform)
+      onPlatformSelected(selectedPlatform)
     }, 300)
   }
 
@@ -77,13 +73,13 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
 
       {/* Platform Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-        {platforms.map((platform) => {
-          const IconComponent = platform.icon
-          const isSelected = selectedPlatform === platform.type
+        {platforms.map((p) => {
+          const IconComponent = p.icon
+          const isSelected = platform === p.type
 
           return (
             <Card
-              key={platform.type}
+              key={p.type}
               className={cn(
                 "relative overflow-hidden transition-all duration-500 hover:scale-105 cursor-pointer group",
                 "aspect-[4/3] border-2 p-0",
@@ -102,13 +98,13 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                         : "border-border hover:border-primary/60 hover:shadow-lg",
                     ],
               )}
-              onClick={() => handlePlatformSelect(platform.type)}
+              onClick={() => handlePlatformSelect(p.type)}
             >
               {/* Background Image */}
               <div className="absolute inset-0">
                 <Image
-                  src={platform.image || "/placeholder.svg"}
-                  alt={`${platform.title} Gaming`}
+                  src={p.image || "/placeholder.svg"}
+                  alt={`${p.title} Gaming`}
                   fill
                   className="object-cover opacity-30 group-hover:opacity-40 transition-opacity duration-500"
                 />
@@ -145,8 +141,8 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                           isSelected && "scale-110 shadow-[0_0_40px_rgba(0,255,255,0.8)]",
                         ]
                       : [
-                          `bg-gradient-to-br ${platform.gradient}`,
-                          `group-hover:bg-gradient-to-br group-hover:${platform.hoverGradient}`,
+                          `bg-gradient-to-br ${p.gradient}`,
+                          `group-hover:bg-gradient-to-br group-hover:${p.hoverGradient}`,
                           "border-2 border-primary/20 group-hover:border-primary/40",
                           "shadow-lg group-hover:shadow-xl",
                           isSelected && "scale-110 border-primary shadow-2xl shadow-primary/50",
@@ -170,7 +166,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                     isSelected && "scale-110",
                   )}
                 >
-                  {platform.title}
+                  {p.title}
                 </h3>
 
                 {/* Selection Button */}
@@ -190,7 +186,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                         ]
                       : [
                           "bg-gradient-to-r hover:shadow-lg",
-                          platform.type === "desktop"
+                          p.type === "desktop"
                             ? "from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                             : "from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700",
                           isSelected && "shadow-xl shadow-primary/50",
@@ -198,7 +194,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                   )}
                   onClick={(e) => {
                     e.stopPropagation()
-                    handlePlatformSelect(platform.type)
+                    handlePlatformSelect(p.type)
                   }}
                 >
                   {isSelected ? (
