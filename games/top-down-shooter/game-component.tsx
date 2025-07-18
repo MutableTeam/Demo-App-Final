@@ -1,713 +1,765 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Crosshair,
-  Heart,
-  Zap,
-  Target,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  MousePointer,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { usePlatform } from "@/contexts/platform-context"
-import { useGameContext } from "@/contexts/game-context"
-import MobileOptimizedContainer from "@/components/mobile-optimized-container"
+import { useEffect, useRef, useState } from "react"
+import { useBaseGameController } from "@/utils/base-game-controller"
+import { setupGameInputHandlers } from "@/utils/game-input-handler"
+import { debugManager } from "@/utils/debug-utils"
+import transitionDebugger from "@/utils/transition-debug"
+import { audioManager } from "@/utils/audio-manager"
+import GameRenderer from "@/components/pvp-game/game-renderer"
+import DebugOverlay from "@/components/pvp-game/debug-overlay"
+import ResourceMonitor from "@/components/resource-monitor"
+import { updateGameState } from "@/components/pvp-game/game-engine"
+import { useIsMobile } from "@/hooks/use-mobile"
 
-interface GameStats {
-  score: number
-  health: number
-  ammo: number
-  level: number
-  enemies: number
-  accuracy: number
-}
-
-interface GameComponentProps {
-  gameId: string
-}
-
-export default function TopDownShooterGame({ gameId }: GameComponentProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const gameLoopRef = useRef<number>()
-  const keysRef = useRef<Set<string>>(new Set())
-  const mouseRef = useRef({ x: 0, y: 0, pressed: false })
-  const touchRef = useRef({ x: 0, y: 0, active: false })
-
-  const { platform } = usePlatform()
-  const { setGameStatus, setGameScore, setGameTimeRemaining } = useGameContext()
-  const isMobile = platform === "mobile"
-
-  const [gameState, setGameState] = useState<"menu" | "playing" | "paused" | "gameOver">("menu")
-  const [gameStats, setGameStats] = useState<GameStats>({
-    score: 0,
-    health: 100,
-    ammo: 30,
-    level: 1,
-    enemies: 0,
-    accuracy: 100,
-  })
-  const [soundEnabled, setSoundEnabled] = useState(true)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
-  // Game objects
-  const [player, setPlayer] = useState({ x: 400, y: 300, angle: 0, speed: 5 })
-  const [bullets, setBullets] = useState<Array<{ x: number; y: number; dx: number; dy: number; id: number }>>([])
-  const [enemies, setEnemies] = useState<Array<{ x: number; y: number; health: number; id: number }>>([])
-
-  // Touch controls state
-  const [touchControls, setTouchControls] = useState({
-    moveStick: { active: false, x: 0, y: 0, centerX: 0, centerY: 0 },
-    aimStick: { active: false, x: 0, y: 0, centerX: 0, centerY: 0 },
-    shooting: false,
+export default function GameComponent({ playerId, playerName, isHost, gameMode, initialGameState, onGameEnd }) {
+  // Use the base game controller
+  const {
+    gameState,
+    setGameState,
+    gameStateRef,
+    lastUpdateTimeRef,
+    requestAnimationFrameIdRef,
+    audioInitializedRef,
+    gameInitializedRef,
+    showDebug,
+    setShowDebug,
+    showResourceMonitor,
+    setShowResourceMonitor,
+    componentIdRef,
+    cleanupGame,
+    startBackgroundMusic,
+    handleGameEnd,
+  } = useBaseGameController({
+    playerId,
+    playerName,
+    isHost,
+    gameMode,
+    initialGameState,
+    onGameEnd,
   })
 
-  // Initialize game
-  const initGame = useCallback(() => {
-    setPlayer({ x: 400, y: 300, angle: 0, speed: 5 })
-    setBullets([])
-    setEnemies([])
-    setGameStats({
-      score: 0,
-      health: 100,
-      ammo: 30,
-      level: 1,
-      enemies: 0,
-      accuracy: 100,
-    })
-  }, [])
+  const bowSoundPlayedRef = useRef(false)
+  const fullDrawSoundPlayedRef = useRef(false)
+  const specialSoundPlayedRef = useRef(false)
+  const minDrawSoundPlayedRef = useRef(false)
+  const [showTutorial, setShowTutorial] = useState(true)
+  const isMobile = useIsMobile()
+  const joystickManagerRef = useRef(null)
+  const [joystickData, setJoystickData] = useState({
+    x: 0,
+    y: 0,
+    angle: 0,
+    force: 0,
+  })
 
-  // Game loop
-  const gameLoop = useCallback(() => {
-    if (gameState !== "playing") return
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.fillStyle = "#0a0a0a"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Handle input
-    let moveX = 0,
-      moveY = 0
-
-    if (isMobile) {
-      // Mobile touch controls
-      if (touchControls.moveStick.active) {
-        const deltaX = touchControls.moveStick.x - touchControls.moveStick.centerX
-        const deltaY = touchControls.moveStick.y - touchControls.moveStick.centerY
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-        const maxDistance = 50
-
-        if (distance > 5) {
-          moveX = (deltaX / maxDistance) * player.speed
-          moveY = (deltaY / maxDistance) * player.speed
-        }
-      }
-
-      if (touchControls.aimStick.active) {
-        const deltaX = touchControls.aimStick.x - touchControls.aimStick.centerX
-        const deltaY = touchControls.aimStick.y - touchControls.aimStick.centerY
-        const angle = Math.atan2(deltaY, deltaX)
-        setPlayer((prev) => ({ ...prev, angle }))
-      }
-    } else {
-      // Desktop keyboard controls
-      if (keysRef.current.has("w") || keysRef.current.has("ArrowUp")) moveY = -player.speed
-      if (keysRef.current.has("s") || keysRef.current.has("ArrowDown")) moveY = player.speed
-      if (keysRef.current.has("a") || keysRef.current.has("ArrowLeft")) moveX = -player.speed
-      if (keysRef.current.has("d") || keysRef.current.has("ArrowRight")) moveX = player.speed
-    }
-
-    // Update player position
-    setPlayer((prev) => ({
-      ...prev,
-      x: Math.max(20, Math.min(canvas.width - 20, prev.x + moveX)),
-      y: Math.max(20, Math.min(canvas.height - 20, prev.y + moveY)),
-    }))
-
-    // Draw player
-    ctx.save()
-    ctx.translate(player.x, player.y)
-    ctx.rotate(player.angle)
-    ctx.fillStyle = "#00ff00"
-    ctx.fillRect(-10, -10, 20, 20)
-    ctx.fillStyle = "#ffffff"
-    ctx.fillRect(8, -2, 8, 4)
-    ctx.restore()
-
-    // Update and draw bullets
-    setBullets((prev) =>
-      prev
-        .map((bullet) => ({
-          ...bullet,
-          x: bullet.x + bullet.dx,
-          y: bullet.y + bullet.dy,
-        }))
-        .filter((bullet) => bullet.x > 0 && bullet.x < canvas.width && bullet.y > 0 && bullet.y < canvas.height),
-    )
-
-    bullets.forEach((bullet) => {
-      ctx.fillStyle = "#ffff00"
-      ctx.fillRect(bullet.x - 2, bullet.y - 2, 4, 4)
-    })
-
-    // Spawn enemies
-    if (enemies.length < 5 && Math.random() < 0.02) {
-      const side = Math.floor(Math.random() * 4)
-      let x, y
-      switch (side) {
-        case 0:
-          x = Math.random() * canvas.width
-          y = 0
-          break
-        case 1:
-          x = canvas.width
-          y = Math.random() * canvas.height
-          break
-        case 2:
-          x = Math.random() * canvas.width
-          y = canvas.height
-          break
-        default:
-          x = 0
-          y = Math.random() * canvas.height
-          break
-      }
-      setEnemies((prev) => [...prev, { x, y, health: 100, id: Date.now() }])
-    }
-
-    // Update and draw enemies
-    setEnemies((prev) =>
-      prev.map((enemy) => {
-        const dx = player.x - enemy.x
-        const dy = player.y - enemy.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-        const speed = 1
-
-        return {
-          ...enemy,
-          x: enemy.x + (dx / distance) * speed,
-          y: enemy.y + (dy / distance) * speed,
-        }
-      }),
-    )
-
-    enemies.forEach((enemy) => {
-      ctx.fillStyle = "#ff0000"
-      ctx.fillRect(enemy.x - 8, enemy.y - 8, 16, 16)
-    })
-
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-  }, [gameState, player, bullets, enemies, touchControls, isMobile])
-
-  // Event handlers
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (isMobile) return
-      keysRef.current.add(e.key.toLowerCase())
-
-      if (e.key === " " && gameStats.ammo > 0) {
-        e.preventDefault()
-        shoot()
-      }
-    },
-    [gameStats.ammo, isMobile],
-  )
-
-  const handleKeyUp = useCallback(
-    (e: KeyboardEvent) => {
-      if (isMobile) return
-      keysRef.current.delete(e.key.toLowerCase())
-    },
-    [isMobile],
-  )
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (isMobile) return
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      mouseRef.current.x = e.clientX - rect.left
-      mouseRef.current.y = e.clientY - rect.top
-
-      const dx = mouseRef.current.x - player.x
-      const dy = mouseRef.current.y - player.y
-      const angle = Math.atan2(dy, dx)
-      setPlayer((prev) => ({ ...prev, angle }))
-    },
-    [player.x, player.y, isMobile],
-  )
-
-  const handleMouseClick = useCallback(
-    (e: MouseEvent) => {
-      if (isMobile) return
-      e.preventDefault()
-      if (gameStats.ammo > 0) {
-        shoot()
-      }
-    },
-    [gameStats.ammo, isMobile],
-  )
-
-  // Touch event handlers for mobile
-  const handleTouchStart = useCallback(
-    (e: TouchEvent) => {
-      if (!isMobile) return
-      e.preventDefault()
-
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      const touch = e.touches[0]
-      const x = touch.clientX - rect.left
-      const y = touch.clientY - rect.top
-
-      // Determine if touch is on left or right side for movement/aiming
-      if (x < canvas.width / 2) {
-        // Left side - movement
-        setTouchControls((prev) => ({
-          ...prev,
-          moveStick: { active: true, x, y, centerX: x, centerY: y },
-        }))
-      } else {
-        // Right side - aiming and shooting
-        setTouchControls((prev) => ({
-          ...prev,
-          aimStick: { active: true, x, y, centerX: x, centerY: y },
-          shooting: true,
-        }))
-        if (gameStats.ammo > 0) {
-          shoot()
-        }
-      }
-    },
-    [isMobile, gameStats.ammo],
-  )
-
-  const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (!isMobile) return
-      e.preventDefault()
-
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      const touch = e.touches[0]
-      const x = touch.clientX - rect.left
-      const y = touch.clientY - rect.top
-
-      if (x < canvas.width / 2 && touchControls.moveStick.active) {
-        setTouchControls((prev) => ({
-          ...prev,
-          moveStick: { ...prev.moveStick, x, y },
-        }))
-      } else if (x >= canvas.width / 2 && touchControls.aimStick.active) {
-        setTouchControls((prev) => ({
-          ...prev,
-          aimStick: { ...prev.aimStick, x, y },
-        }))
-      }
-    },
-    [isMobile, touchControls],
-  )
-
-  const handleTouchEnd = useCallback(
-    (e: TouchEvent) => {
-      if (!isMobile) return
-      e.preventDefault()
-
-      setTouchControls((prev) => ({
-        moveStick: { active: false, x: 0, y: 0, centerX: 0, centerY: 0 },
-        aimStick: { active: false, x: 0, y: 0, centerX: 0, centerY: 0 },
-        shooting: false,
-      }))
-    },
-    [isMobile],
-  )
-
-  const shoot = useCallback(() => {
-    if (gameStats.ammo <= 0) return
-
-    const bulletSpeed = 10
-    const dx = Math.cos(player.angle) * bulletSpeed
-    const dy = Math.sin(player.angle) * bulletSpeed
-
-    setBullets((prev) => [
-      ...prev,
-      {
-        x: player.x,
-        y: player.y,
-        dx,
-        dy,
-        id: Date.now(),
-      },
-    ])
-
-    setGameStats((prev) => ({ ...prev, ammo: prev.ammo - 1 }))
-  }, [player.angle, player.x, player.y, gameStats.ammo])
-
-  // Game controls
-  const startGame = () => {
-    initGame()
-    setGameState("playing")
-  }
-
-  const pauseGame = () => {
-    setGameState(gameState === "paused" ? "playing" : "paused")
-  }
-
-  const resetGame = () => {
-    setGameState("menu")
-    initGame()
-  }
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      canvasRef.current?.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
-    }
-  }
-
-  // Setup event listeners
+  // Initialize nipplejs joystick for mobile
   useEffect(() => {
-    if (gameState === "playing") {
-      if (!isMobile) {
-        window.addEventListener("keydown", handleKeyDown)
-        window.addEventListener("keyup", handleKeyUp)
-        canvasRef.current?.addEventListener("mousemove", handleMouseMove)
-        canvasRef.current?.addEventListener("click", handleMouseClick)
-      } else {
-        canvasRef.current?.addEventListener("touchstart", handleTouchStart)
-        canvasRef.current?.addEventListener("touchmove", handleTouchMove)
-        canvasRef.current?.addEventListener("touchend", handleTouchEnd)
-      }
+    if (!isMobile) return
 
-      gameLoopRef.current = requestAnimationFrame(gameLoop)
-    }
+    // Dynamically import nipplejs only on mobile
+    import("nipplejs")
+      .then((nipplejs) => {
+        const joystickOptions = {
+          zone: document.getElementById("joystick-zone") || document.body,
+          mode: "static",
+          position: { left: "15%", bottom: "20%" },
+          size: 100,
+          color: "white",
+          restOpacity: 0.5,
+        }
+
+        const manager = nipplejs.default.create(joystickOptions)
+
+        manager.on("move", (evt, data) => {
+          setJoystickData({
+            x: data.vector.x,
+            y: -data.vector.y, // Invert Y axis for game coordinates
+            angle: data.angle.radian,
+            force: data.force,
+          })
+        })
+
+        manager.on("end", () => {
+          setJoystickData({
+            x: 0,
+            y: 0,
+            angle: 0,
+            force: 0,
+          })
+        })
+
+        joystickManagerRef.current = manager
+      })
+      .catch((error) => {
+        debugManager.logError("JOYSTICK", "Failed to load nipplejs", error)
+      })
 
     return () => {
-      if (!isMobile) {
-        window.removeEventListener("keydown", handleKeyDown)
-        window.removeEventListener("keyup", handleKeyUp)
-        canvasRef.current?.removeEventListener("mousemove", handleMouseMove)
-        canvasRef.current?.removeEventListener("click", handleMouseClick)
-      } else {
-        canvasRef.current?.removeEventListener("touchstart", handleTouchStart)
-        canvasRef.current?.removeEventListener("touchmove", handleTouchMove)
-        canvasRef.current?.removeEventListener("touchend", handleTouchEnd)
-      }
-
-      if (gameLoopRef.current) {
-        cancelAnimationFrame(gameLoopRef.current)
+      if (joystickManagerRef.current) {
+        joystickManagerRef.current.destroy()
+        joystickManagerRef.current = null
       }
     }
-  }, [
-    gameState,
-    gameLoop,
-    handleKeyDown,
-    handleKeyUp,
-    handleMouseMove,
-    handleMouseClick,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
-    isMobile,
-  ])
+  }, [isMobile])
 
-  const handleTouchInput = useCallback(
-    (key: string, isPressed: boolean) => {
-      if (isPressed) {
-        keysRef.current.add(key)
-        if (key === " " && gameStats.ammo > 0) {
-          shoot()
+  // Update player controls based on joystick input
+  useEffect(() => {
+    if (!isMobile || !gameStateRef.current?.players?.[playerId]) return
+
+    const player = gameStateRef.current.players[playerId]
+    const threshold = 0.3 // Minimum force threshold to register movement
+
+    if (joystickData.force > threshold) {
+      // Convert joystick vector to movement controls
+      player.controls.up = joystickData.y > threshold
+      player.controls.down = joystickData.y < -threshold
+      player.controls.left = joystickData.x < -threshold
+      player.controls.right = joystickData.x > threshold
+    } else {
+      // Reset movement when joystick is released
+      player.controls.up = false
+      player.controls.down = false
+      player.controls.left = false
+      player.controls.right = false
+    }
+  }, [joystickData, isMobile, playerId])
+
+  // Initialize game
+  useEffect(() => {
+    // Prevent multiple initializations
+    if (gameInitializedRef.current) return
+
+    // Enable global error tracking
+    debugManager.setupGlobalErrorTracking()
+
+    // Track component mount
+    debugManager.trackComponentMount("GameComponent", {
+      playerId,
+      playerName,
+      isHost,
+      gameMode,
+    })
+
+    transitionDebugger.trackTransition("initialized", "mounting", "GameComponent")
+
+    // Make game state available globally for debugging
+    if (typeof window !== "undefined") {
+      window.__gameStateRef = gameStateRef
+    }
+
+    gameInitializedRef.current = true
+
+    debugManager.logInfo("GAME", `Initializing game with mode: ${gameMode}`)
+
+    // Initialize audio system - using the correct method
+    try {
+      // Use audioManager.init() directly instead of initializeAudio()
+      audioManager.init()
+      audioInitializedRef.current = true
+      debugManager.logInfo("AUDIO", "Audio system initialized")
+    } catch (err) {
+      debugManager.logError("AUDIO", "Failed to initialize audio", err)
+    }
+
+    // Set initial game state
+    setGameState(initialGameState)
+    gameStateRef.current = initialGameState
+
+    // Capture initial state
+    debugManager.captureState(initialGameState, "Initial State")
+
+    transitionDebugger.trackTransition("mounting", "mounted", "GameComponent")
+
+    // Set up crash detection timer
+    const crashDetectionTimer = transitionDebugger.safeSetInterval(
+      () => {
+        // Check if game has been running for at least 5 seconds
+        const gameTime = gameStateRef.current?.gameTime || 0
+
+        if (gameTime > 0 && gameTime < 5) {
+          debugManager.logInfo("CRASH_DETECTION", "Game is in early stage, monitoring for crashes")
+
+          // Capture state more frequently during this critical period
+          debugManager.captureState(gameStateRef.current, "Early Game State")
         }
-      } else {
-        keysRef.current.delete(key)
+      },
+      1000,
+      `${componentIdRef.current}-crash-detection`,
+    )
+
+    // Hide tutorial after 10 seconds
+    const tutorialTimer = setTimeout(() => {
+      setShowTutorial(false)
+    }, 10000)
+
+    // Start game loop
+    const gameLoop = (timestamp) => {
+      try {
+        debugManager.startFrame()
+
+        const now = Date.now()
+        const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1) // Cap delta time to prevent large jumps
+        lastUpdateTimeRef.current = now
+
+        // Track entity counts
+        if (gameStateRef.current) {
+          const entityCounts = {
+            players: Object.keys(gameStateRef.current.players).length,
+            arrows: gameStateRef.current.arrows?.length || 0,
+            walls: gameStateRef.current.walls?.length || 0,
+            pickups: gameStateRef.current.pickups?.length || 0,
+          }
+
+          debugManager.trackEntities(entityCounts)
+
+          // Check for potential memory leaks
+          if (gameStateRef.current.arrows && gameStateRef.current.arrows.length > 100) {
+            debugManager.logWarning("GAME_LOOP", "Possible memory leak: Too many arrows", {
+              arrowCount: gameStateRef.current.arrows.length,
+            })
+
+            // Safety cleanup - remove oldest arrows if too many
+            if (gameStateRef.current.arrows.length > 200) {
+              gameStateRef.current.arrows = gameStateRef.current.arrows.slice(-100)
+              debugManager.logInfo("GAME_LOOP", "Performed safety cleanup of arrows")
+            }
+          }
+
+          // Update game state with error handling and timeout protection
+          let newState = gameStateRef.current
+
+          // Use a promise with timeout to prevent infinite loops in updateGameState
+          const updateWithTimeout = () => {
+            return new Promise((resolve, reject) => {
+              // Set timeout to catch infinite loops
+              const timeoutId = setTimeout(() => {
+                reject(new Error("Game update timed out - possible infinite loop"))
+              }, 500) // 500ms should be more than enough for a single frame
+
+              try {
+                const result = updateGameState(gameStateRef.current, deltaTime, handlePlayerDeath)
+                clearTimeout(timeoutId)
+                resolve(result)
+              } catch (error) {
+                clearTimeout(timeoutId)
+                reject(error)
+              }
+            })
+          }
+
+          // Try to update with timeout protection
+          updateWithTimeout()
+            .then((result) => {
+              newState = result
+              continueGameLoop(newState)
+            })
+            .catch((error) => {
+              debugManager.logError("GAME_LOOP", "Error in game update", error)
+              debugManager.captureState(gameStateRef.current, "Update Error State")
+              // Continue with old state
+              continueGameLoop(gameStateRef.current)
+            })
+        }
+
+        function continueGameLoop(state) {
+          // Check for sound effects for the local player
+          const localPlayer = state.players[playerId]
+          if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
+            // Only try to play sounds if audio is initialized and not muted
+            try {
+              // Bow drawing sound
+              if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
+                audioManager.playSound("bow-draw")
+                bowSoundPlayedRef.current = true
+              }
+
+              // Full draw sound (when bow is fully drawn)
+              if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
+                const currentTime = Date.now() / 1000
+                const drawTime = currentTime - localPlayer.drawStartTime
+
+                if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
+                  audioManager.playSound("bow-full-draw")
+                  fullDrawSoundPlayedRef.current = true
+                }
+
+                // Play sound when minimum draw is reached
+                const minDrawTime = localPlayer.maxDrawTime * 0.3 // 30% of max draw time
+                if (drawTime >= minDrawTime && !minDrawSoundPlayedRef.current) {
+                  audioManager.playSound("bow-min-draw")
+                  minDrawSoundPlayedRef.current = true
+                }
+              }
+
+              // Bow release sound
+              if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
+                // Check if it was a weak shot
+                const prevPlayer = gameStateRef.current.players[playerId]
+                if (prevPlayer.drawStartTime) {
+                  const currentTime = Date.now() / 1000
+                  const drawTime = currentTime - prevPlayer.drawStartTime
+                  const minDrawTime = prevPlayer.maxDrawTime * 0.3 // 30% of max draw time
+
+                  if (drawTime < minDrawTime) {
+                    // Play weak shot sound
+                    audioManager.playSound("bow-weak-release")
+                  } else {
+                    // Play normal release sound
+                    audioManager.playSound("bow-release")
+                  }
+                } else {
+                  audioManager.playSound("bow-release")
+                }
+
+                bowSoundPlayedRef.current = false
+                fullDrawSoundPlayedRef.current = false
+                minDrawSoundPlayedRef.current = false
+              }
+
+              // Special attack sound
+              if (localPlayer.isChargingSpecial && !specialSoundPlayedRef.current) {
+                specialSoundPlayedRef.current = true
+              }
+
+              // Special attack release sound
+              if (!localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
+                audioManager.playSound("special-attack")
+                specialSoundPlayedRef.current = false
+              }
+
+              // Dash sound
+              if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
+                audioManager.playSound("dash")
+              }
+
+              // Hit sound
+              if (
+                localPlayer.animationState === "hit" &&
+                gameStateRef.current.players[playerId]?.animationState !== "hit"
+              ) {
+                audioManager.playSound("hit")
+              }
+
+              // Death sound
+              if (
+                localPlayer.animationState === "death" &&
+                gameStateRef.current.players[playerId]?.animationState !== "death"
+              ) {
+                audioManager.playSound("death")
+              }
+            } catch (error) {
+              debugManager.logError("AUDIO", "Error playing game sounds", error)
+              // Continue game even if sound playback fails
+            }
+          }
+
+          gameStateRef.current = state
+          setGameState(state)
+
+          // Check for game over
+          if (state.isGameOver) {
+            // Play appropriate game over sound
+            if (!audioManager.isSoundMuted()) {
+              if (state.winner === playerId) {
+                audioManager.playSound("victory")
+              } else {
+                audioManager.playSound("game-over")
+              }
+            }
+
+            // Stop background music
+            audioManager.stopBackgroundMusic()
+
+            transitionDebugger.trackTransition("playing", "game-over", "GameComponent")
+
+            if (onGameEnd) {
+              onGameEnd(state.winner)
+            }
+
+            // Log game end
+            debugManager.logInfo("GAME", "Game ended", {
+              winner: state.winner,
+              gameTime: state.gameTime,
+              playerCount: Object.keys(state.players).length,
+            })
+          } else {
+            // Continue game loop
+            requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+              gameLoop,
+              `${componentIdRef.current}-game-loop`,
+            )
+          }
+
+          debugManager.endFrame()
+        }
+      } catch (error) {
+        debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
+
+        // Capture state for debugging
+        debugManager.captureState(gameStateRef.current, "Critical Error State")
+
+        // Try to continue the game loop after a short delay
+        setTimeout(() => {
+          requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+            gameLoop,
+            `${componentIdRef.current}-game-loop`,
+          )
+        }, 1000) // 1 second delay to prevent rapid error loops
       }
-    },
-    [gameStats.ammo, shoot],
-  )
+    }
 
-  const renderGameContent = () => (
-    <div className="relative w-full h-full flex items-center justify-center">
-      <canvas ref={canvasRef} className="w-full h-full bg-black" />
-      {isMobile && (
-        <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end p-4">
-          {/* Movement D-pad */}
-          <div className="grid grid-cols-3 grid-rows-3 gap-2 w-32 h-32">
-            <Button
-              className="col-start-2 row-start-1"
-              onTouchStart={() => handleTouchInput("w", true)}
-              onTouchEnd={() => handleTouchInput("w", false)}
-              variant="outline"
-              size="icon"
-            >
-              <ArrowUp className="h-6 w-6" />
-            </Button>
-            <Button
-              className="col-start-1 row-start-2"
-              onTouchStart={() => handleTouchInput("a", true)}
-              onTouchEnd={() => handleTouchInput("a", false)}
-              variant="outline"
-              size="icon"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <Button
-              className="col-start-3 row-start-2"
-              onTouchStart={() => handleTouchInput("d", true)}
-              onTouchEnd={() => handleTouchInput("d", false)}
-              variant="outline"
-              size="icon"
-            >
-              <ArrowRight className="h-6 w-6" />
-            </Button>
-            <Button
-              className="col-start-2 row-start-3"
-              onTouchStart={() => handleTouchInput("s", true)}
-              onTouchEnd={() => handleTouchInput("s", false)}
-              variant="outline"
-              size="icon"
-            >
-              <ArrowDown className="h-6 w-6" />
-            </Button>
-          </div>
+    const handlePlayerDeath = (playerId) => {
+      if (!gameStateRef.current) return
 
-          {/* Action Button */}
-          <Button
-            className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center"
-            onTouchStart={() => handleTouchInput(" ", true)} // Spacebar for shooting
-            onTouchEnd={() => handleTouchInput(" ", false)}
-            variant="default"
-            size="icon"
-          >
-            <Target className="h-10 w-10" />
-          </Button>
-        </div>
-      )}
-    </div>
-  )
+      const player = gameStateRef.current.players[playerId]
+      if (!player) return
 
-  return (
-    <MobileOptimizedContainer className={cn("w-full max-w-6xl mx-auto")}>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Game Canvas */}
-        <div className="lg:col-span-3">
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Crosshair className="h-5 w-5" />
-                  Archer Arena
-                  <Badge variant="secondary">{isMobile ? "Mobile" : "Desktop"}</Badge>
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)}>
-                    {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={toggleFullscreen}>
-                    <Maximize className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {renderGameContent()}
-              {/* Game State Overlay */}
-              {gameState !== "playing" && (
-                <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                  <div className="text-center text-white">
-                    {gameState === "menu" && (
-                      <div>
-                        <h2 className="text-3xl font-bold mb-4">Archer Arena</h2>
-                        <p className="mb-6 text-gray-300">
-                          {isMobile
-                            ? "Touch left side to move, right side to aim and shoot"
-                            : "Use WASD to move, mouse to aim and click to shoot"}
-                        </p>
-                        <Button onClick={startGame} size="lg">
-                          <Play className="mr-2 h-4 w-4" />
-                          Start Game
-                        </Button>
-                      </div>
-                    )}
-                    {gameState === "paused" && (
-                      <div>
-                        <h2 className="text-2xl font-bold mb-4">Game Paused</h2>
-                        <div className="flex gap-4">
-                          <Button onClick={pauseGame}>
-                            <Play className="mr-2 h-4 w-4" />
-                            Resume
-                          </Button>
-                          <Button onClick={resetGame} variant="outline">
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Restart
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    {gameState === "gameOver" && (
-                      <div>
-                        <h2 className="text-2xl font-bold mb-4">Game Over</h2>
-                        <p className="mb-4">Final Score: {gameStats.score}</p>
-                        <Button onClick={resetGame}>
-                          <RotateCcw className="mr-2 h-4 w-4" />
-                          Play Again
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      // Reduce lives
+      player.lives -= 1
 
-        {/* Game Stats & Controls */}
-        <div className="space-y-6">
-          {/* Game Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Game Stats</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Score
-                </span>
-                <Badge variant="secondary">{gameStats.score}</Badge>
-              </div>
+      // Check if player is out of lives
+      if (player.lives <= 0) {
+        player.health = 0
+        player.animationState = "death"
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-red-500" />
-                    Health
-                  </span>
-                  <span>{gameStats.health}%</span>
-                </div>
-                <Progress value={gameStats.health} className="h-2" />
-              </div>
+        // In duel mode, end the game immediately
+        if (gameStateRef.current.gameMode === "duel") {
+          // Find the other player and set them as winner
+          const winner =
+            Object.values(gameStateRef.current.players).find((p) => p.id !== playerId && p.lives > 0)?.id || null
 
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-yellow-500" />
-                  Ammo
-                </span>
-                <Badge variant={gameStats.ammo < 10 ? "destructive" : "secondary"}>{gameStats.ammo}</Badge>
-              </div>
+          setGameState((prev) => ({
+            ...prev,
+            isGameOver: true,
+            winner,
+          }))
 
-              <Separator />
+          if (onGameEnd) {
+            onGameEnd(winner)
+          }
+          return
+        }
 
-              <div className="flex items-center justify-between">
-                <span>Level</span>
-                <Badge>{gameStats.level}</Badge>
-              </div>
+        // For other modes, handle respawn
+        player.deaths += 1
+        player.respawnTimer = 3 // 3 seconds respawn time
 
-              <div className="flex items-center justify-between">
-                <span>Enemies</span>
-                <Badge variant="outline">{gameStats.enemies}</Badge>
-              </div>
+        // Update scores
+        if (player.lastDamageFrom && player.lastDamageFrom !== playerId) {
+          const killer = gameStateRef.current.players[player.lastDamageFrom]
+          if (killer) {
+            killer.kills += 1
+            killer.score += 10
+          }
+        }
+      }
 
-              <div className="flex items-center justify-between">
-                <span>Accuracy</span>
-                <Badge variant="secondary">{gameStats.accuracy}%</Badge>
-              </div>
-            </CardContent>
-          </Card>
+      // Reset player state for respawn
+      if (player.lives > 0) {
+        player.health = 100
+        player.velocity = { x: 0, y: 0 }
+        player.isDrawingBow = false
+        player.drawStartTime = null
+        player.isChargingSpecial = false
+        player.specialChargeStartTime = null
+        player.specialAttackCooldown = 0
+        player.hitAnimationTimer = 0
+      }
 
-          {/* Game Controls */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Controls</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {gameState === "playing" ? (
-                <div className="flex flex-col gap-2">
-                  <Button onClick={pauseGame} variant="outline" className="w-full bg-transparent">
-                    <Pause className="mr-2 h-4 w-4" />
-                    Pause Game
-                  </Button>
-                  <Button onClick={resetGame} variant="outline" className="w-full bg-transparent">
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Restart
-                  </Button>
-                </div>
-              ) : (
-                <Button onClick={startGame} className="w-full">
-                  <Play className="mr-2 h-4 w-4" />
-                  {gameState === "menu" ? "Start Game" : "Resume"}
-                </Button>
-              )}
+      // Check if game should end (for FFA mode)
+      const topPlayer = Object.values(gameStateRef.current.players).reduce(
+        (top, p) => (p.kills > top.kills ? p : top),
+        { kills: -1 },
+      )
 
-              <Separator />
+      if (topPlayer.kills >= 10) {
+        setGameState((prev) => ({
+          ...prev,
+          isGameOver: true,
+          winner: topPlayer.id,
+        }))
 
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <h4 className="font-medium text-foreground">{isMobile ? "Touch Controls:" : "Keyboard Controls:"}</h4>
-                {isMobile ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <ArrowUp className="h-3 w-3" />
-                      <span>Left side: Move player</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Target className="h-3 w-3" />
-                      <span>Right side: Aim & shoot</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <kbd className="px-1 py-0.5 text-xs bg-muted rounded">W</kbd>
-                        <kbd className="px-1 py-0.5 text-xs bg-muted rounded">A</kbd>
-                        <kbd className="px-1 py-0.5 text-xs bg-muted rounded">S</kbd>
-                        <kbd className="px-1 py-0.5 text-xs bg-muted rounded">D</kbd>
-                      </div>
-                      <span>Move</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MousePointer className="h-3 w-3" />
-                      <span>Mouse: Aim & shoot</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Space</kbd>
-                      <span>Shoot</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        if (onGameEnd) {
+          onGameEnd(topPlayer.id)
+        }
+      }
+    }
+
+    // Start game loop
+    requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+      gameLoop,
+      `${componentIdRef.current}-game-loop`,
+    )
+
+    // Start background music if not muted
+    if (!audioManager.isSoundMuted()) {
+      try {
+        audioManager.startBackgroundMusic()
+      } catch (err) {
+        debugManager.logWarning("AUDIO", "Error starting background music", err)
+      }
+    }
+
+    // Set up input handlers (only for desktop)
+    const cleanupInputHandlers = setupGameInputHandlers({
+      playerId,
+      gameStateRef,
+      componentIdRef,
+    })
+
+    // Track component unmount
+    return () => {
+      transitionDebugger.trackTransition("any", "unmounting", "GameComponent")
+
+      // Cancel animation frame
+      if (requestAnimationFrameIdRef.current !== null) {
+        transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
+        requestAnimationFrameIdRef.current = null
+        transitionDebugger.trackCleanup("GameComponent", "Animation Frame", true)
+      }
+
+      // Clean up input handlers
+      cleanupInputHandlers()
+
+      // Clear intervals
+      transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
+      clearTimeout(tutorialTimer)
+
+      // Stop background music
+      try {
+        audioManager.stopBackgroundMusic()
+        transitionDebugger.trackCleanup("GameComponent", "Background Music", true)
+      } catch (err) {
+        debugManager.logWarning("AUDIO", "Error stopping background music", err)
+        transitionDebugger.trackCleanup("GameComponent", "Background Music", false, err)
+      }
+
+      debugManager.logInfo("GAME", "Game cleanup completed")
+      transitionDebugger.trackTransition("unmounting", "unmounted", "GameComponent")
+      debugManager.trackComponentUnmount("GameComponent")
+    }
+  }, [playerId, playerName, isHost, gameMode, initialGameState, onGameEnd, setGameState])
+
+  // Update AI players
+  useEffect(() => {
+    const aiUpdateInterval = transitionDebugger.safeSetInterval(
+      () => {
+        try {
+          if (!gameStateRef.current) return
+
+          Object.keys(gameStateRef.current.players).forEach((id) => {
+            if (id.startsWith("ai-")) {
+              const ai = gameStateRef.current.players[id]
+              if (!ai) return // Skip if AI player doesn't exist
+
+              // Simple AI: move randomly and shoot occasionally
+              ai.controls.up = Math.random() > 0.7
+              ai.controls.down = Math.random() > 0.7 && !ai.controls.up
+              ai.controls.left = Math.random() > 0.7
+              ai.controls.right = Math.random() > 0.7 && !ai.controls.left
+
+              // Randomly shoot arrows
+              if (Math.random() > 0.95 && !ai.isDrawingBow) {
+                ai.controls.shoot = true
+
+                // Release arrow after a random time
+                transitionDebugger.safeSetTimeout(
+                  () => {
+                    try {
+                      if (gameStateRef.current?.players[id]) {
+                        gameStateRef.current.players[id].controls.shoot = false
+                      }
+                    } catch (error) {
+                      debugManager.logError("AI", "Error in AI arrow release", error)
+                    }
+                  },
+                  Math.random() * 1000 + 200,
+                  `${componentIdRef.current}-ai-${id}-release-arrow`,
+                )
+              }
+
+              // Randomly use special attack
+              if (Math.random() > 0.98 && !ai.isChargingSpecial && ai.specialAttackCooldown <= 0) {
+                ai.controls.special = true
+
+                // Release special after a random time
+                transitionDebugger.safeSetTimeout(
+                  () => {
+                    try {
+                      if (gameStateRef.current?.players[id]) {
+                        gameStateRef.current.players[id].controls.special = false
+                      }
+                    } catch (error) {
+                      debugManager.logError("AI", "Error in AI special release", error)
+                    }
+                  },
+                  Math.random() * 500 + 500,
+                  `${componentIdRef.current}-ai-${id}-release-special`,
+                )
+              }
+
+              // Randomly dash
+              ai.controls.dash = Math.random() > 0.95
+
+              // Randomly change rotation
+              if (Math.random() > 0.9) {
+                ai.rotation = Math.random() * Math.PI * 2
+              }
+            }
+          })
+        } catch (error) {
+          debugManager.logError("AI", "Error in AI update interval", error)
+        }
+      },
+      500,
+      `${componentIdRef.current}-ai-update`,
+    )
+
+    return () => {
+      transitionDebugger.safeClearInterval(`${componentIdRef.current}-ai-update`)
+    }
+  }, [componentIdRef, gameStateRef])
+
+  // Track renders
+  useEffect(() => {
+    debugManager.trackComponentRender("GameComponent")
+  })
+
+  // Show loading state while game initializes
+  if (!gameState) {
+    return (
+      <div className="flex items-center justify-center h-[600px] bg-gray-800 rounded-lg">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl font-bold">Loading Game...</p>
         </div>
       </div>
-    </MobileOptimizedContainer>
+    )
+  }
+
+  return (
+    <div className="relative">
+      <GameRenderer gameState={gameState} localPlayerId={playerId} />
+      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
+
+      {/* Resource Monitor */}
+      <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
+
+      {/* Mobile Controls */}
+      {isMobile && (
+        <>
+          {/* Joystick Zone */}
+          <div
+            id="joystick-zone"
+            className="absolute bottom-4 left-4 w-32 h-32 pointer-events-auto"
+            style={{ zIndex: 1000 }}
+          />
+
+          {/* Action Buttons */}
+          <div className="absolute bottom-4 right-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
+            {/* Shoot Button */}
+            <button
+              className="w-16 h-16 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
+              onTouchStart={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.shoot = true
+                }
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.shoot = false
+                }
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.shoot = true
+                }
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.shoot = false
+                }
+              }}
+            >
+              🏹
+            </button>
+
+            {/* Special Attack Button */}
+            <button
+              className="w-16 h-16 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
+              onTouchStart={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.special = true
+                }
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.special = false
+                }
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.special = true
+                }
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.special = false
+                }
+              }}
+            >
+              ⚡
+            </button>
+
+            {/* Dash Button */}
+            <button
+              className="w-16 h-16 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
+              onTouchStart={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.dash = true
+                }
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.dash = false
+                }
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.dash = true
+                }
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault()
+                if (gameStateRef.current?.players?.[playerId]) {
+                  gameStateRef.current.players[playerId].controls.dash = false
+                }
+              }}
+            >
+              💨
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Small hint text */}
+      <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
+        {isMobile
+          ? "Use joystick to move, buttons to attack"
+          : "Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor"}
+      </div>
+    </div>
   )
 }
