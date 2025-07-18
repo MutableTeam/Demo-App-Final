@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
-type PlatformType = "desktop" | "mobile" | null
+export type PlatformType = "desktop" | "mobile"
 
 interface PlatformContextType {
   platform: PlatformType
@@ -12,7 +12,7 @@ interface PlatformContextType {
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
-  const [platform, setPlatform] = useState<PlatformType>(null)
+  const [platform, setPlatform] = useState<PlatformType>("desktop")
 
   return <PlatformContext.Provider value={{ platform, setPlatform }}>{children}</PlatformContext.Provider>
 }

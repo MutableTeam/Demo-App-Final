@@ -1,98 +1,179 @@
 "use client"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Check } from "lucide-react"
-import Image from "next/image"
-import { usePlatform } from "@/contexts/platform-context"
+import { Monitor, Smartphone } from "lucide-react"
+import { usePlatform, type PlatformType } from "@/contexts/platform-context"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
+import { LOGOS } from "@/utils/image-paths"
 
-export default function PlatformSelector() {
+interface PlatformSelectorProps {
+  onPlatformSelected: (platform: PlatformType) => void
+}
+
+export default function PlatformSelector({ onPlatformSelected }: PlatformSelectorProps) {
   const { platform, setPlatform } = usePlatform()
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(platform)
+  const { styleMode } = useCyberpunkTheme()
 
-  const handleSelectPlatform = (type: "desktop" | "mobile") => {
-    setSelectedPlatform(type)
+  const isCyberpunk = styleMode === "cyberpunk"
+
+  const handlePlatformSelect = (selectedPlatform: PlatformType) => {
+    setPlatform(selectedPlatform)
+    // Small delay for visual feedback
+    setTimeout(() => {
+      onPlatformSelected(selectedPlatform)
+    }, 300)
   }
 
-  const handleConfirmSelection = () => {
-    if (selectedPlatform) {
-      setPlatform(selectedPlatform as "desktop" | "mobile")
-    }
-  }
+  const platforms = [
+    {
+      type: "desktop" as PlatformType,
+      title: "Desktop",
+      icon: Monitor,
+      image: "/images/retro-desktop-gaming.png",
+      gradient: "from-blue-500/20 to-purple-600/20",
+      hoverGradient: "from-blue-500/30 to-purple-600/30",
+    },
+    {
+      type: "mobile" as PlatformType,
+      title: "Mobile",
+      icon: Smartphone,
+      image: "/images/retro-mobile-gaming.png",
+      gradient: "from-green-500/20 to-teal-600/20",
+      hoverGradient: "from-green-500/30 to-teal-600/30",
+    },
+  ]
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-4">
-      <Image
-        src="/images/mutable-logo-transparent.png"
-        alt="Mutable PvP Logo"
-        width={200}
-        height={200}
-        className="mb-12 animate-pulse"
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
-        {/* Desktop Card */}
-        <Card
+    <div className="w-full max-w-4xl mx-auto p-6">
+      {/* Logo */}
+      <div className="text-center mb-12">
+        <Image
+          src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
+          alt="Mutable Logo"
+          width={280}
+          height={160}
           className={cn(
-            "relative overflow-hidden rounded-xl shadow-lg transition-all duration-300 cursor-pointer group",
-            selectedPlatform === "desktop" ? "ring-4 ring-green-500 scale-105" : "hover:scale-105 hover:shadow-xl",
+            "w-auto h-auto max-w-[280px] mx-auto",
+            isCyberpunk ? "filter drop-shadow-[0_0_20px_rgba(0,255,255,0.8)]" : "filter drop-shadow-xl",
           )}
-          onClick={() => handleSelectPlatform("desktop")}
-        >
-          <Image
-            src="/images/retro-desktop-gaming.png"
-            alt="Retro Desktop Gaming Setup"
-            width={600}
-            height={400}
-            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end">
-            <h2 className="text-3xl font-bold mb-2 text-white drop-shadow-lg">Desktop</h2>
-            <p className="text-gray-300 text-sm">Optimized for keyboard & mouse</p>
-          </div>
-          {selectedPlatform === "desktop" && (
-            <div className="absolute top-4 right-4 bg-green-500 text-white rounded-full p-2 flex items-center gap-1 text-sm font-semibold">
-              <Check className="h-4 w-4" /> Selected
-            </div>
-          )}
-        </Card>
-
-        {/* Mobile Card */}
-        <Card
-          className={cn(
-            "relative overflow-hidden rounded-xl shadow-lg transition-all duration-300 cursor-pointer group",
-            selectedPlatform === "mobile" ? "ring-4 ring-green-500 scale-105" : "hover:scale-105 hover:shadow-xl",
-          )}
-          onClick={() => handleSelectPlatform("mobile")}
-        >
-          <Image
-            src="/images/retro-mobile-gaming.png"
-            alt="Retro Mobile Gaming Hands"
-            width={600}
-            height={400}
-            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end">
-            <h2 className="text-3xl font-bold mb-2 text-white drop-shadow-lg">Mobile</h2>
-            <p className="text-gray-300 text-sm">Optimized for touch controls</p>
-          </div>
-          {selectedPlatform === "mobile" && (
-            <div className="absolute top-4 right-4 bg-green-500 text-white rounded-full p-2 flex items-center gap-1 text-sm font-semibold">
-              <Check className="h-4 w-4" /> Selected
-            </div>
-          )}
-        </Card>
+        />
       </div>
 
-      <Button
-        onClick={handleConfirmSelection}
-        disabled={!selectedPlatform}
-        className="mt-12 px-8 py-4 text-lg font-semibold bg-blue-600 hover:bg-blue-700 transition-colors duration-300 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Confirm Selection
-      </Button>
+      {/* Platform Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        {platforms.map((p) => {
+          const IconComponent = p.icon
+          const isSelected = platform === p.type
+
+          return (
+            <Card
+              key={p.type}
+              className={cn(
+                "relative overflow-hidden transition-all duration-500 hover:scale-105 cursor-pointer group",
+                "aspect-[4/3] border-2 p-0",
+                isCyberpunk
+                  ? [
+                      "bg-gradient-to-br from-slate-900/95 to-purple-900/95",
+                      "border-cyan-500/40 shadow-[0_0_20px_rgba(0,255,255,0.3)]",
+                      "backdrop-blur-sm",
+                      isSelected && "border-cyan-400 shadow-[0_0_30px_rgba(0,255,255,0.6)] scale-105",
+                      "hover:border-cyan-400/80 hover:shadow-[0_0_25px_rgba(0,255,255,0.5)]",
+                    ]
+                  : [
+                      "bg-gradient-to-br from-background to-muted/50",
+                      isSelected
+                        ? "border-primary shadow-xl shadow-primary/30 scale-105"
+                        : "border-border hover:border-primary/60 hover:shadow-lg",
+                    ],
+              )}
+              onClick={() => handlePlatformSelect(p.type)}
+            >
+              {/* Background Image */}
+              <div className="absolute inset-0">
+                <Image
+                  src={p.image || "/placeholder.svg"}
+                  alt={`${p.title} Gaming`}
+                  fill
+                  className="object-cover opacity-30 group-hover:opacity-40 transition-opacity duration-500"
+                />
+                <div
+                  className={cn(
+                    "absolute inset-0 bg-gradient-to-t transition-all duration-500",
+                    isCyberpunk
+                      ? "from-slate-900/90 via-slate-900/60 to-slate-900/30"
+                      : "from-background/90 via-background/60 to-background/30",
+                    isSelected && "from-primary/20 via-primary/10 to-transparent",
+                  )}
+                />
+              </div>
+
+              {/* Cyberpunk glow effect */}
+              {isCyberpunk && (
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="relative h-full flex flex-col items-center justify-center p-8">
+                {/* Icon */}
+                <div
+                  className={cn(
+                    "p-6 rounded-full mb-6 transition-all duration-500",
+                    isCyberpunk
+                      ? [
+                          "bg-gradient-to-br from-cyan-500/30 to-purple-500/30",
+                          "border-2 border-cyan-500/60",
+                          "shadow-[0_0_20px_rgba(0,255,255,0.4)]",
+                          "group-hover:shadow-[0_0_30px_rgba(0,255,255,0.6)]",
+                          isSelected && "scale-110 shadow-[0_0_40px_rgba(0,255,255,0.8)]",
+                        ]
+                      : [
+                          `bg-gradient-to-br ${p.gradient}`,
+                          `group-hover:bg-gradient-to-br group-hover:${p.hoverGradient}`,
+                          "border-2 border-primary/20 group-hover:border-primary/40",
+                          "shadow-lg group-hover:shadow-xl",
+                          isSelected && "scale-110 border-primary shadow-2xl shadow-primary/50",
+                        ],
+                  )}
+                >
+                  <IconComponent
+                    className={cn(
+                      "h-12 w-12 transition-all duration-500",
+                      isCyberpunk ? "text-cyan-400" : "text-primary",
+                      isSelected && "scale-110",
+                    )}
+                  />
+                </div>
+
+                {/* Title */}
+                <h3
+                  className={cn(
+                    "text-2xl font-bold transition-all duration-500",
+                    isCyberpunk ? "text-cyan-400 font-mono tracking-wider" : "text-foreground",
+                    isSelected && "scale-110",
+                  )}
+                >
+                  {p.title}
+                </h3>
+              </div>
+
+              {/* Selection indicator */}
+              {isSelected && (
+                <div
+                  className={cn(
+                    "absolute top-4 right-4 w-6 h-6 rounded-full",
+                    isCyberpunk
+                      ? "bg-cyan-400 shadow-[0_0_15px_rgba(0,255,255,0.8)]"
+                      : "bg-primary shadow-lg shadow-primary/50",
+                  )}
+                />
+              )}
+            </Card>
+          )
+        })}
+      </div>
     </div>
   )
 }
