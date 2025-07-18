@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import type { GameState } from "./game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
-import { cn } from "@/lib/utils"
-import MobileGameContainer from "@/components/mobile-game-container"
 import { debugManager } from "@/utils/debug-utils"
+import { cn } from "@/lib/utils"
 
 interface EnhancedGameRendererProps {
   gameState: GameState
@@ -13,6 +12,7 @@ interface EnhancedGameRendererProps {
   debugMode?: boolean
   platformType?: PlatformType
   onTouchControl?: (control: string, active: boolean) => void
+  className?: string
 }
 
 export default function EnhancedGameRenderer({
@@ -20,73 +20,49 @@ export default function EnhancedGameRenderer({
   localPlayerId,
   debugMode = false,
   platformType = "desktop",
-  onTouchControl = () => {},
+  onTouchControl,
+  className,
 }: EnhancedGameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
-  // Handle joystick movement for mobile
-  const handleJoystickMove = (direction: { x: number; y: number }) => {
-    if (!gameState.players[localPlayerId]) return
+  // Update canvas size based on container
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
 
-    const player = gameState.players[localPlayerId]
+      const container = canvas.parentElement
+      if (!container) return
 
-    // Update player controls based on joystick input
-    player.controls.up = direction.y < -0.3
-    player.controls.down = direction.y > 0.3
-    player.controls.left = direction.x < -0.3
-    player.controls.right = direction.x > 0.3
+      const rect = container.getBoundingClientRect()
+      const newWidth = Math.floor(rect.width)
+      const newHeight = Math.floor(rect.height)
 
-    debugManager.logDebug("RENDERER", "Joystick input", direction)
-  }
+      if (newWidth !== canvasSize.width || newHeight !== canvasSize.height) {
+        setCanvasSize({ width: newWidth, height: newHeight })
+        canvas.width = newWidth
+        canvas.height = newHeight
 
-  // Handle aiming for mobile
-  const handleAiming = (angle: number, power: number) => {
-    if (!gameState.players[localPlayerId]) return
-
-    const player = gameState.players[localPlayerId]
-    player.rotation = angle
-    player.drawPower = power
-    player.isDrawingBow = power > 0
-
-    debugManager.logDebug("RENDERER", "Aiming input", { angle: angle * (180 / Math.PI), power })
-  }
-
-  // Handle shooting for mobile
-  const handleShoot = () => {
-    if (!gameState.players[localPlayerId]) return
-
-    const player = gameState.players[localPlayerId]
-    player.controls.shoot = false // Release to shoot
-    player.isDrawingBow = false
-
-    debugManager.logDebug("RENDERER", "Shot fired")
-  }
-
-  // Handle action button presses
-  const handleActionPress = (action: string, pressed: boolean) => {
-    if (!gameState.players[localPlayerId]) return
-
-    const player = gameState.players[localPlayerId]
-
-    switch (action) {
-      case "dash":
-        player.controls.dash = pressed
-        break
-      case "special":
-        player.controls.special = pressed
-        break
-      case "shoot":
-        player.controls.shoot = pressed
-        break
+        debugManager.logInfo("RENDERER", `Canvas resized to ${newWidth}x${newHeight}`)
+      }
     }
 
-    onTouchControl(action, pressed)
-    debugManager.logDebug("RENDERER", "Action button", { action, pressed })
-  }
+    updateCanvasSize()
 
-  // Canvas rendering logic
+    const resizeObserver = new ResizeObserver(updateCanvasSize)
+    const canvas = canvasRef.current
+    if (canvas?.parentElement) {
+      resizeObserver.observe(canvas.parentElement)
+    }
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [canvasSize.width, canvasSize.height])
+
+  // Main render loop
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -96,107 +72,53 @@ export default function EnhancedGameRenderer({
 
     const render = () => {
       // Clear canvas
-      ctx.fillStyle = "#0a0a0a"
+      ctx.fillStyle = "#1a1a1a"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Draw arena boundaries
-      ctx.strokeStyle = "#00ffff"
-      ctx.lineWidth = 2
-      ctx.strokeRect(0, 0, canvas.width, canvas.height)
+      // Calculate scale to fit game area in canvas
+      const gameWidth = gameState.arenaSize?.width || 800
+      const gameHeight = gameState.arenaSize?.height || 600
+      const scaleX = canvas.width / gameWidth
+      const scaleY = canvas.height / gameHeight
+      const scale = Math.min(scaleX, scaleY)
 
-      // Draw players
-      Object.values(gameState.players).forEach((player) => {
-        if (!player || player.health <= 0) return
+      // Center the game area
+      const offsetX = (canvas.width - gameWidth * scale) / 2
+      const offsetY = (canvas.height - gameHeight * scale) / 2
 
-        ctx.save()
-        ctx.translate(player.position.x, player.position.y)
-        ctx.rotate(player.rotation)
+      ctx.save()
+      ctx.translate(offsetX, offsetY)
+      ctx.scale(scale, scale)
 
-        // Draw player body
-        ctx.fillStyle = player.color
-        ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size)
+      // Draw game background
+      ctx.fillStyle = "#2d5a27"
+      ctx.fillRect(0, 0, gameWidth, gameHeight)
 
-        // Draw player direction indicator
-        ctx.strokeStyle = "#ffffff"
-        ctx.lineWidth = 2
+      // Draw grid pattern
+      ctx.strokeStyle = "#3d6a37"
+      ctx.lineWidth = 1
+      const gridSize = 50
+      for (let x = 0; x <= gameWidth; x += gridSize) {
         ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(player.size, 0)
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, gameHeight)
         ctx.stroke()
-
-        // Draw bow if drawing
-        if (player.isDrawingBow) {
-          ctx.strokeStyle = "#ffff00"
-          ctx.lineWidth = 3
-          ctx.beginPath()
-          ctx.arc(0, 0, player.size + 10, -Math.PI / 4, Math.PI / 4)
-          ctx.stroke()
-
-          // Draw power indicator
-          const powerRadius = 5 + (player.drawPower || 0) * 15
-          ctx.fillStyle = `rgba(255, 255, 0, ${(player.drawPower || 0) * 0.5})`
-          ctx.beginPath()
-          ctx.arc(0, 0, powerRadius, 0, Math.PI * 2)
-          ctx.fill()
-        }
-
-        ctx.restore()
-
-        // Draw player name and health
-        ctx.fillStyle = "#ffffff"
-        ctx.font = "12px Arial"
-        ctx.textAlign = "center"
-        ctx.fillText(player.name, player.position.x, player.position.y - player.size - 5)
-
-        // Health bar
-        const healthBarWidth = 40
-        const healthBarHeight = 4
-        const healthPercentage = player.health / 100
-
-        ctx.fillStyle = "#ff0000"
-        ctx.fillRect(
-          player.position.x - healthBarWidth / 2,
-          player.position.y - player.size - 20,
-          healthBarWidth,
-          healthBarHeight,
-        )
-
-        ctx.fillStyle = "#00ff00"
-        ctx.fillRect(
-          player.position.x - healthBarWidth / 2,
-          player.position.y - player.size - 20,
-          healthBarWidth * healthPercentage,
-          healthBarHeight,
-        )
-      })
-
-      // Draw arrows
-      if (gameState.arrows) {
-        gameState.arrows.forEach((arrow) => {
-          ctx.save()
-          ctx.translate(arrow.position.x, arrow.position.y)
-          ctx.rotate(arrow.rotation)
-
-          ctx.fillStyle = arrow.color || "#ffff00"
-          ctx.fillRect(-8, -1, 16, 2)
-
-          // Arrow head
-          ctx.beginPath()
-          ctx.moveTo(8, 0)
-          ctx.lineTo(4, -3)
-          ctx.lineTo(4, 3)
-          ctx.closePath()
-          ctx.fill()
-
-          ctx.restore()
-        })
+      }
+      for (let y = 0; y <= gameHeight; y += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(gameWidth, y)
+        ctx.stroke()
       }
 
       // Draw walls
       if (gameState.walls) {
-        ctx.fillStyle = "#666666"
+        ctx.fillStyle = "#8B4513"
+        ctx.strokeStyle = "#654321"
+        ctx.lineWidth = 2
         gameState.walls.forEach((wall) => {
-          ctx.fillRect(wall.position.x, wall.position.y, wall.width, wall.height)
+          ctx.fillRect(wall.x, wall.y, wall.width, wall.height)
+          ctx.strokeRect(wall.x, wall.y, wall.width, wall.height)
         })
       }
 
@@ -204,49 +126,210 @@ export default function EnhancedGameRenderer({
       if (gameState.pickups) {
         gameState.pickups.forEach((pickup) => {
           ctx.save()
-          ctx.translate(pickup.position.x, pickup.position.y)
+          ctx.translate(pickup.x, pickup.y)
 
-          // Rotating pickup effect
-          ctx.rotate(Date.now() * 0.005)
+          // Glow effect
+          const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 15)
+          gradient.addColorStop(0, pickup.type === "health" ? "#ff6b6b" : "#4ecdc4")
+          gradient.addColorStop(1, "transparent")
+          ctx.fillStyle = gradient
+          ctx.fillRect(-15, -15, 30, 30)
 
-          ctx.fillStyle = pickup.color || "#00ff00"
+          // Pickup icon
+          ctx.fillStyle = pickup.type === "health" ? "#ff4757" : "#2ed573"
           ctx.fillRect(-8, -8, 16, 16)
 
           ctx.restore()
         })
       }
 
-      // Debug information
-      if (debugMode) {
-        ctx.fillStyle = "#ffffff"
-        ctx.font = "14px monospace"
-        ctx.textAlign = "left"
+      // Draw arrows
+      if (gameState.arrows) {
+        gameState.arrows.forEach((arrow) => {
+          ctx.save()
+          ctx.translate(arrow.x, arrow.y)
+          ctx.rotate(arrow.angle)
 
-        const debugInfo = [
-          `Players: ${Object.keys(gameState.players).length}`,
-          `Arrows: ${gameState.arrows?.length || 0}`,
-          `Game Time: ${Math.floor(gameState.gameTime)}s`,
-          `Platform: ${platformType}`,
-        ]
+          // Arrow shaft
+          ctx.fillStyle = "#8B4513"
+          ctx.fillRect(-15, -2, 30, 4)
 
-        debugInfo.forEach((info, index) => {
-          ctx.fillText(info, 10, 20 + index * 20)
+          // Arrow head
+          ctx.fillStyle = "#C0C0C0"
+          ctx.beginPath()
+          ctx.moveTo(15, 0)
+          ctx.lineTo(10, -5)
+          ctx.lineTo(10, 5)
+          ctx.closePath()
+          ctx.fill()
+
+          // Arrow fletching
+          ctx.fillStyle = "#FF6B6B"
+          ctx.fillRect(-15, -3, 5, 6)
+
+          ctx.restore()
         })
+      }
 
-        // Draw local player info
-        const localPlayer = gameState.players[localPlayerId]
-        if (localPlayer) {
-          const playerInfo = [
-            `Position: ${Math.floor(localPlayer.position.x)}, ${Math.floor(localPlayer.position.y)}`,
-            `Health: ${localPlayer.health}`,
-            `Rotation: ${Math.floor(localPlayer.rotation * (180 / Math.PI))}°`,
-            `Drawing: ${localPlayer.isDrawingBow ? "Yes" : "No"}`,
-          ]
+      // Draw players
+      Object.values(gameState.players).forEach((player) => {
+        if (!player || player.health <= 0) return
 
-          playerInfo.forEach((info, index) => {
-            ctx.fillText(info, 10, canvas.height - 80 + index * 20)
-          })
+        ctx.save()
+        ctx.translate(player.position.x, player.position.y)
+        ctx.rotate(player.rotation || 0)
+
+        // Player shadow
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
+        ctx.beginPath()
+        ctx.ellipse(2, 2, player.size + 2, player.size + 2, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Player body
+        ctx.fillStyle = player.color
+        ctx.beginPath()
+        ctx.arc(0, 0, player.size, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Player outline
+        ctx.strokeStyle = player.id === localPlayerId ? "#FFD700" : "#FFFFFF"
+        ctx.lineWidth = player.id === localPlayerId ? 3 : 2
+        ctx.stroke()
+
+        // Direction indicator
+        ctx.fillStyle = "#FFFFFF"
+        ctx.beginPath()
+        ctx.moveTo(player.size - 5, 0)
+        ctx.lineTo(player.size + 10, -5)
+        ctx.lineTo(player.size + 10, 5)
+        ctx.closePath()
+        ctx.fill()
+
+        // Bow if drawing
+        if (player.isDrawingBow) {
+          ctx.strokeStyle = "#8B4513"
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.arc(0, 0, player.size + 15, -0.3, 0.3)
+          ctx.stroke()
+
+          // Bow string
+          ctx.strokeStyle = "#FFFFFF"
+          ctx.lineWidth = 1
+          const stringTension = (player.drawPower || 0) * 10
+          ctx.beginPath()
+          ctx.moveTo(Math.cos(-0.3) * (player.size + 15), Math.sin(-0.3) * (player.size + 15))
+          ctx.quadraticCurveTo(
+            -stringTension,
+            0,
+            Math.cos(0.3) * (player.size + 15),
+            Math.sin(0.3) * (player.size + 15),
+          )
+          ctx.stroke()
         }
+
+        // Dash effect
+        if (player.isDashing) {
+          ctx.strokeStyle = "#00FFFF"
+          ctx.lineWidth = 2
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath()
+            ctx.arc(0, 0, player.size + 5 + i * 5, 0, Math.PI * 2)
+            ctx.stroke()
+          }
+        }
+
+        ctx.restore()
+
+        // Player name and health bar
+        ctx.save()
+        ctx.translate(player.position.x, player.position.y - player.size - 20)
+
+        // Name
+        ctx.fillStyle = "#FFFFFF"
+        ctx.font = "12px Arial"
+        ctx.textAlign = "center"
+        ctx.fillText(player.name, 0, 0)
+
+        // Health bar background
+        ctx.fillStyle = "#333333"
+        ctx.fillRect(-25, 5, 50, 6)
+
+        // Health bar
+        const healthPercent = player.health / (player.maxHealth || 100)
+        ctx.fillStyle = healthPercent > 0.6 ? "#4CAF50" : healthPercent > 0.3 ? "#FFC107" : "#F44336"
+        ctx.fillRect(-25, 5, 50 * healthPercent, 6)
+
+        // Health bar border
+        ctx.strokeStyle = "#FFFFFF"
+        ctx.lineWidth = 1
+        ctx.strokeRect(-25, 5, 50, 6)
+
+        ctx.restore()
+      })
+
+      // Draw game UI overlays
+      ctx.restore()
+
+      // Game timer (top center)
+      if (gameState.gameTime !== undefined) {
+        const minutes = Math.floor(gameState.gameTime / 60)
+        const seconds = Math.floor(gameState.gameTime % 60)
+        const timeString = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
+        ctx.fillRect(canvas.width / 2 - 40, 10, 80, 30)
+
+        ctx.fillStyle = "#FFFFFF"
+        ctx.font = "16px Arial"
+        ctx.textAlign = "center"
+        ctx.fillText(timeString, canvas.width / 2, 30)
+      }
+
+      // Scoreboard (top right)
+      const players = Object.values(gameState.players).filter((p) => p && p.health > 0)
+      if (players.length > 0) {
+        const scoreboardWidth = 200
+        const scoreboardHeight = players.length * 25 + 20
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+        ctx.fillRect(canvas.width - scoreboardWidth - 10, 10, scoreboardWidth, scoreboardHeight)
+
+        ctx.fillStyle = "#FFFFFF"
+        ctx.font = "14px Arial"
+        ctx.textAlign = "left"
+        ctx.fillText("SCOREBOARD", canvas.width - scoreboardWidth, 30)
+
+        players.forEach((player, index) => {
+          const y = 50 + index * 25
+          const score = player.score || 0
+
+          // Player color indicator
+          ctx.fillStyle = player.color
+          ctx.fillRect(canvas.width - scoreboardWidth + 5, y - 10, 15, 15)
+
+          // Player name and score
+          ctx.fillStyle = "#FFFFFF"
+          ctx.fillText(`${player.name}`, canvas.width - scoreboardWidth + 25, y)
+          ctx.textAlign = "right"
+          ctx.fillText(`${score}`, canvas.width - 20, y)
+          ctx.textAlign = "left"
+        })
+      }
+
+      // Debug info
+      if (debugMode) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+        ctx.fillRect(10, canvas.height - 100, 200, 90)
+
+        ctx.fillStyle = "#00FF00"
+        ctx.font = "12px monospace"
+        ctx.textAlign = "left"
+        ctx.fillText(`Players: ${Object.keys(gameState.players).length}`, 15, canvas.height - 80)
+        ctx.fillText(`Arrows: ${gameState.arrows?.length || 0}`, 15, canvas.height - 65)
+        ctx.fillText(`Walls: ${gameState.walls?.length || 0}`, 15, canvas.height - 50)
+        ctx.fillText(`Pickups: ${gameState.pickups?.length || 0}`, 15, canvas.height - 35)
+        ctx.fillText(`Time: ${gameState.gameTime?.toFixed(1) || 0}s`, 15, canvas.height - 20)
       }
 
       animationFrameRef.current = requestAnimationFrame(render)
@@ -259,60 +342,18 @@ export default function EnhancedGameRenderer({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, localPlayerId, debugMode, platformType])
+  }, [gameState, localPlayerId, debugMode, canvasSize])
 
-  // Update canvas size based on container
-  useEffect(() => {
-    const updateCanvasSize = () => {
-      if (platformType === "mobile") {
-        // Mobile responsive sizing
-        const maxWidth = Math.min(window.innerWidth - 40, 800)
-        const maxHeight = Math.min(window.innerHeight - 200, 600)
-        setCanvasSize({ width: maxWidth, height: maxHeight })
-      } else {
-        // Desktop sizing
-        setCanvasSize({ width: 800, height: 600 })
-      }
-    }
-
-    updateCanvasSize()
-    window.addEventListener("resize", updateCanvasSize)
-
-    return () => {
-      window.removeEventListener("resize", updateCanvasSize)
-    }
-  }, [platformType])
-
-  const gameCanvas = (
-    <canvas
-      ref={canvasRef}
-      width={canvasSize.width}
-      height={canvasSize.height}
-      className={cn(
-        "border border-cyan-500/30 rounded-lg bg-black",
-        "shadow-[0_0_20px_rgba(0,255,255,0.2)]",
-        platformType === "mobile" ? "max-w-full max-h-full" : "w-[800px] h-[600px]",
-      )}
-      style={{
-        imageRendering: "pixelated",
-        touchAction: "none",
-      }}
-    />
+  return (
+    <div className={cn("w-full h-full flex items-center justify-center bg-black", className)}>
+      <canvas
+        ref={canvasRef}
+        className="max-w-full max-h-full border border-cyan-500/30 rounded-lg"
+        style={{
+          imageRendering: "pixelated",
+          touchAction: "none",
+        }}
+      />
+    </div>
   )
-
-  if (platformType === "mobile") {
-    return (
-      <MobileGameContainer
-        onJoystickMove={handleJoystickMove}
-        onActionPress={handleActionPress}
-        onAiming={handleAiming}
-        onShoot={handleShoot}
-        className="w-full h-full"
-      >
-        {gameCanvas}
-      </MobileGameContainer>
-    )
-  }
-
-  return <div className="flex items-center justify-center p-4">{gameCanvas}</div>
 }

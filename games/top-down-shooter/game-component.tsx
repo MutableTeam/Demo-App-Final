@@ -10,7 +10,6 @@ import GameRenderer from "@/components/pvp-game/game-renderer"
 import DebugOverlay from "@/components/pvp-game/debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
 import { updateGameState } from "@/components/pvp-game/game-engine"
-import { useIsMobile } from "@/hooks/use-mobile"
 
 export default function GameComponent({ playerId, playerName, isHost, gameMode, initialGameState, onGameEnd }) {
   // Use the base game controller
@@ -44,7 +43,6 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
   const specialSoundPlayedRef = useRef(false)
   const minDrawSoundPlayedRef = useRef(false)
   const [showTutorial, setShowTutorial] = useState(true)
-  const isMobile = useIsMobile()
   const joystickManagerRef = useRef(null)
   const [joystickData, setJoystickData] = useState({
     x: 0,
@@ -52,78 +50,6 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
     angle: 0,
     force: 0,
   })
-
-  // Initialize nipplejs joystick for mobile
-  useEffect(() => {
-    if (!isMobile) return
-
-    // Dynamically import nipplejs only on mobile
-    import("nipplejs")
-      .then((nipplejs) => {
-        const joystickOptions = {
-          zone: document.getElementById("joystick-zone") || document.body,
-          mode: "static",
-          position: { left: "15%", bottom: "20%" },
-          size: 100,
-          color: "white",
-          restOpacity: 0.5,
-        }
-
-        const manager = nipplejs.default.create(joystickOptions)
-
-        manager.on("move", (evt, data) => {
-          setJoystickData({
-            x: data.vector.x,
-            y: -data.vector.y, // Invert Y axis for game coordinates
-            angle: data.angle.radian,
-            force: data.force,
-          })
-        })
-
-        manager.on("end", () => {
-          setJoystickData({
-            x: 0,
-            y: 0,
-            angle: 0,
-            force: 0,
-          })
-        })
-
-        joystickManagerRef.current = manager
-      })
-      .catch((error) => {
-        debugManager.logError("JOYSTICK", "Failed to load nipplejs", error)
-      })
-
-    return () => {
-      if (joystickManagerRef.current) {
-        joystickManagerRef.current.destroy()
-        joystickManagerRef.current = null
-      }
-    }
-  }, [isMobile])
-
-  // Update player controls based on joystick input
-  useEffect(() => {
-    if (!isMobile || !gameStateRef.current?.players?.[playerId]) return
-
-    const player = gameStateRef.current.players[playerId]
-    const threshold = 0.3 // Minimum force threshold to register movement
-
-    if (joystickData.force > threshold) {
-      // Convert joystick vector to movement controls
-      player.controls.up = joystickData.y > threshold
-      player.controls.down = joystickData.y < -threshold
-      player.controls.left = joystickData.x < -threshold
-      player.controls.right = joystickData.x > threshold
-    } else {
-      // Reset movement when joystick is released
-      player.controls.up = false
-      player.controls.down = false
-      player.controls.left = false
-      player.controls.right = false
-    }
-  }, [joystickData, isMobile, playerId])
 
   // Initialize game
   useEffect(() => {
@@ -645,120 +571,9 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
 
       {/* Resource Monitor */}
       <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
-
-      {/* Mobile Controls */}
-      {isMobile && (
-        <>
-          {/* Joystick Zone */}
-          <div
-            id="joystick-zone"
-            className="absolute bottom-4 left-4 w-32 h-32 pointer-events-auto"
-            style={{ zIndex: 1000 }}
-          />
-
-          {/* Action Buttons */}
-          <div className="absolute bottom-4 right-4 flex flex-col gap-2" style={{ zIndex: 1000 }}>
-            {/* Shoot Button */}
-            <button
-              className="w-16 h-16 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
-              onTouchStart={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.shoot = true
-                }
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.shoot = false
-                }
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.shoot = true
-                }
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.shoot = false
-                }
-              }}
-            >
-              🏹
-            </button>
-
-            {/* Special Attack Button */}
-            <button
-              className="w-16 h-16 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
-              onTouchStart={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.special = true
-                }
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.special = false
-                }
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.special = true
-                }
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.special = false
-                }
-              }}
-            >
-              ⚡
-            </button>
-
-            {/* Dash Button */}
-            <button
-              className="w-16 h-16 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
-              onTouchStart={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.dash = true
-                }
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.dash = false
-                }
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.dash = true
-                }
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault()
-                if (gameStateRef.current?.players?.[playerId]) {
-                  gameStateRef.current.players[playerId].controls.dash = false
-                }
-              }}
-            >
-              💨
-            </button>
-          </div>
-        </>
-      )}
-
       {/* Small hint text */}
       <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
-        {isMobile
-          ? "Use joystick to move, buttons to attack"
-          : "Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor"}
+        Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor
       </div>
     </div>
   )
