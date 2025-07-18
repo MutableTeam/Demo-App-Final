@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Monitor, Smartphone } from "lucide-react"
+import { Monitor } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
@@ -29,15 +29,9 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
   const platforms = [
     {
       type: "desktop" as PlatformType,
-      title: "Desktop",
+      title: "Games",
       icon: Monitor,
       image: "/images/retro-desktop-gaming.png",
-    },
-    {
-      type: "mobile" as PlatformType,
-      title: "Mobile",
-      icon: Smartphone,
-      image: "/images/retro-mobile-gaming.png",
     },
   ]
 
