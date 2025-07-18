@@ -15,12 +15,13 @@ import "@/styles/retro-arcade.css"
 import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
+import type { PlatformType } from "@/contexts/platform-context"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
 
 function HomeContent() {
-  // Wallet connection state
+  const [showPlatform, setShowPlatform] = useState(false)
   const [walletConnected, setWalletConnected] = useState(false)
   const [publicKey, setPublicKey] = useState("")
   const [balance, setBalance] = useState<number | null>(null)
@@ -50,17 +51,19 @@ function HomeContent() {
     setProvider(provider)
   }
 
-  const handlePlatformSelected = () => {
-    // Platform selection handled by context
+  const handlePlatformSelected = (platform: PlatformType) => {
+    // Small delay to show selection feedback
+    setTimeout(() => {
+      setShowPlatform(true)
+    }, 500)
   }
 
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
-  // Show platform selector first if not selected
-  if (!isPlatformSelected) {
+  if (!showPlatform) {
     return (
-      <main className="min-h-screen relative">
+      <main className="min-h-screen bg-background relative">
         <PromoWatermark />
 
         <div className="fixed top-4 right-4 md:right-8 z-[90]">
@@ -78,7 +81,7 @@ function HomeContent() {
   }
 
   return (
-    <main className="min-h-screen relative">
+    <main className="min-h-screen bg-background relative">
       {/* PromoWatermark positioned at top left */}
       <PromoWatermark />
 

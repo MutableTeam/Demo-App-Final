@@ -1,61 +1,50 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 
 export type PlatformType = "desktop" | "mobile"
 
 interface PlatformContextType {
   platformType: PlatformType
   setPlatformType: (type: PlatformType) => void
-  isSelected: boolean
+  isDesktop: boolean
+  isMobile: boolean
 }
 
-const PlatformContext = createContext<PlatformContextType>({
-  platformType: "desktop",
-  setPlatformType: () => {},
-  isSelected: false,
-})
+const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
 
-export const usePlatform = () => useContext(PlatformContext)
-
-interface PlatformProviderProps {
-  children: ReactNode
-}
-
-export function PlatformProvider({ children }: PlatformProviderProps) {
+export function PlatformProvider({ children }: { children: React.ReactNode }) {
   const [platformType, setPlatformTypeState] = useState<PlatformType>("desktop")
-  const [isSelected, setIsSelected] = useState(false)
 
-  // Load saved platform preference
+  // Load preference from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("mutable-platform-type")
-    const savedSelected = localStorage.getItem("mutable-platform-selected")
-
-    if (saved && (saved === "desktop" || saved === "mobile")) {
-      setPlatformTypeState(saved)
-    }
-
-    if (savedSelected === "true") {
-      setIsSelected(true)
+    const savedPlatform = localStorage.getItem("platformType") as PlatformType | null
+    if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
+      setPlatformTypeState(savedPlatform)
     }
   }, [])
 
+  // Save preference to localStorage when changed
   const setPlatformType = (type: PlatformType) => {
     setPlatformTypeState(type)
-    setIsSelected(true)
-    localStorage.setItem("mutable-platform-type", type)
-    localStorage.setItem("mutable-platform-selected", "true")
+    localStorage.setItem("platformType", type)
   }
 
-  return (
-    <PlatformContext.Provider
-      value={{
-        platformType,
-        setPlatformType,
-        isSelected,
-      }}
-    >
-      {children}
-    </PlatformContext.Provider>
-  )
+  const value = {
+    platformType,
+    setPlatformType,
+    isDesktop: platformType === "desktop",
+    isMobile: platformType === "mobile",
+  }
+
+  return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>
+}
+
+export function usePlatform() {
+  const context = useContext(PlatformContext)
+  if (context === undefined) {
+    throw new Error("usePlatform must be used within a PlatformProvider")
+  }
+  return context
 }

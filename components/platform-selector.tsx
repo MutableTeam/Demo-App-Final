@@ -3,155 +3,12 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Monitor, Smartphone, Gamepad2 } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
-import SoundButton from "./sound-button"
-import { cyberpunkColors } from "@/styles/cyberpunk-theme"
-import styled from "@emotion/styled"
-import { keyframes } from "@emotion/react"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import Image from "next/image"
 import { LOGOS } from "@/utils/image-paths"
-
-// Cyberpunk styled components
-const pulseAnimation = keyframes`
-  0%, 100% {
-    opacity: 1;
-    box-shadow: 0 0 15px ${cyberpunkColors.primary.cyan}, 0 0 30px ${cyberpunkColors.primary.cyan}80;
-  }
-  50% {
-    opacity: 0.7;
-    box-shadow: 0 0 25px ${cyberpunkColors.primary.magenta}, 0 0 40px ${cyberpunkColors.primary.magenta}80;
-  }
-`
-
-const CyberpunkCard = styled(Card)`
-  background: linear-gradient(135deg, rgba(16, 16, 48, 0.9) 0%, rgba(32, 16, 64, 0.9) 100%);
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(255, 0, 255, 0.1);
-  backdrop-filter: blur(5px);
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(45deg, transparent 48%, rgba(0, 255, 255, 0.1) 50%, transparent 52%);
-    background-size: 200% 200%;
-    animation: shine 8s infinite linear;
-    z-index: 0;
-  }
-
-  @keyframes shine {
-    0% { background-position: 200% 0; }
-    100% { background-position: 0 200%; }
-  }
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 15px rgba(255, 0, 255, 0.2);
-  }
-`
-
-const CyberpunkCardHeader = styled(CardHeader)`
-  border-bottom: 1px solid rgba(0, 255, 255, 0.3);
-  background: rgba(16, 16, 48, 0.7);
-  position: relative;
-  z-index: 1;
-`
-
-const CyberpunkCardTitle = styled(CardTitle)`
-  color: #0ff;
-  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
-  font-family: monospace;
-  font-weight: bold;
-  font-size: 1.2rem;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-`
-
-const CyberpunkCardDescription = styled(CardDescription)`
-  color: rgba(0, 255, 255, 0.8);
-  font-family: monospace;
-`
-
-const CyberpunkCardContent = styled(CardContent)`
-  position: relative;
-  z-index: 1;
-  color: ${cyberpunkColors.text.primary};
-`
-
-const PlatformButton = styled(SoundButton)`
-  background: linear-gradient(135deg, rgba(16, 16, 48, 0.8) 0%, rgba(32, 16, 64, 0.8) 100%);
-  border: 2px solid rgba(0, 255, 255, 0.5);
-  color: #0ff;
-  font-family: monospace;
-  font-weight: bold;
-  font-size: 1rem;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  height: 120px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(255, 0, 255, 0.1) 100%);
-    border-color: rgba(0, 255, 255, 0.8);
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-    transform: translateY(-2px);
-  }
-  
-  &:active {
-    transform: translateY(1px);
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-    z-index: 0;
-  }
-
-  &:hover::before {
-    left: 100%;
-  }
-`
-
-const LogoContainer = styled.div`
-  position: relative;
-  margin: 0 auto 2rem;
-  text-align: center;
-  max-width: 300px;
-`
-
-const StyledLogo = styled(Image)`
-  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.7));
-  animation: ${pulseAnimation} 3s infinite alternate;
-  transform-origin: center;
-  transition: all 0.3s ease;
-`
-
-const CyberpunkBadge = styled(Badge)`
-  background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
-  border: 1px solid rgba(0, 255, 255, 0.5);
-  color: #0ff;
-  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
-  font-family: monospace;
-  font-weight: bold;
-  font-size: 0.7rem;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-`
 
 interface PlatformSelectorProps {
   onPlatformSelected?: (platform: PlatformType) => void
@@ -159,6 +16,7 @@ interface PlatformSelectorProps {
 
 export default function PlatformSelector({ onPlatformSelected }: PlatformSelectorProps) {
   const { setPlatformType } = usePlatform()
+  const { styleMode } = useCyberpunkTheme()
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
 
   const handlePlatformSelect = (platform: PlatformType) => {
@@ -186,68 +44,130 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
     },
   ]
 
+  const isCyberpunk = styleMode === "cyberpunk"
+
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-5xl mx-auto space-y-8 p-4">
       {/* Logo */}
-      <LogoContainer>
-        <StyledLogo
+      <div className="text-center mb-8">
+        <Image
           src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
           alt="Mutable Logo"
-          width={250}
-          height={150}
-          className="w-auto h-auto max-w-[250px] mx-auto"
+          width={300}
+          height={180}
+          className={`w-auto h-auto max-w-[300px] mx-auto ${
+            isCyberpunk ? "filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)] animate-pulse" : "filter drop-shadow-lg"
+          }`}
         />
-      </LogoContainer>
+      </div>
 
       {/* Platform Selection Card */}
-      <CyberpunkCard>
-        <CyberpunkCardHeader className="text-center">
-          <CyberpunkCardTitle className="flex items-center justify-center gap-2">
-            <Gamepad2 className="h-6 w-6" />
+      <Card
+        className={`${
+          isCyberpunk
+            ? "bg-gradient-to-br from-slate-900/90 to-purple-900/90 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] backdrop-blur-sm"
+            : "bg-card border-border shadow-lg"
+        }`}
+      >
+        <CardHeader
+          className={`text-center ${isCyberpunk ? "border-b border-cyan-500/30 bg-slate-900/70" : "border-b"}`}
+        >
+          <CardTitle
+            className={`flex items-center justify-center gap-3 text-2xl ${
+              isCyberpunk
+                ? "text-cyan-400 font-mono font-bold tracking-wider text-shadow-[0_0_5px_rgba(0,255,255,0.7)]"
+                : "text-foreground"
+            }`}
+          >
+            <Gamepad2 className="h-8 w-8" />
             Select Your Platform
-          </CyberpunkCardTitle>
-          <CyberpunkCardDescription>Choose your preferred gaming experience</CyberpunkCardDescription>
-        </CyberpunkCardHeader>
+          </CardTitle>
+          <CardDescription
+            className={`text-lg ${isCyberpunk ? "text-cyan-400/80 font-mono" : "text-muted-foreground"}`}
+          >
+            Choose your preferred gaming experience
+          </CardDescription>
+        </CardHeader>
 
-        <CyberpunkCardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {platforms.map((platform) => {
               const IconComponent = platform.icon
               return (
-                <PlatformButton
+                <Button
                   key={platform.type}
                   onClick={() => handlePlatformSelect(platform.type)}
-                  className="w-full flex flex-col items-center justify-center gap-3 p-6"
+                  variant="outline"
+                  className={`h-auto min-h-[280px] w-full flex flex-col items-center justify-center gap-4 p-8 text-left transition-all duration-300 ${
+                    isCyberpunk
+                      ? `bg-gradient-to-br from-slate-800/80 to-purple-800/80 border-2 border-cyan-500/50 
+                         hover:bg-gradient-to-br hover:from-cyan-900/20 hover:to-purple-900/20 
+                         hover:border-cyan-400/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] 
+                         hover:-translate-y-1 active:translate-y-0`
+                      : `bg-background border-2 border-border hover:bg-accent hover:border-primary/50 
+                         hover:shadow-lg hover:-translate-y-1 active:translate-y-0`
+                  }`}
                 >
-                  <div className="relative z-10 flex flex-col items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <IconComponent className="h-8 w-8" />
-                      <span className="text-xl">{platform.title}</span>
+                  <div className="flex flex-col items-center gap-4 w-full">
+                    {/* Icon and Title */}
+                    <div className="flex items-center gap-3">
+                      <IconComponent className={`h-12 w-12 ${isCyberpunk ? "text-cyan-400" : "text-primary"}`} />
+                      <span
+                        className={`text-2xl font-bold ${
+                          isCyberpunk ? "text-cyan-400 font-mono tracking-wider" : "text-foreground"
+                        }`}
+                      >
+                        {platform.title}
+                      </span>
                     </div>
 
-                    <CyberpunkBadge>{platform.badge}</CyberpunkBadge>
+                    {/* Badge */}
+                    <Badge
+                      className={`text-sm px-3 py-1 ${
+                        isCyberpunk
+                          ? "bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/50 text-cyan-400 font-mono font-bold tracking-wide"
+                          : "bg-primary/10 text-primary border-primary/20"
+                      }`}
+                    >
+                      {platform.badge}
+                    </Badge>
 
-                    <p className="text-sm opacity-80 text-center">{platform.description}</p>
+                    {/* Description */}
+                    <p
+                      className={`text-lg text-center ${
+                        isCyberpunk ? "text-cyan-300/90 font-mono" : "text-muted-foreground"
+                      }`}
+                    >
+                      {platform.description}
+                    </p>
 
-                    <div className="text-xs opacity-70 text-center">
+                    {/* Features */}
+                    <div className="space-y-2 w-full">
                       {platform.features.map((feature, index) => (
-                        <div key={index} className="flex items-center justify-center gap-1">
-                          <span>•</span>
+                        <div
+                          key={index}
+                          className={`flex items-center gap-2 text-base ${
+                            isCyberpunk ? "text-cyan-200/80 font-mono" : "text-muted-foreground"
+                          }`}
+                        >
+                          <span className={`${isCyberpunk ? "text-cyan-400" : "text-primary"}`}>•</span>
                           <span>{feature}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                </PlatformButton>
+                </Button>
               )
             })}
           </div>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-cyan-400/80 font-mono">You can change this setting later in the game options</p>
+          <div className="mt-8 text-center">
+            <p className={`text-sm ${isCyberpunk ? "text-cyan-400/70 font-mono" : "text-muted-foreground"}`}>
+              You can change this setting later in the game options
+            </p>
           </div>
-        </CyberpunkCardContent>
-      </CyberpunkCard>
+        </CardContent>
+      </Card>
     </div>
   )
 }
