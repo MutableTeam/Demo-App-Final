@@ -11,7 +11,11 @@ interface PlatformContextType {
 
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
 
-export function PlatformProvider({ children }: { children: ReactNode }) {
+interface PlatformProviderProps {
+  children: ReactNode
+}
+
+export function PlatformProvider({ children }: PlatformProviderProps) {
   const [platform, setPlatform] = useState<PlatformType>("desktop")
 
   return <PlatformContext.Provider value={{ platform, setPlatform }}>{children}</PlatformContext.Provider>
