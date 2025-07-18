@@ -5,203 +5,187 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import MultiWalletConnector from "@/components/multi-wallet-connector"
-import { SignUpBanner } from "@/components/signup-banner"
-import { TokenSwapForm } from "@/components/swap/token-swap-form"
-import { TransactionHistory } from "@/components/swap/transaction-history"
-import { MarketOverview } from "@/components/swap/market-overview"
-import { LiquidityPoolStatus } from "@/components/swap/liquidity-pool-status"
-import { MutableMarketplace } from "@/components/mutable-marketplace"
-import { GameContainer } from "@/components/game-container"
-import { gameRegistry } from "@/types/game-registry"
-import { Play, Trophy, Users, Coins, TrendingUp, Shield, Gamepad2, Star, Clock, Target, Zap } from "lucide-react"
+import { Gamepad2, Trophy, Users, Coins, ArrowUpDown, Play, Zap, Target } from "lucide-react"
+import Image from "next/image"
+import MultiWalletConnector from "./multi-wallet-connector"
+import { MutableMarketplace } from "./mutable-marketplace"
+import { TokenSwapForm } from "./swap/token-swap-form"
+import { TransactionHistory } from "./swap/transaction-history"
+import { MarketOverview } from "./swap/market-overview"
+import { LiquidityPoolStatus } from "./swap/liquidity-pool-status"
+import { SignUpBanner } from "./signup-banner"
 
-interface Player {
-  id: string
-  name: string
-  avatar?: string
-  level: number
-  wins: number
-  totalGames: number
+interface MutablePlatformProps {
+  publicKey: string
+  balance: number | null
+  provider: any
+  connection: any
 }
 
-interface GameSession {
-  id: string
-  gameId: string
-  players: Player[]
-  status: "waiting" | "playing" | "finished"
-  winner?: string
-}
-
-export function MutablePlatform() {
-  const [isWalletConnected, setIsWalletConnected] = useState(false)
-  const [selectedGame, setSelectedGame] = useState<string | null>(null)
+export default function MutablePlatform({ publicKey, balance, provider, connection }: MutablePlatformProps) {
   const [activeTab, setActiveTab] = useState("games")
-  const [currentPlayer] = useState<Player>({
-    id: "player-1",
-    name: "Player",
-    level: 5,
-    wins: 12,
-    totalGames: 20,
-  })
-  const [gameSession, setGameSession] = useState<GameSession | null>(null)
+  const [isWalletConnected, setIsWalletConnected] = useState(!!publicKey)
+  const [walletAddress, setWalletAddress] = useState(publicKey)
+  const [walletBalance, setWalletBalance] = useState(balance)
 
-  const games = gameRegistry.getAllGames()
-
-  const handleWalletConnect = (connected: boolean) => {
+  const handleWalletConnection = (connected: boolean, address: string, bal: number | null) => {
     setIsWalletConnected(connected)
+    setWalletAddress(address)
+    setWalletBalance(bal)
   }
 
-  const handleGameSelect = (gameId: string) => {
-    setSelectedGame(gameId)
-    // Create a new game session
-    const newSession: GameSession = {
-      id: `session-${Date.now()}`,
-      gameId,
-      players: [currentPlayer],
-      status: "waiting",
-    }
-    setGameSession(newSession)
-  }
+  const featuredGames = [
+    {
+      id: "last-stand",
+      title: "Last Stand",
+      description: "Defend your base against waves of enemies",
+      image: "/images/last-stand.jpg",
+      players: "1-4",
+      difficulty: "Medium",
+      rewards: "50-200 MUTB",
+      category: "Tower Defense",
+    },
+    {
+      id: "pixel-pool",
+      title: "Pixel Pool",
+      description: "Classic 8-ball pool with pixel art graphics",
+      image: "/images/pixel-art-pool.png",
+      players: "1-2",
+      difficulty: "Easy",
+      rewards: "25-100 MUTB",
+      category: "Sports",
+    },
+    {
+      id: "top-down-shooter",
+      title: "Cyber Arena",
+      description: "Fast-paced top-down shooter action",
+      image: "/images/archer-game.png",
+      players: "1-8",
+      difficulty: "Hard",
+      rewards: "100-500 MUTB",
+      category: "Action",
+    },
+  ]
 
-  const handleGameEnd = (winner: string | null) => {
-    if (gameSession) {
-      setGameSession({
-        ...gameSession,
-        status: "finished",
-        winner: winner || undefined,
-      })
-    }
-    // Reset after a delay
-    setTimeout(() => {
-      setSelectedGame(null)
-      setGameSession(null)
-    }, 3000)
-  }
-
-  const handleBackToGames = () => {
-    setSelectedGame(null)
-    setGameSession(null)
-  }
-
-  // If a game is selected, show the game container
-  if (selectedGame && gameSession) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="mb-6">
-            <Button onClick={handleBackToGames} variant="outline" className="mb-4 bg-transparent">
-              ← Back to Games
-            </Button>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {games.find((g) => g.id === selectedGame)?.name || "Game"}
-            </h1>
-          </div>
-
-          <GameContainer
-            gameId={selectedGame}
-            playerId={currentPlayer.id}
-            playerName={currentPlayer.name}
-            isHost={true}
-            gameMode="single"
-            onGameEnd={handleGameEnd}
-          />
-        </div>
-      </div>
-    )
-  }
+  const marketStats = [
+    { label: "Total Volume", value: "$2.4M", change: "+12.5%" },
+    { label: "Active Players", value: "15,234", change: "+8.2%" },
+    { label: "Games Played", value: "89,456", change: "+15.7%" },
+    { label: "MUTB Price", value: "$0.0234", change: "+5.3%" },
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Mutable Platform</h1>
-            <p className="text-gray-600">Play games, earn tokens, and trade on Solana</p>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Image src="/images/mutable-logo.png" alt="Mutable" width={40} height={40} className="rounded-lg" />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Mutable</h1>
+                <p className="text-sm text-gray-600">Gaming Platform</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <MultiWalletConnector onConnectionChange={handleWalletConnection} compact={true} />
+            </div>
           </div>
-          <MultiWalletConnector onConnectionChange={handleWalletConnect} />
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8 text-center">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Welcome to Mutable Gaming</h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Play games, earn tokens, and trade in our decentralized gaming ecosystem
+          </p>
         </div>
 
-        {/* Show signup banner if wallet not connected */}
-        {!isWalletConnected && (
-          <div className="mb-8">
-            <SignUpBanner />
-          </div>
-        )}
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {marketStats.map((stat, index) => (
+            <Card key={index} className="bg-white border-gray-200">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+                <div className="text-sm text-gray-600">{stat.label}</div>
+                <div className="text-xs text-green-600 font-medium">{stat.change}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
-            <TabsTrigger value="games" className="flex items-center gap-2">
-              <Gamepad2 className="w-4 h-4" />
+        {/* Main Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8 bg-white border border-gray-200">
+            <TabsTrigger
+              value="games"
+              className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 font-medium"
+            >
+              <Gamepad2 className="w-4 h-4 mr-2" />
               Games
             </TabsTrigger>
-            <TabsTrigger value="swap" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Swap
-            </TabsTrigger>
-            <TabsTrigger value="marketplace" className="flex items-center gap-2">
-              <Shield className="w-4 h-4" />
+            <TabsTrigger
+              value="marketplace"
+              className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 font-medium"
+            >
+              <Trophy className="w-4 h-4 mr-2" />
               Marketplace
             </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
-              Profile
+            <TabsTrigger
+              value="swap"
+              className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 font-medium"
+            >
+              <ArrowUpDown className="w-4 h-4 mr-2" />
+              Swap
             </TabsTrigger>
           </TabsList>
 
           {/* Games Tab */}
           <TabsContent value="games" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {games.map((game) => (
-                <Card key={game.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
+              {featuredGames.map((game) => (
+                <Card
+                  key={game.id}
+                  className="bg-white border-gray-200 hover:border-orange-300 transition-colors group"
+                >
                   <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                        {game.category}
-                      </Badge>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                        <span className="text-sm font-medium">4.8</span>
-                      </div>
-                    </div>
-                    <CardTitle className="text-xl">{game.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">{game.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
-                      <img
+                    <div className="aspect-video relative mb-3 rounded-lg overflow-hidden border border-gray-200">
+                      <Image
                         src={game.image || "/placeholder.svg"}
-                        alt={game.name}
-                        className="w-full h-full object-cover rounded-lg"
+                        alt={game.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform"
                       />
                     </div>
-
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        <span>{game.maxPlayers} players</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        <span>~{game.estimatedDuration}min</span>
-                      </div>
-                    </div>
-
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Coins className="w-4 h-4 text-orange-500" />
-                        <span className="font-semibold text-orange-600">{game.tokenReward} MUTB</span>
-                      </div>
-                      <Button
-                        onClick={() => handleGameSelect(game.id)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white"
-                        disabled={!isWalletConnected}
-                      >
+                      <CardTitle className="text-lg font-bold text-gray-900">{game.title}</CardTitle>
+                      <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-medium">
+                        {game.category}
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-gray-600">{game.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="flex items-center gap-1 text-gray-600">
+                        <Users className="w-4 h-4" />
+                        {game.players} Players
+                      </span>
+                      <span className="flex items-center gap-1 text-gray-600">
+                        <Target className="w-4 h-4" />
+                        {game.difficulty}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-600">
+                        <Coins className="w-4 h-4 inline mr-1" />
+                        {game.rewards}
+                      </span>
+                      <Button className="bg-orange-600 hover:bg-orange-700 text-white" disabled={!isWalletConnected}>
                         <Play className="w-4 h-4 mr-2" />
                         Play Now
                       </Button>
@@ -210,20 +194,19 @@ export function MutablePlatform() {
                 </Card>
               ))}
             </div>
-          </TabsContent>
 
-          {/* Swap Tab */}
-          <TabsContent value="swap" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <TokenSwapForm />
-                <TransactionHistory />
-              </div>
-              <div className="space-y-6">
-                <MarketOverview />
-                <LiquidityPoolStatus />
-              </div>
-            </div>
+            {!isWalletConnected && (
+              <Card className="bg-yellow-50 border-yellow-200">
+                <CardContent className="p-6 text-center">
+                  <Zap className="w-12 h-12 mx-auto mb-4 text-yellow-600" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Connect Your Wallet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Connect your wallet to start playing games and earning MUTB tokens
+                  </p>
+                  <MultiWalletConnector onConnectionChange={handleWalletConnection} />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Marketplace Tab */}
@@ -231,81 +214,26 @@ export function MutablePlatform() {
             <MutableMarketplace />
           </TabsContent>
 
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Avatar className="w-12 h-12">
-                    <AvatarImage src="/placeholder.svg?height=48&width=48" />
-                    <AvatarFallback>{currentPlayer.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h2 className="text-xl font-bold">{currentPlayer.name}</h2>
-                    <p className="text-gray-600">Level {currentPlayer.level}</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <Trophy className="w-8 h-8 text-orange-500 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{currentPlayer.wins}</div>
-                    <div className="text-sm text-gray-600">Wins</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <Target className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{currentPlayer.totalGames}</div>
-                    <div className="text-sm text-gray-600">Games Played</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <Zap className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">
-                      {Math.round((currentPlayer.wins / currentPlayer.totalGames) * 100)}%
-                    </div>
-                    <div className="text-sm text-gray-600">Win Rate</div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Progress to Next Level</h3>
-                  <Progress value={65} className="mb-2" />
-                  <p className="text-sm text-gray-600">350/500 XP to Level {currentPlayer.level + 1}</p>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Recent Achievements</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                      <Trophy className="w-6 h-6 text-yellow-600" />
-                      <div>
-                        <div className="font-medium">First Victory</div>
-                        <div className="text-sm text-gray-600">Won your first game</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                      <Target className="w-6 h-6 text-blue-600" />
-                      <div>
-                        <div className="font-medium">Sharpshooter</div>
-                        <div className="text-sm text-gray-600">Hit 10 consecutive targets</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Swap Tab */}
+          <TabsContent value="swap" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <TokenSwapForm />
+              </div>
+              <div className="lg:col-span-2 space-y-6">
+                <MarketOverview />
+                <LiquidityPoolStatus />
+                <TransactionHistory />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
 
-        {/* SignUp Banner at bottom */}
+        {/* Signup Banner */}
         <div className="mt-12">
           <SignUpBanner walletConnected={isWalletConnected} />
         </div>
-      </div>
+      </main>
     </div>
   )
 }
