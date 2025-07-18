@@ -12,10 +12,12 @@ import MutablePlatform from "@/components/mutable-platform"
 import RetroArcadeBackground from "@/components/retro-arcade-background"
 import { Connection, clusterApiUrl } from "@solana/web3.js"
 import "@/styles/retro-arcade.css"
+import "@/styles/maximize-mode.css"
 import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
 import type { PlatformType } from "@/contexts/platform-context"
+import { MaximizeToggle } from "@/components/maximize-toggle"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
@@ -26,6 +28,7 @@ function HomeContent() {
   const [publicKey, setPublicKey] = useState("")
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
+  const [isMaximized, setIsMaximized] = useState(false)
 
   // Platform context
   const { isSelected: isPlatformSelected } = usePlatform()
@@ -58,20 +61,29 @@ function HomeContent() {
     }, 500)
   }
 
+  const handleMaximizeToggle = (maximized: boolean) => {
+    setIsMaximized(maximized)
+  }
+
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
   if (!showPlatform) {
     return (
-      <main className="min-h-screen bg-background relative">
-        <PromoWatermark />
+      <main
+        className={`min-h-screen bg-background relative maximize-container ${isMaximized ? "maximize-transition" : ""}`}
+      >
+        <PromoWatermark className="hide-on-maximize" />
 
-        <div className="fixed top-4 right-4 md:right-8 z-[90]">
+        <div className="fixed top-4 right-4 md:right-8 z-[90] flex items-center gap-2">
           <GlobalAudioControls />
+          <MaximizeToggle onToggle={handleMaximizeToggle} className="maximize-toggle" />
         </div>
 
         <RetroArcadeBackground>
-          <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative flex items-center justify-center min-h-screen">
+          <div
+            className={`max-w-6xl mx-auto p-4 md:p-8 z-10 relative flex items-center justify-center min-h-screen ${isMaximized ? "maximize-content" : ""}`}
+          >
             <PlatformSelector onPlatformSelected={handlePlatformSelected} />
             <DebugOverlay initiallyVisible={false} position="bottom-right" />
           </div>
@@ -81,9 +93,11 @@ function HomeContent() {
   }
 
   return (
-    <main className="min-h-screen bg-background relative">
+    <main
+      className={`min-h-screen bg-background relative maximize-container ${isMaximized ? "maximize-transition" : ""}`}
+    >
       {/* PromoWatermark positioned at top left */}
-      <PromoWatermark />
+      <PromoWatermark className="hide-on-maximize" />
 
       {/* Wallet connector always positioned at top right when connected */}
       <div
@@ -100,14 +114,17 @@ function HomeContent() {
         />
       </div>
 
-      {/* Audio controls positioned at top right below wallet when connected */}
-      <div className={`fixed ${walletConnected ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90]`}>
+      {/* Audio controls and maximize toggle positioned at top right below wallet when connected */}
+      <div
+        className={`fixed ${walletConnected ? "top-12 sm:top-14" : "top-4"} right-4 md:right-8 z-[90] flex items-center gap-2`}
+      >
         <GlobalAudioControls />
+        <MaximizeToggle onToggle={handleMaximizeToggle} className="maximize-toggle" />
       </div>
 
       <RetroArcadeBackground>
-        <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
-          <DemoWatermark />
+        <div className={`max-w-6xl mx-auto p-4 md:p-8 z-10 relative ${isMaximized ? "maximize-content" : ""}`}>
+          <DemoWatermark className="hide-on-maximize" />
 
           {walletConnected && publicKey && (
             <div className="mt-16">
