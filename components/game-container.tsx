@@ -9,7 +9,7 @@ import { cyberpunkColors } from "@/styles/cyberpunk-theme"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
-import ResponsiveGameContainer from "@/components/responsive-game-container"
+import EnhancedResponsiveGameContainer from "@/components/enhanced-responsive-game-container"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -173,9 +173,18 @@ interface GameContainerProps {
   isHost: boolean
   gameMode: string
   onGameEnd: (winner: string | null) => void
+  className?: string
 }
 
-export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
+export function GameContainer({
+  gameId,
+  playerId,
+  playerName,
+  isHost,
+  gameMode,
+  onGameEnd,
+  className,
+}: GameContainerProps) {
   const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
   const { toast } = useToast()
 
@@ -238,18 +247,27 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
   // Cyberpunk styled loading state
   if (gameState === "loading") {
     return (
-      <ResponsiveGameContainer gameWidth={800} gameHeight={600}>
-        <CyberpunkLoadingContainer>
-          <CyberpunkSpinner />
-          <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
-        </CyberpunkLoadingContainer>
-      </ResponsiveGameContainer>
+      <CyberpunkLoadingContainer>
+        <CyberpunkSpinner />
+        <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
+      </CyberpunkLoadingContainer>
     )
   }
 
-  // Cyberpunk styled game container with responsive wrapper
+  // Cyberpunk styled game container
   return (
-    <ResponsiveGameContainer gameWidth={1200} gameHeight={800}>
+    <EnhancedResponsiveGameContainer
+      gameWidth={800}
+      gameHeight={600}
+      enableDebugOverlay={process.env.NODE_ENV === "development"}
+      onScaleChange={(scale) => {
+        debugManager.logInfo("GameContainer", "Scale changed", { scale })
+      }}
+      onOrientationChange={(isLandscape) => {
+        debugManager.logInfo("GameContainer", "Orientation changed", { isLandscape })
+      }}
+      className={className}
+    >
       <CyberpunkGameContainer>
         {/* Development Banner */}
         <CyberpunkDevBanner>Demo Game : Does Not Represent Final Product</CyberpunkDevBanner>
@@ -276,6 +294,6 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
           )}
         </GameErrorBoundary>
       </CyberpunkGameContainer>
-    </ResponsiveGameContainer>
+    </EnhancedResponsiveGameContainer>
   )
 }

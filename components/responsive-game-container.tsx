@@ -11,14 +11,6 @@ interface ResponsiveGameContainerProps {
   className?: string
 }
 
-interface ViewportDimensions {
-  width: number
-  height: number
-  scale: number
-  offsetX: number
-  offsetY: number
-}
-
 export default function ResponsiveGameContainer({
   children,
   gameWidth,
@@ -26,164 +18,141 @@ export default function ResponsiveGameContainer({
   className = "",
 }: ResponsiveGameContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const gameRef = useRef<HTMLDivElement>(null)
-  const [viewport, setViewport] = useState<ViewportDimensions>({
-    width: 0,
-    height: 0,
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
-  })
+  const [scale, setScale] = useState(1)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const [gamePosition, setGamePosition] = useState({ x: 0, y: 0 })
   const [isLandscape, setIsLandscape] = useState(false)
-  const [showOrientationPrompt, setShowOrientationPrompt] = useState(false)
   const isMobile = useIsMobile()
 
-  // Get actual viewport dimensions accounting for mobile browser UI
-  const getViewportDimensions = useCallback(() => {
-    let width = window.innerWidth
-    let height = window.innerHeight
-
-    // Use visual viewport if available (better for mobile)
-    if (window.visualViewport) {
-      width = window.visualViewport.width
-      height = window.visualViewport.height
-    }
-
-    // On mobile, account for browser UI
+  // Force landscape orientation on mobile
+  useEffect(() => {
     if (isMobile) {
-      // Use screen dimensions if they're more accurate
-      if (screen.width && screen.height) {
-        const screenWidth = Math.max(screen.width, screen.height)
-        const screenHeight = Math.min(screen.width, screen.height)
+      const checkOrientation = () => {
+        const isCurrentlyLandscape = window.innerWidth > window.innerHeight
+        setIsLandscape(isCurrentlyLandscape)
 
-        // In landscape, use full screen dimensions
-        if (width > height) {
-          width = screenWidth
-          height = screenHeight
-        }
+        // Add orientation class to body for CSS targeting
+        document.body.classList.toggle("mobile-landscape", isCurrentlyLandscape)
+        document.body.classList.toggle("mobile-portrait", !isCurrentlyLandscape)
+      }
+
+      checkOrientation()
+      window.addEventListener("orientationchange", checkOrientation)
+      window.addEventListener("resize", checkOrientation)
+
+      return () => {
+        window.removeEventListener("orientationchange", checkOrientation)
+        window.removeEventListener("resize", checkOrientation)
+        document.body.classList.remove("mobile-landscape", "mobile-portrait")
+      }
+    }
+  }, [isMobile])
+
+  // Calculate optimal scale and positioning with perfect container fitting
+  const calculateLayout = useCallback(() => {
+    if (!containerRef.current) return
+
+    const container = containerRef.current
+    let containerWidth = container.clientWidth
+    let containerHeight = container.clientHeight
+
+    // On mobile, use full viewport dimensions
+    if (isMobile) {
+      containerWidth = window.innerWidth
+      containerHeight = window.innerHeight
+
+      // Account for mobile browser chrome
+      if (window.visualViewport) {
+        containerWidth = window.visualViewport.width
+        containerHeight = window.visualViewport.height
       }
     }
 
-    return { width, height }
-  }, [isMobile])
+    // Calculate scale to fit game perfectly in container
+    const scaleX = containerWidth / gameWidth
+    const scaleY = containerHeight / gameHeight
 
-  // Calculate optimal scaling and positioning
-  const calculateViewport = useCallback(() => {
-    const { width: viewportWidth, height: viewportHeight } = getViewportDimensions()
+    // Use the smaller scale to ensure entire game fits
+    const optimalScale = Math.min(scaleX, scaleY)
 
-    if (viewportWidth === 0 || viewportHeight === 0) return
-
-    // Calculate scale factors for both dimensions
-    const scaleX = viewportWidth / gameWidth
-    const scaleY = viewportHeight / gameHeight
-
-    // Use the smaller scale to ensure the entire game fits
-    const scale = Math.min(scaleX, scaleY)
-
-    // Apply reasonable scale limits
-    const minScale = 0.2
-    const maxScale = 4.0
-    const finalScale = Math.max(minScale, Math.min(maxScale, scale))
+    // Apply minimum scale limits
+    const minScale = 0.3
+    const maxScale = 3.0
+    const finalScale = Math.max(minScale, Math.min(maxScale, optimalScale))
 
     // Calculate scaled game dimensions
     const scaledWidth = gameWidth * finalScale
     const scaledHeight = gameHeight * finalScale
 
-    // Center the game in the viewport
-    const offsetX = (viewportWidth - scaledWidth) / 2
-    const offsetY = (viewportHeight - scaledHeight) / 2
+    // Center the game perfectly in the container
+    const gameX = (containerWidth - scaledWidth) / 2
+    const gameY = (containerHeight - scaledHeight) / 2
 
-    setViewport({
-      width: viewportWidth,
-      height: viewportHeight,
-      scale: finalScale,
-      offsetX: Math.max(0, offsetX),
-      offsetY: Math.max(0, offsetY),
-    })
+    setScale(finalScale)
+    setContainerSize({ width: containerWidth, height: containerHeight })
+    setGamePosition({ x: gameX, y: gameY })
 
-    // Update container dimensions if on mobile
+    // Update container size to match viewport on mobile
     if (isMobile && containerRef.current) {
-      containerRef.current.style.width = `${viewportWidth}px`
-      containerRef.current.style.height = `${viewportHeight}px`
+      containerRef.current.style.width = `${containerWidth}px`
+      containerRef.current.style.height = `${containerHeight}px`
     }
-  }, [gameWidth, gameHeight, getViewportDimensions, isMobile])
+  }, [gameWidth, gameHeight, isMobile])
 
-  // Handle orientation changes
-  const handleOrientationChange = useCallback(() => {
-    const isCurrentlyLandscape = window.innerWidth > window.innerHeight
-    setIsLandscape(isCurrentlyLandscape)
-
-    // Show orientation prompt on mobile portrait
-    if (isMobile && !isCurrentlyLandscape) {
-      setShowOrientationPrompt(true)
-    } else {
-      setShowOrientationPrompt(false)
-    }
-
-    // Recalculate viewport after orientation change
-    setTimeout(calculateViewport, 100)
-  }, [isMobile, calculateViewport])
-
-  // Set up event listeners and initial calculation
+  // Handle all resize events and viewport changes
   useEffect(() => {
-    // Initial calculations
-    handleOrientationChange()
-    calculateViewport()
-
-    // Debounced resize handler
-    let resizeTimeout: NodeJS.Timeout
-    const debouncedResize = () => {
-      clearTimeout(resizeTimeout)
-      resizeTimeout = setTimeout(() => {
-        calculateViewport()
-        handleOrientationChange()
-      }, 100)
+    const handleResize = () => {
+      // Use multiple animation frames to ensure all DOM updates are complete
+      requestAnimationFrame(() => {
+        requestAnimationFrame(calculateLayout)
+      })
     }
 
-    // Event listeners
-    window.addEventListener("resize", debouncedResize)
-    window.addEventListener("orientationchange", debouncedResize)
+    // Initial calculation with delay to ensure DOM is ready
+    const initialTimer = setTimeout(calculateLayout, 100)
 
-    // Mobile-specific listeners
+    // Set up event listeners
+    window.addEventListener("resize", handleResize)
+    window.addEventListener("orientationchange", handleResize)
+
+    // Mobile-specific viewport handling
     if (isMobile) {
-      window.addEventListener("scroll", debouncedResize)
-      document.addEventListener("fullscreenchange", debouncedResize)
+      window.addEventListener("scroll", handleResize)
+      window.addEventListener("touchstart", handleResize)
 
-      // Visual viewport listeners for mobile keyboard handling
+      // Handle visual viewport changes (mobile keyboard, etc.)
       if (window.visualViewport) {
-        window.visualViewport.addEventListener("resize", debouncedResize)
-        window.visualViewport.addEventListener("scroll", debouncedResize)
+        window.visualViewport.addEventListener("resize", handleResize)
+        window.visualViewport.addEventListener("scroll", handleResize)
       }
     }
 
     return () => {
-      clearTimeout(resizeTimeout)
-      window.removeEventListener("resize", debouncedResize)
-      window.removeEventListener("orientationchange", debouncedResize)
-      window.removeEventListener("scroll", debouncedResize)
-      document.removeEventListener("fullscreenchange", debouncedResize)
+      clearTimeout(initialTimer)
+      window.removeEventListener("resize", handleResize)
+      window.removeEventListener("orientationchange", handleResize)
+      window.removeEventListener("scroll", handleResize)
+      window.removeEventListener("touchstart", handleResize)
 
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", debouncedResize)
-        window.visualViewport.removeEventListener("scroll", debouncedResize)
+        window.visualViewport.removeEventListener("resize", handleResize)
+        window.visualViewport.removeEventListener("scroll", handleResize)
       }
     }
-  }, [calculateViewport, handleOrientationChange, isMobile])
+  }, [calculateLayout, isMobile])
 
   // Mobile orientation prompt component
   const OrientationPrompt = () => {
-    if (!showOrientationPrompt) return null
+    if (!isMobile || isLandscape) return null
 
     return (
-      <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[9999] text-white">
-        <div className="text-center p-8 max-w-sm">
-          <div className="text-6xl mb-6 animate-bounce">📱</div>
+      <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 text-white">
+        <div className="text-center p-8">
+          <div className="text-6xl mb-4">📱</div>
           <h2 className="text-2xl font-bold mb-4">Rotate Your Device</h2>
-          <p className="text-lg mb-6">Please rotate your device to landscape mode for the best gaming experience.</p>
-          <div className="flex justify-center items-center space-x-4">
-            <div className="text-4xl animate-pulse">📱</div>
-            <div className="text-2xl">→</div>
-            <div className="text-4xl animate-pulse transform rotate-90">📱</div>
+          <p className="text-lg">Please rotate your device to landscape mode for the best gaming experience.</p>
+          <div className="mt-6 animate-bounce">
+            <div className="text-4xl">↻</div>
           </div>
         </div>
       </div>
@@ -192,32 +161,53 @@ export default function ResponsiveGameContainer({
 
   return (
     <>
-      {/* Global mobile styles */}
+      {/* Mobile CSS for perfect viewport handling */}
       <style jsx global>{`
-        /* Mobile-specific viewport handling */
+        /* Mobile viewport and orientation handling */
         @media (max-width: 768px) {
-          html {
-            height: 100%;
-            height: 100vh;
-            height: 100dvh;
-          }
-          
-          body {
+          html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
             height: 100%;
-            height: 100vh;
-            height: 100dvh;
             overflow: hidden;
             position: fixed;
-            width: 100%;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
           }
           
-          /* Prevent zoom and scrolling */
+          /* Force landscape orientation hint */
+          @media (orientation: portrait) {
+            body::before {
+              content: '';
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background: rgba(0, 0, 0, 0.8);
+              z-index: 1000;
+              pointer-events: none;
+            }
+          }
+          
+          /* Landscape mode optimizations */
+          @media (orientation: landscape) {
+            body {
+              height: 100vh;
+              height: 100dvh; /* Dynamic viewport height */
+            }
+          }
+          
+          /* Hide mobile browser UI */
+          body.mobile-landscape {
+            -webkit-appearance: none;
+            -webkit-user-select: none;
+          }
+          
+          /* Prevent scrolling and zooming */
           * {
             -webkit-user-select: none;
             -webkit-touch-callout: none;
@@ -225,8 +215,8 @@ export default function ResponsiveGameContainer({
             touch-action: manipulation;
           }
           
-          /* Hide address bar on mobile */
-          .responsive-game-container {
+          /* Ensure game container takes full space */
+          .game-container-wrapper {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
@@ -234,17 +224,15 @@ export default function ResponsiveGameContainer({
             height: 100vh !important;
             height: 100dvh !important;
             overflow: hidden !important;
-            background: #000 !important;
           }
         }
         
-        /* Desktop styles */
+        /* Desktop optimizations */
         @media (min-width: 769px) {
-          .responsive-game-container {
+          .game-container-wrapper {
             position: relative;
             width: 100%;
             height: 100%;
-            min-height: 600px;
           }
         }
       `}</style>
@@ -253,7 +241,7 @@ export default function ResponsiveGameContainer({
 
       <div
         ref={containerRef}
-        className={`responsive-game-container ${className}`}
+        className={`game-container-wrapper ${className}`}
         style={{
           position: isMobile ? "fixed" : "relative",
           top: isMobile ? 0 : "auto",
@@ -262,63 +250,45 @@ export default function ResponsiveGameContainer({
           height: isMobile ? "100vh" : "100%",
           overflow: "hidden",
           background: "#000",
-          zIndex: isMobile ? 50 : "auto",
         }}
       >
-        {/* Game content with dynamic scaling */}
+        {/* Game content wrapper with perfect centering */}
         <div
-          ref={gameRef}
-          className="game-content"
+          className="absolute"
           style={{
-            position: "absolute",
-            left: `${viewport.offsetX}px`,
-            top: `${viewport.offsetY}px`,
+            left: `${gamePosition.x}px`,
+            top: `${gamePosition.y}px`,
             width: `${gameWidth}px`,
             height: `${gameHeight}px`,
-            transform: `scale(${viewport.scale})`,
+            transform: `scale(${scale})`,
             transformOrigin: "top left",
             imageRendering: "pixelated",
             imageRendering: "-moz-crisp-edges",
             imageRendering: "crisp-edges",
             willChange: "transform",
-            backfaceVisibility: "hidden",
           }}
         >
           {children}
         </div>
 
-        {/* Debug overlay (development only) */}
+        {/* Debug info (development only) */}
         {process.env.NODE_ENV === "development" && (
-          <div className="absolute top-2 left-2 bg-black/80 text-white text-xs p-3 rounded font-mono z-[100] max-w-xs">
-            <div className="space-y-1">
-              <div>Scale: {viewport.scale.toFixed(3)}</div>
-              <div>
-                Viewport: {viewport.width}×{viewport.height}
-              </div>
-              <div>
-                Game: {gameWidth}×{gameHeight}
-              </div>
-              <div>
-                Offset: {viewport.offsetX.toFixed(0)}, {viewport.offsetY.toFixed(0)}
-              </div>
-              <div>Mobile: {isMobile ? "Yes" : "No"}</div>
-              <div>Landscape: {isLandscape ? "Yes" : "No"}</div>
-              <div>
-                Screen: {screen.width}×{screen.height}
-              </div>
-              {window.visualViewport && (
-                <div>
-                  Visual: {window.visualViewport.width}×{window.visualViewport.height}
-                </div>
-              )}
+          <div className="absolute top-2 left-2 bg-black/70 text-white text-xs p-2 rounded font-mono z-50">
+            <div>Scale: {scale.toFixed(2)}</div>
+            <div>
+              Container: {containerSize.width}x{containerSize.height}
             </div>
-          </div>
-        )}
-
-        {/* Scale indicator for mobile */}
-        {isMobile && (
-          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-            {Math.round(viewport.scale * 100)}%
+            <div>
+              Game: {gameWidth}x{gameHeight}
+            </div>
+            <div>
+              Position: {gamePosition.x.toFixed(0)}, {gamePosition.y.toFixed(0)}
+            </div>
+            <div>Mobile: {isMobile ? "Yes" : "No"}</div>
+            <div>Landscape: {isLandscape ? "Yes" : "No"}</div>
+            <div>
+              Viewport: {window.innerWidth}x{window.innerHeight}
+            </div>
           </div>
         )}
       </div>
