@@ -1,7 +1,7 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Monitor, Smartphone, Gamepad2 } from "lucide-react"
+import { Monitor, Smartphone } from "lucide-react" // Removed Gamepad2 as it's no longer needed for the selected state icon
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
@@ -31,7 +31,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
       type: "desktop" as PlatformType,
       title: "Desktop",
       icon: Monitor,
-      image: "/images/retro-desktop-gaming.png", // Updated image
+      image: "/images/retro-desktop-gaming.png",
       gradient: "from-blue-500/20 to-purple-600/20",
       hoverGradient: "from-blue-500/30 to-purple-600/30",
     },
@@ -39,7 +39,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
       type: "mobile" as PlatformType,
       title: "Mobile",
       icon: Smartphone,
-      image: "/images/retro-mobile-gaming.png", // Updated image
+      image: "/images/retro-mobile-gaming.png",
       gradient: "from-green-500/20 to-teal-600/20",
       hoverGradient: "from-green-500/30 to-teal-600/30",
     },
@@ -59,16 +59,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
             isCyberpunk ? "filter drop-shadow-[0_0_20px_rgba(0,255,255,0.8)]" : "filter drop-shadow-xl",
           )}
         />
-        <h1
-          className={cn(
-            "text-2xl font-bold mt-6 mb-2",
-            isCyberpunk
-              ? "text-cyan-400 font-mono tracking-wider"
-              : "bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent",
-          )}
-        >
-          Choose Platform
-        </h1>
+        {/* Removed "Choose Platform" text */}
       </div>
 
       {/* Platform Cards */}
@@ -197,14 +188,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                     handlePlatformSelect(p.type)
                   }}
                 >
-                  {isSelected ? (
-                    <>
-                      <Gamepad2 className="mr-2 h-5 w-5" />
-                      Selected
-                    </>
-                  ) : (
-                    "Select"
-                  )}
+                  {isSelected ? "Selected" : "Select"}
                 </Button>
               </div>
 
@@ -218,7 +202,7 @@ export default function PlatformSelector({ onPlatformSelected }: PlatformSelecto
                       : "bg-primary shadow-lg shadow-primary/50",
                   )}
                 >
-                  <Gamepad2 className="h-3 w-3 text-white" />
+                  {/* Removed Gamepad2 icon */}
                 </div>
               )}
             </Card>
