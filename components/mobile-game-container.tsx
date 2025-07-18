@@ -1,190 +1,264 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
-import { Joystick } from "react-joystick-component"
-import { cn } from "@/lib/utils"
+
+import { useEffect, useState, useRef, type ReactNode } from "react"
+import { gameInputHandler } from "@/utils/game-input-handler"
 import { useOrientation } from "@/hooks/use-orientation"
-import { Zap, Shield, Wind } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface MobileGameContainerProps {
-  children: React.ReactNode
+  children: ReactNode
   className?: string
-  onJoystickMove?: (direction: { x: number; y: number }) => void
-  onActionPress?: (action: string, pressed: boolean) => void
 }
 
-interface ActionButtonProps {
-  action: string
-  onPress: (action: string, pressed: boolean) => void
-  className?: string
-  children: React.ReactNode
-  variant?: "primary" | "secondary"
+interface JoystickProps {
+  onMove: (direction: { x: number; y: number }) => void
+  size?: number
 }
 
-function ActionButton({ action, onPress, className, children, variant = "primary" }: ActionButtonProps) {
-  const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onPress(action, true)
+function Joystick({ onMove, size = 120 }: JoystickProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+
+  const handleStart = (clientX: number, clientY: number) => {
+    setIsDragging(true)
+    updatePosition(clientX, clientY)
   }
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onPress(action, false)
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return
+    updatePosition(clientX, clientY)
   }
 
+  const handleEnd = () => {
+    setIsDragging(false)
+    setPosition({ x: 0, y: 0 })
+    onMove({ x: 0, y: 0 })
+  }
+
+  const updatePosition = (clientX: number, clientY: number) => {
+    const container = containerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+
+    const deltaX = clientX - centerX
+    const deltaY = clientY - centerY
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    const maxDistance = size / 2 - 20
+
+    let x = deltaX
+    let y = deltaY
+
+    if (distance > maxDistance) {
+      x = (deltaX / distance) * maxDistance
+      y = (deltaY / distance) * maxDistance
+    }
+
+    setPosition({ x, y })
+
+    // Normalize to -1 to 1 range
+    const normalizedX = x / maxDistance
+    const normalizedY = y / maxDistance
+
+    onMove({ x: normalizedX, y: normalizedY })
+  }
+
+  // Mouse events
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
-    e.stopPropagation()
-    onPress(action, true)
+    handleStart(e.clientX, e.clientY)
   }
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: MouseEvent) => {
+    handleMove(e.clientX, e.clientY)
+  }
+
+  const handleMouseUp = () => {
+    handleEnd()
+  }
+
+  // Touch events
+  const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault()
-    e.stopPropagation()
-    onPress(action, false)
+    const touch = e.touches[0]
+    handleStart(touch.clientX, touch.clientY)
   }
 
-  return (
-    <button
-      className={cn(
-        "w-16 h-16 rounded-full border-2 font-bold text-sm transition-all duration-150",
-        "touch-none select-none active:scale-95 active:brightness-125",
-        "flex items-center justify-center",
-        "shadow-[0_0_15px_rgba(0,255,255,0.3)]",
-        variant === "primary"
-          ? "bg-cyan-500/20 border-cyan-400/70 text-cyan-300"
-          : "bg-purple-500/20 border-purple-400/70 text-purple-300",
-        className,
-      )}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
-      {children}
-    </button>
-  )
-}
-
-export default function MobileGameContainer({
-  children,
-  className,
-  onJoystickMove = () => {},
-  onActionPress = () => {},
-}: MobileGameContainerProps) {
-  const orientation = useOrientation()
-  const [isJoystickActive, setIsJoystickActive] = useState(false)
-
-  // Debug logging
-  useEffect(() => {
-    console.log("MobileGameContainer mounted, orientation:", orientation)
-  }, [orientation])
-
-  const handleJoystickMove = (event: any) => {
-    if (event) {
-      const normalizedX = event.x ? event.x / 100 : 0
-      const normalizedY = event.y ? -event.y / 100 : 0 // Invert Y axis
-
-      console.log("Joystick move:", { x: normalizedX, y: normalizedY })
-      setIsJoystickActive(Math.abs(normalizedX) > 0.1 || Math.abs(normalizedY) > 0.1)
-      onJoystickMove({ x: normalizedX, y: normalizedY })
+  const handleTouchMove = (e: TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    if (touch) {
+      handleMove(touch.clientX, touch.clientY)
     }
   }
 
-  const handleJoystickStop = () => {
-    console.log("Joystick stopped")
-    setIsJoystickActive(false)
-    onJoystickMove({ x: 0, y: 0 })
+  const handleTouchEnd = (e: TouchEvent) => {
+    e.preventDefault()
+    handleEnd()
   }
 
-  const handleActionPress = (action: string, pressed: boolean) => {
-    console.log("Action button:", action, pressed)
-    onActionPress(action, pressed)
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      document.addEventListener("touchmove", handleTouchMove, { passive: false })
+      document.addEventListener("touchend", handleTouchEnd, { passive: false })
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+      document.removeEventListener("touchmove", handleTouchMove)
+      document.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [isDragging])
+
+  return (
+    <div className={cn("relative flex flex-col items-center gap-2")}>
+      <div className="text-xs text-center text-cyan-400 font-mono font-bold">MOVE</div>
+      <div
+        ref={containerRef}
+        className="relative flex items-center justify-center bg-gray-900/80 border-2 border-cyan-400/50 rounded-full backdrop-blur-sm"
+        style={{ width: size, height: size }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+      >
+        <div
+          ref={knobRef}
+          className="absolute w-8 h-8 bg-cyan-400 border-2 border-cyan-300 rounded-full shadow-lg shadow-cyan-400/50 transition-transform"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px)`,
+          }}
+        />
+        {/* Center dot */}
+        <div className="w-2 h-2 bg-cyan-400/30 rounded-full pointer-events-none" />
+      </div>
+    </div>
+  )
+}
+
+interface ActionButtonProps {
+  label: string
+  onPress: (pressed: boolean) => void
+  size?: number
+  variant?: "primary" | "secondary"
+}
+
+function ActionButton({ label, onPress, size = 60, variant = "primary" }: ActionButtonProps) {
+  const [isPressed, setIsPressed] = useState(false)
+
+  const handleStart = () => {
+    setIsPressed(true)
+    onPress(true)
   }
 
-  if (orientation === "landscape") {
-    // Horizontal Layout: [Joystick | Game | Action Buttons]
+  const handleEnd = () => {
+    setIsPressed(false)
+    onPress(false)
+  }
+
+  const baseClasses =
+    "flex items-center justify-center rounded-full border-2 font-mono font-bold text-xs select-none cursor-pointer transition-all duration-75"
+  const variantClasses =
+    variant === "primary"
+      ? "border-cyan-400/70 bg-cyan-500/20 text-cyan-300 shadow-lg shadow-cyan-400/20"
+      : "border-purple-400/70 bg-purple-500/20 text-purple-300 shadow-lg shadow-purple-400/20"
+  const pressedClasses = isPressed ? "scale-95 brightness-125" : "hover:brightness-110"
+
+  return (
+    <div
+      className={cn(baseClasses, variantClasses, pressedClasses)}
+      style={{ width: size, height: size }}
+      onMouseDown={(e) => {
+        e.preventDefault()
+        handleStart()
+      }}
+      onMouseUp={handleEnd}
+      onMouseLeave={handleEnd}
+      onTouchStart={(e) => {
+        e.preventDefault()
+        handleStart()
+      }}
+      onTouchEnd={(e) => {
+        e.preventDefault()
+        handleEnd()
+      }}
+    >
+      {label}
+    </div>
+  )
+}
+
+export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
+  const { orientation, isLandscape } = useOrientation()
+
+  const handleJoystickMove = (direction: { x: number; y: number }) => {
+    gameInputHandler.setMovementInput(direction.x, direction.y)
+  }
+
+  const handleShootPress = (pressed: boolean) => {
+    gameInputHandler.setShootPressed(pressed)
+  }
+
+  const handleDashPress = (pressed: boolean) => {
+    gameInputHandler.setDashPressed(pressed)
+  }
+
+  const handleSpecialPress = (pressed: boolean) => {
+    gameInputHandler.setSpecialPressed(pressed)
+  }
+
+  if (isLandscape) {
+    // Landscape layout: joystick left, game center, actions right
     return (
-      <div className={cn("w-full h-screen bg-black flex flex-row overflow-hidden", className)}>
-        {/* Left Side - Joystick */}
-        <div className="w-[150px] h-full flex items-center justify-center bg-slate-900/80 backdrop-blur-sm border-r border-cyan-500/30">
-          <div className="flex flex-col items-center gap-2">
-            <Joystick
-              size={100}
-              sticky={false}
-              baseColor="rgba(30, 41, 59, 0.8)"
-              stickColor="rgba(0, 255, 255, 0.9)"
-              move={handleJoystickMove}
-              stop={handleJoystickStop}
-              throttle={50}
-            />
-            <div className="text-xs text-cyan-300/70 font-medium">Move</div>
-          </div>
+      <div className={cn("w-full h-full flex bg-black", className)}>
+        {/* Left controls */}
+        <div className="w-[160px] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm border-r border-cyan-400/30">
+          <Joystick onMove={handleJoystickMove} size={100} />
         </div>
 
-        {/* Center - Game Area */}
-        <div className="flex-1 h-full relative overflow-hidden">{children}</div>
+        {/* Game area */}
+        <div className="flex-1 min-w-0">{children}</div>
 
-        {/* Right Side - Action Buttons */}
-        <div className="w-[150px] h-full flex items-center justify-center bg-slate-900/80 backdrop-blur-sm border-l border-cyan-500/30">
-          <div className="flex flex-col items-center gap-4">
-            <div className="text-xs text-cyan-300/70 font-medium mb-2">Actions</div>
-            <ActionButton action="shoot" onPress={handleActionPress} variant="primary" className="w-14 h-14">
-              <Zap size={20} />
-            </ActionButton>
-            <ActionButton action="dash" onPress={handleActionPress} variant="secondary" className="w-14 h-14">
-              <Wind size={20} />
-            </ActionButton>
-            <ActionButton action="special" onPress={handleActionPress} variant="primary" className="w-14 h-14">
-              <Shield size={20} />
-            </ActionButton>
-          </div>
+        {/* Right controls */}
+        <div className="w-[160px] flex flex-col items-center justify-center gap-4 p-4 bg-gray-900/50 backdrop-blur-sm border-l border-cyan-400/30">
+          <div className="text-cyan-400 text-xs font-mono font-bold mb-2">ACTIONS</div>
+          <ActionButton label="SHOOT" onPress={handleShootPress} size={50} variant="primary" />
+          <ActionButton label="DASH" onPress={handleDashPress} size={50} variant="secondary" />
+          <ActionButton label="SPEC" onPress={handleSpecialPress} size={50} variant="primary" />
         </div>
       </div>
     )
   }
 
-  // Portrait Layout: [Game] / [Controls]
+  // Portrait layout: game top, controls bottom
   return (
-    <div className={cn("w-full h-screen bg-black flex flex-col overflow-hidden", className)}>
-      {/* Top - Game Area */}
-      <div className="w-full flex-1 relative overflow-hidden min-h-0">{children}</div>
+    <div className={cn("w-full h-full flex flex-col bg-black", className)}>
+      {/* Game area */}
+      <div className="flex-1 min-h-0">{children}</div>
 
-      {/* Bottom - Controls Area */}
-      <div className="w-full h-[200px] bg-slate-900/80 backdrop-blur-sm flex flex-row border-t border-cyan-500/30">
-        {/* Left Side - Joystick */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <Joystick
-              size={120}
-              sticky={false}
-              baseColor="rgba(30, 41, 59, 0.8)"
-              stickColor="rgba(0, 255, 255, 0.9)"
-              move={handleJoystickMove}
-              stop={handleJoystickStop}
-              throttle={50}
-            />
-            <div className="text-xs text-cyan-300/70 font-medium">Move</div>
-          </div>
+      {/* Bottom controls */}
+      <div className="h-[200px] flex items-center justify-between p-4 bg-gray-900/80 backdrop-blur-sm border-t border-cyan-400/30">
+        {/* Left side - Joystick */}
+        <div className="flex flex-col items-center">
+          <Joystick onMove={handleJoystickMove} size={120} />
         </div>
 
-        {/* Right Side - Action Buttons */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="text-xs text-cyan-300/70 font-medium">Actions</div>
-            <ActionButton action="shoot" onPress={handleActionPress} variant="primary">
-              <Zap size={24} />
-            </ActionButton>
-            <ActionButton action="dash" onPress={handleActionPress} variant="secondary">
-              <Wind size={24} />
-            </ActionButton>
-            <ActionButton action="special" onPress={handleActionPress} variant="primary">
-              <Shield size={24} />
-            </ActionButton>
+        {/* Right side - Action buttons */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="text-cyan-400 text-xs font-mono font-bold">ACTIONS</div>
+          <div className="flex flex-col gap-2">
+            <ActionButton label="SHOOT" onPress={handleShootPress} size={55} variant="primary" />
+            <div className="flex gap-2">
+              <ActionButton label="DASH" onPress={handleDashPress} size={50} variant="secondary" />
+              <ActionButton label="SPEC" onPress={handleSpecialPress} size={50} variant="primary" />
+            </div>
           </div>
         </div>
       </div>

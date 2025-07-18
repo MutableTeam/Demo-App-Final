@@ -11,7 +11,6 @@ interface EnhancedGameRendererProps {
   localPlayerId: string
   debugMode?: boolean
   platformType?: PlatformType
-  onTouchControl?: (control: string, active: boolean) => void
   className?: string
 }
 
@@ -20,7 +19,6 @@ export default function EnhancedGameRenderer({
   localPlayerId,
   debugMode = false,
   platformType = "desktop",
-  onTouchControl,
   className,
 }: EnhancedGameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -39,21 +37,14 @@ export default function EnhancedGameRenderer({
       const newWidth = Math.floor(rect.width)
       const newHeight = Math.floor(rect.height)
 
-      // Only update if size actually changed
-      if (newWidth !== canvas.width || newHeight !== canvas.height) {
+      if (newWidth > 0 && newHeight > 0 && (newWidth !== canvas.width || newHeight !== canvas.height)) {
         canvas.width = newWidth
         canvas.height = newHeight
         setCanvasSize({ width: newWidth, height: newHeight })
-
-        console.log(`Canvas resized to ${newWidth}x${newHeight}`)
         debugManager.logInfo("RENDERER", `Canvas resized to ${newWidth}x${newHeight}`)
       }
     }
 
-    // Initial size update
-    updateCanvasSize()
-
-    // Set up resize observer
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(updateCanvasSize)
     })
@@ -62,15 +53,16 @@ export default function EnhancedGameRenderer({
       resizeObserver.observe(containerRef.current)
     }
 
-    // Also listen to window resize as fallback
-    window.addEventListener("resize", updateCanvasSize)
+    // Initial size update
+    requestAnimationFrame(updateCanvasSize)
+
+    // Handle orientation changes
     window.addEventListener("orientationchange", () => {
-      setTimeout(updateCanvasSize, 100) // Delay to allow orientation change to complete
+      setTimeout(updateCanvasSize, 100)
     })
 
     return () => {
       resizeObserver.disconnect()
-      window.removeEventListener("resize", updateCanvasSize)
       window.removeEventListener("orientationchange", updateCanvasSize)
     }
   }, [])
@@ -84,15 +76,13 @@ export default function EnhancedGameRenderer({
     if (!ctx) return
 
     const render = () => {
-      // Clear canvas with dark background
-      ctx.fillStyle = "#1a1a1a"
+      // Clear canvas with dark cyberpunk background
+      ctx.fillStyle = "#0a0a0a"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       // Calculate game area scaling
       const gameWidth = gameState.arenaSize?.width || 800
       const gameHeight = gameState.arenaSize?.height || 600
-
-      // Scale to fit canvas while maintaining aspect ratio
       const scaleX = canvas.width / gameWidth
       const scaleY = canvas.height / gameHeight
       const scale = Math.min(scaleX, scaleY)
@@ -105,12 +95,12 @@ export default function EnhancedGameRenderer({
       ctx.translate(offsetX, offsetY)
       ctx.scale(scale, scale)
 
-      // Draw game background
-      ctx.fillStyle = "#2d5a27"
+      // Draw game background with cyberpunk grid
+      ctx.fillStyle = "#1a1a2e"
       ctx.fillRect(0, 0, gameWidth, gameHeight)
 
-      // Draw grid pattern
-      ctx.strokeStyle = "rgba(61, 106, 55, 0.3)"
+      // Draw cyberpunk grid pattern
+      ctx.strokeStyle = "rgba(0, 255, 255, 0.1)"
       ctx.lineWidth = 1
       const gridSize = 50
       for (let x = 0; x <= gameWidth; x += gridSize) {
@@ -126,28 +116,43 @@ export default function EnhancedGameRenderer({
         ctx.stroke()
       }
 
-      // Draw arena border
+      // Draw arena border with neon glow
       ctx.strokeStyle = "#00ffff"
       ctx.lineWidth = 3
+      ctx.shadowColor = "#00ffff"
+      ctx.shadowBlur = 10
       ctx.strokeRect(0, 0, gameWidth, gameHeight)
+      ctx.shadowBlur = 0
 
-      // Draw walls
+      // Draw walls with cyberpunk styling
       if (gameState.walls && gameState.walls.length > 0) {
-        ctx.fillStyle = "#8B4513"
-        ctx.strokeStyle = "#654321"
-        ctx.lineWidth = 2
         gameState.walls.forEach((wall) => {
           const wallX = wall.position?.x || wall.x || 0
           const wallY = wall.position?.y || wall.y || 0
           const wallWidth = wall.width || 50
           const wallHeight = wall.height || 50
 
+          // Wall shadow/glow
+          ctx.fillStyle = "rgba(139, 69, 19, 0.3)"
+          ctx.fillRect(wallX + 2, wallY + 2, wallWidth, wallHeight)
+
+          // Main wall
+          ctx.fillStyle = "#8B4513"
           ctx.fillRect(wallX, wallY, wallWidth, wallHeight)
+
+          // Wall border
+          ctx.strokeStyle = "#654321"
+          ctx.lineWidth = 2
           ctx.strokeRect(wallX, wallY, wallWidth, wallHeight)
+
+          // Highlight edge
+          ctx.strokeStyle = "#CD853F"
+          ctx.lineWidth = 1
+          ctx.strokeRect(wallX + 1, wallY + 1, wallWidth - 2, wallHeight - 2)
         })
       }
 
-      // Draw pickups
+      // Draw pickups with glowing effects
       if (gameState.pickups && gameState.pickups.length > 0) {
         gameState.pickups.forEach((pickup) => {
           const pickupX = pickup.position?.x || pickup.x || 0
@@ -157,21 +162,31 @@ export default function EnhancedGameRenderer({
           ctx.translate(pickupX, pickupY)
 
           // Glow effect
-          const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 15)
-          gradient.addColorStop(0, pickup.type === "health" ? "#ff6b6b" : "#4ecdc4")
-          gradient.addColorStop(1, "transparent")
-          ctx.fillStyle = gradient
-          ctx.fillRect(-15, -15, 30, 30)
+          const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 20)
+          if (pickup.type === "health") {
+            gradient.addColorStop(0, "rgba(255, 107, 107, 0.8)")
+            gradient.addColorStop(1, "rgba(255, 107, 107, 0)")
+            ctx.fillStyle = gradient
+          } else {
+            gradient.addColorStop(0, "rgba(78, 205, 196, 0.8)")
+            gradient.addColorStop(1, "rgba(78, 205, 196, 0)")
+            ctx.fillStyle = gradient
+          }
+          ctx.fillRect(-20, -20, 40, 40)
 
           // Pickup icon
           ctx.fillStyle = pickup.type === "health" ? "#ff4757" : "#2ed573"
           ctx.fillRect(-8, -8, 16, 16)
 
+          // Inner highlight
+          ctx.fillStyle = pickup.type === "health" ? "#ff6b6b" : "#4ecdc4"
+          ctx.fillRect(-6, -6, 12, 12)
+
           ctx.restore()
         })
       }
 
-      // Draw arrows
+      // Draw arrows with enhanced visuals
       if (gameState.arrows && gameState.arrows.length > 0) {
         gameState.arrows.forEach((arrow) => {
           const arrowX = arrow.position?.x || arrow.x || 0
@@ -181,6 +196,14 @@ export default function EnhancedGameRenderer({
           ctx.save()
           ctx.translate(arrowX, arrowY)
           ctx.rotate(arrowAngle)
+
+          // Arrow trail effect
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.moveTo(-20, 0)
+          ctx.lineTo(-5, 0)
+          ctx.stroke()
 
           // Arrow shaft
           ctx.fillStyle = "#8B4513"
@@ -195,6 +218,15 @@ export default function EnhancedGameRenderer({
           ctx.closePath()
           ctx.fill()
 
+          // Arrow head highlight
+          ctx.fillStyle = "#FFFFFF"
+          ctx.beginPath()
+          ctx.moveTo(15, 0)
+          ctx.lineTo(12, -2)
+          ctx.lineTo(12, 2)
+          ctx.closePath()
+          ctx.fill()
+
           // Arrow fletching
           ctx.fillStyle = "#FF6B6B"
           ctx.fillRect(-15, -3, 5, 6)
@@ -203,7 +235,42 @@ export default function EnhancedGameRenderer({
         })
       }
 
-      // Draw players
+      // Draw explosions with particle effects
+      if (gameState.explosions && gameState.explosions.length > 0) {
+        gameState.explosions.forEach((explosion) => {
+          const explosionX = explosion.position?.x || explosion.x || 0
+          const explosionY = explosion.position?.y || explosion.y || 0
+
+          ctx.save()
+          ctx.translate(explosionX, explosionY)
+
+          const progress = 1 - (explosion.timeLeft || 0) / (explosion.duration || 1)
+          const radius = (explosion.radius || 30) * progress
+
+          // Outer explosion ring
+          const outerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
+          outerGradient.addColorStop(0, "rgba(255, 165, 0, 0.8)")
+          outerGradient.addColorStop(0.5, "rgba(255, 69, 0, 0.6)")
+          outerGradient.addColorStop(1, "rgba(255, 0, 0, 0)")
+          ctx.fillStyle = outerGradient
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Inner explosion core
+          const innerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.5)
+          innerGradient.addColorStop(0, "rgba(255, 255, 255, 0.9)")
+          innerGradient.addColorStop(1, "rgba(255, 255, 0, 0)")
+          ctx.fillStyle = innerGradient
+          ctx.beginPath()
+          ctx.arc(0, 0, radius * 0.5, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.restore()
+        })
+      }
+
+      // Draw players with enhanced cyberpunk styling
       Object.values(gameState.players).forEach((player) => {
         if (!player || (player.health !== undefined && player.health <= 0)) return
 
@@ -211,26 +278,34 @@ export default function EnhancedGameRenderer({
         const playerY = player.position?.y || 0
         const playerRotation = player.rotation || 0
         const playerSize = player.size || 20
+        const isLocalPlayer = player.id === localPlayerId
 
         ctx.save()
         ctx.translate(playerX, playerY)
         ctx.rotate(playerRotation)
 
         // Player shadow
-        ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)"
         ctx.beginPath()
-        ctx.ellipse(2, 2, playerSize + 2, playerSize + 2, 0, 0, Math.PI * 2)
+        ctx.ellipse(3, 3, playerSize + 2, playerSize + 2, 0, 0, Math.PI * 2)
         ctx.fill()
 
+        // Player glow effect
+        if (isLocalPlayer) {
+          ctx.shadowColor = "#00ffff"
+          ctx.shadowBlur = 15
+        }
+
         // Player body
-        ctx.fillStyle = player.color || "#00ff88"
+        ctx.fillStyle = player.color || (isLocalPlayer ? "#00ff88" : "#ff6b6b")
         ctx.beginPath()
         ctx.arc(0, 0, playerSize, 0, Math.PI * 2)
         ctx.fill()
 
         // Player outline
-        ctx.strokeStyle = player.id === localPlayerId ? "#FFD700" : "#FFFFFF"
-        ctx.lineWidth = player.id === localPlayerId ? 3 : 2
+        ctx.strokeStyle = isLocalPlayer ? "#FFD700" : "#FFFFFF"
+        ctx.lineWidth = isLocalPlayer ? 3 : 2
+        ctx.shadowBlur = 0
         ctx.stroke()
 
         // Direction indicator
@@ -245,19 +320,28 @@ export default function EnhancedGameRenderer({
         // Bow if drawing
         if (player.isDrawingBow) {
           ctx.strokeStyle = "#8B4513"
-          ctx.lineWidth = 3
+          ctx.lineWidth = 4
           ctx.beginPath()
           ctx.arc(0, 0, playerSize + 15, -0.3, 0.3)
           ctx.stroke()
 
           // Bow string with tension
           ctx.strokeStyle = "#FFFFFF"
-          ctx.lineWidth = 1
-          const stringTension = (player.drawPower || 0) * 10
+          ctx.lineWidth = 2
+          const stringTension = (player.drawPower || 0) * 12
           ctx.beginPath()
           ctx.moveTo(Math.cos(-0.3) * (playerSize + 15), Math.sin(-0.3) * (playerSize + 15))
           ctx.quadraticCurveTo(-stringTension, 0, Math.cos(0.3) * (playerSize + 15), Math.sin(0.3) * (playerSize + 15))
           ctx.stroke()
+
+          // Draw power indicator
+          if (player.drawPower && player.drawPower > 0) {
+            ctx.strokeStyle = `hsl(${120 * player.drawPower}, 100%, 50%)`
+            ctx.lineWidth = 3
+            ctx.beginPath()
+            ctx.arc(0, 0, playerSize + 20, -0.2, 0.2)
+            ctx.stroke()
+          }
         }
 
         // Dash effect
@@ -271,35 +355,59 @@ export default function EnhancedGameRenderer({
           }
         }
 
+        // Special attack charging effect
+        if (player.isChargingSpecial) {
+          ctx.strokeStyle = "#FF00FF"
+          ctx.lineWidth = 3
+          ctx.shadowColor = "#FF00FF"
+          ctx.shadowBlur = 10
+          ctx.beginPath()
+          ctx.arc(0, 0, playerSize + 25, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.shadowBlur = 0
+        }
+
         ctx.restore()
 
         // Player name and health bar
         ctx.save()
-        ctx.translate(playerX, playerY - playerSize - 25)
+        ctx.translate(playerX, playerY - playerSize - 30)
 
         // Name background
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-        ctx.fillRect(-30, -15, 60, 12)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+        ctx.fillRect(-35, -15, 70, 25)
 
-        // Name
-        ctx.fillStyle = "#FFFFFF"
-        ctx.font = "10px Arial"
+        // Player name
+        ctx.fillStyle = isLocalPlayer ? "#00ffff" : "#FFFFFF"
+        ctx.font = "12px 'Courier New', monospace"
         ctx.textAlign = "center"
         ctx.fillText(player.name || "Player", 0, -5)
 
         // Health bar background
         ctx.fillStyle = "#333333"
-        ctx.fillRect(-25, 0, 50, 6)
+        ctx.fillRect(-30, 5, 60, 8)
 
         // Health bar
         const healthPercent = (player.health || 100) / (player.maxHealth || 100)
-        ctx.fillStyle = healthPercent > 0.6 ? "#4CAF50" : healthPercent > 0.3 ? "#FFC107" : "#F44336"
-        ctx.fillRect(-25, 0, 50 * healthPercent, 6)
+        let healthColor = "#4CAF50"
+        if (healthPercent <= 0.3) healthColor = "#F44336"
+        else if (healthPercent <= 0.6) healthColor = "#FFC107"
+
+        ctx.fillStyle = healthColor
+        ctx.fillRect(-30, 5, 60 * healthPercent, 8)
 
         // Health bar border
         ctx.strokeStyle = "#FFFFFF"
         ctx.lineWidth = 1
-        ctx.strokeRect(-25, 0, 50, 6)
+        ctx.strokeRect(-30, 5, 60, 8)
+
+        // Health bar glow
+        if (healthPercent <= 0.3) {
+          ctx.shadowColor = "#F44336"
+          ctx.shadowBlur = 5
+          ctx.strokeRect(-30, 5, 60, 8)
+          ctx.shadowBlur = 0
+        }
 
         ctx.restore()
       })
@@ -307,78 +415,95 @@ export default function EnhancedGameRenderer({
       ctx.restore()
 
       // UI Overlays (not scaled)
-
-      // Game timer (top center)
+      // Game timer with cyberpunk styling
       if (gameState.gameTime !== undefined) {
         const minutes = Math.floor(gameState.gameTime / 60)
         const seconds = Math.floor(gameState.gameTime % 60)
         const timeString = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
 
+        // Timer background
         ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-        ctx.fillRect(canvas.width / 2 - 50, 10, 100, 35)
+        ctx.fillRect(canvas.width / 2 - 60, 10, 120, 40)
+
+        // Timer border with glow
         ctx.strokeStyle = "#00ffff"
         ctx.lineWidth = 2
-        ctx.strokeRect(canvas.width / 2 - 50, 10, 100, 35)
+        ctx.shadowColor = "#00ffff"
+        ctx.shadowBlur = 5
+        ctx.strokeRect(canvas.width / 2 - 60, 10, 120, 40)
+        ctx.shadowBlur = 0
 
-        ctx.fillStyle = "#FFFFFF"
-        ctx.font = "18px Arial"
+        // Timer text
+        ctx.fillStyle = "#00ffff"
+        ctx.font = "20px 'Courier New', monospace"
         ctx.textAlign = "center"
-        ctx.fillText(timeString, canvas.width / 2, 32)
+        ctx.fillText(timeString, canvas.width / 2, 35)
       }
 
-      // Scoreboard (top right)
+      // Enhanced scoreboard
       const alivePlayers = Object.values(gameState.players).filter((p) => p && p.health > 0)
       if (alivePlayers.length > 0) {
-        const scoreboardWidth = 180
-        const scoreboardHeight = alivePlayers.length * 25 + 30
+        const scoreboardWidth = 200
+        const scoreboardHeight = alivePlayers.length * 30 + 40
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+        // Scoreboard background
+        ctx.fillStyle = "rgba(0, 0, 0, 0.9)"
         ctx.fillRect(canvas.width - scoreboardWidth - 10, 10, scoreboardWidth, scoreboardHeight)
+
+        // Scoreboard border
         ctx.strokeStyle = "#00ffff"
         ctx.lineWidth = 2
+        ctx.shadowColor = "#00ffff"
+        ctx.shadowBlur = 5
         ctx.strokeRect(canvas.width - scoreboardWidth - 10, 10, scoreboardWidth, scoreboardHeight)
+        ctx.shadowBlur = 0
 
-        ctx.fillStyle = "#FFFFFF"
-        ctx.font = "14px Arial"
-        ctx.textAlign = "left"
-        ctx.fillText("SCOREBOARD", canvas.width - scoreboardWidth + 5, 30)
+        // Scoreboard title
+        ctx.fillStyle = "#00ffff"
+        ctx.font = "16px 'Courier New', monospace"
+        ctx.textAlign = "center"
+        ctx.fillText("SCOREBOARD", canvas.width - scoreboardWidth / 2 - 10, 30)
 
+        // Player scores
         alivePlayers.forEach((player, index) => {
-          const y = 50 + index * 25
+          const y = 55 + index * 30
           const score = player.score || 0
+          const isLocal = player.id === localPlayerId
 
           // Player color indicator
           ctx.fillStyle = player.color || "#FFFFFF"
-          ctx.fillRect(canvas.width - scoreboardWidth + 10, y - 12, 12, 12)
+          ctx.fillRect(canvas.width - scoreboardWidth + 5, y - 12, 15, 15)
 
           // Player name and score
-          ctx.fillStyle = "#FFFFFF"
-          ctx.font = "12px Arial"
-          ctx.fillText(`${index + 1}`, canvas.width - scoreboardWidth + 30, y - 2)
-          ctx.fillText(`${player.name}`, canvas.width - scoreboardWidth + 45, y - 2)
-          ctx.textAlign = "right"
-          ctx.fillText(`${score}`, canvas.width - 20, y - 2)
+          ctx.fillStyle = isLocal ? "#FFD700" : "#FFFFFF"
+          ctx.font = "12px 'Courier New', monospace"
           ctx.textAlign = "left"
+          ctx.fillText(`${index + 1}. ${player.name}`, canvas.width - scoreboardWidth + 25, y)
+          ctx.textAlign = "right"
+          ctx.fillText(`${score}`, canvas.width - 20, y)
         })
       }
 
-      // Debug info
+      // Debug info with cyberpunk styling
       if (debugMode) {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-        ctx.fillRect(10, canvas.height - 120, 220, 110)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.9)"
+        ctx.fillRect(10, canvas.height - 140, 250, 130)
+
         ctx.strokeStyle = "#00ff00"
         ctx.lineWidth = 1
-        ctx.strokeRect(10, canvas.height - 120, 220, 110)
+        ctx.strokeRect(10, canvas.height - 140, 250, 130)
 
         ctx.fillStyle = "#00FF00"
-        ctx.font = "12px monospace"
+        ctx.font = "12px 'Courier New', monospace"
         ctx.textAlign = "left"
-        ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, 15, canvas.height - 100)
-        ctx.fillText(`Game: ${gameWidth}x${gameHeight}`, 15, canvas.height - 85)
-        ctx.fillText(`Scale: ${scale.toFixed(2)}`, 15, canvas.height - 70)
-        ctx.fillText(`Players: ${Object.keys(gameState.players).length}`, 15, canvas.height - 55)
-        ctx.fillText(`Arrows: ${gameState.arrows?.length || 0}`, 15, canvas.height - 40)
-        ctx.fillText(`Time: ${gameState.gameTime?.toFixed(1) || 0}s`, 15, canvas.height - 25)
+        ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, 15, canvas.height - 120)
+        ctx.fillText(`Platform: ${platformType}`, 15, canvas.height - 105)
+        ctx.fillText(`Scale: ${scale.toFixed(2)}`, 15, canvas.height - 90)
+        ctx.fillText(`Players: ${Object.keys(gameState.players).length}`, 15, canvas.height - 75)
+        ctx.fillText(`Arrows: ${gameState.arrows?.length || 0}`, 15, canvas.height - 60)
+        ctx.fillText(`Walls: ${gameState.walls?.length || 0}`, 15, canvas.height - 45)
+        ctx.fillText(`Pickups: ${gameState.pickups?.length || 0}`, 15, canvas.height - 30)
+        ctx.fillText(`Time: ${gameState.gameTime?.toFixed(1) || 0}s`, 15, canvas.height - 15)
       }
 
       animationFrameRef.current = requestAnimationFrame(render)
@@ -391,7 +516,7 @@ export default function EnhancedGameRenderer({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, localPlayerId, debugMode, canvasSize])
+  }, [gameState, localPlayerId, debugMode, platformType, canvasSize])
 
   return (
     <div ref={containerRef} className={cn("w-full h-full bg-black", className)}>
@@ -399,7 +524,6 @@ export default function EnhancedGameRenderer({
         ref={canvasRef}
         className="w-full h-full"
         style={{
-          imageRendering: "pixelated",
           touchAction: "none",
         }}
       />
