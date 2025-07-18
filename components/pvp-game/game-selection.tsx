@@ -366,8 +366,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
         </CardDescription>
 
         {/* Wager Token Selection */}
-        <div className="flex items-center justify-between px-2 py-3 border-b border-gray-200 dark:border-gray-700/50">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-2 py-3 border-b dark:border-gray-700/50 border-transparentv className="flex items-center gap-3">
             <span
               className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-400" : "text-gray-700 dark:text-gray-300")}
             >
