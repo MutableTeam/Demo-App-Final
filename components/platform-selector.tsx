@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Monitor, Smartphone, TestTube, Wallet, HelpCircle, ExternalLink } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
@@ -10,6 +10,7 @@ import Image from "next/image"
 import { LOGOS } from "@/utils/image-paths"
 import SoundButton from "./sound-button"
 import { audioManager, playIntroSound, initializeAudio, loadAudioFiles } from "@/utils/audio-manager"
+import { useEffect } from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // --- Types ---
@@ -17,11 +18,7 @@ type PhantomEvent = "connect" | "disconnect" | "accountChanged"
 interface PhantomProvider {
   publicKey: { toString: () => string }
   isConnected: boolean
-  connect: () => Promise<{
-    publicKey: {
-      toString: () => string
-    }
-  }>
+  connect: () => Promise<{ publicKey: { toString: () => string } }>
   disconnect: () => Promise<void>
   on: (event: PhantomEvent, callback: (publicKey?: { toString: () => string }) => void) => void
   isPhantom: boolean
@@ -314,13 +311,13 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                         <DropdownMenuTrigger asChild>
                           <SoundButton
                             className={cn(
-                              "h-8 w-8 p-0 rounded-full flex items-center justify-center transition-all duration-200",
+                              "p-2 rounded-full border-2 transition-all duration-200",
                               isCyberpunk
-                                ? "bg-black/50 border-2 border-cyan-400/50 text-cyan-300 hover:bg-cyan-900/70 hover:border-cyan-400/80 hover:text-cyan-200"
+                                ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70 hover:border-slate-500/70 hover:text-cyan-300"
                                 : "bg-amber-200/80 border-amber-500/70 text-amber-900 hover:bg-amber-300/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
                             )}
                           >
-                            <HelpCircle className="h-5 w-5" />
+                            <HelpCircle className="h-4 w-4" />
                           </SoundButton>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
