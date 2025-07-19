@@ -9,7 +9,6 @@ import {
   generateArcherSprite,
   generatePickupSprite,
   generateWallSprite,
-  generateBackgroundTile,
   generateParticle,
   generateDeathEffect,
 } from "@/utils/sprite-generator"
@@ -61,19 +60,30 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
 
   // Draw background with tiles
   const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const tileSize = 40
-
-    // Draw base background
+    // Draw simple static background instead of animated tiles
     ctx.fillStyle = "#1a3300"
     ctx.fillRect(0, 0, width, height)
 
-    // Draw tiles
-    for (let x = 0; x < width; x += tileSize) {
-      for (let y = 0; y < height; y += tileSize) {
-        // Use a deterministic pattern based on position
-        const tileType = (x + y) % 120 === 0 ? "dirt" : "grass"
-        generateBackgroundTile(ctx, x, y, tileSize, tileType)
-      }
+    // Optional: Add a simple grid pattern without animation
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)"
+    ctx.lineWidth = 1
+
+    const gridSize = 40
+
+    // Draw vertical lines
+    for (let x = 0; x < width; x += gridSize) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, height)
+      ctx.stroke()
+    }
+
+    // Draw horizontal lines
+    for (let y = 0; y < height; y += gridSize) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(width, y)
+      ctx.stroke()
     }
   }
 
