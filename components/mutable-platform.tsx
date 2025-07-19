@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle } from "lucide-react"
+import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle, User } from "lucide-react"
 import Image from "next/image"
 import MutableMarketplace from "./mutable-marketplace"
 import GameSelection from "./pvp-game/game-selection"
 import MatchmakingLobby from "./pvp-game/matchmaking-lobby"
+import UserProfile from "./user-profile"
 import type { Connection } from "@solana/web3.js"
 import SoundButton from "./sound-button"
 import { withClickSound } from "@/utils/sound-utils"
@@ -198,7 +199,7 @@ const CyberTabsTrigger = styled(TabsTrigger)`
 // Add responsive styles for tabs
 const tabStyles = {
   container: "sticky top-0 z-30 bg-opacity-100 w-full",
-  list: "mb-6 border-2 border-black bg-[#FFD54F] dark:bg-[#D4AF37] dark:border-gray-700 w-full grid grid-cols-3 p-0 h-auto",
+  list: "mb-6 border-2 border-black bg-[#FFD54F] dark:bg-[#D4AF37] dark:border-gray-700 w-full grid grid-cols-4 p-0 h-auto",
   trigger:
     "data-[state=active]:bg-white data-[state=active]:text-black dark:data-[state=active]:bg-gray-800 dark:data-[state=active]:text-white font-mono py-2 px-1 h-auto flex flex-col items-center justify-center text-center",
 }
@@ -208,9 +209,16 @@ interface MutablePlatformProps {
   balance: number | null
   provider: any
   connection: Connection
+  onDisconnect: () => void
 }
 
-export default function MutablePlatform({ publicKey, balance, provider, connection }: MutablePlatformProps) {
+export default function MutablePlatform({
+  publicKey,
+  balance,
+  provider,
+  connection,
+  onDisconnect,
+}: MutablePlatformProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
@@ -250,7 +258,7 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
       <Tabs defaultValue="desktop-games" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className={isCyberpunk ? "" : tabStyles.container}>
           {isCyberpunk ? (
-            <CyberTabsList className="w-full grid grid-cols-3 p-0 h-auto">
+            <CyberTabsList className="w-full grid grid-cols-4 p-0 h-auto">
               <CyberTabsTrigger value="exchange" data-value="EXCHANGE" onClick={withClickSound()}>
                 <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">EXCHANGE</span>
@@ -262,6 +270,10 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               <CyberTabsTrigger value="develop" data-value="DEVELOP" onClick={withClickSound()}>
                 <Code className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">DEVELOP</span>
+              </CyberTabsTrigger>
+              <CyberTabsTrigger value="profile" data-value="PROFILE" onClick={withClickSound()}>
+                <User className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">PROFILE</span>
               </CyberTabsTrigger>
             </CyberTabsList>
           ) : (
@@ -277,6 +289,10 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               <TabsTrigger value="develop" className={tabStyles.trigger} onClick={withClickSound()}>
                 <Code className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">DEVELOP</span>
+              </TabsTrigger>
+              <TabsTrigger value="profile" className={tabStyles.trigger} onClick={withClickSound()}>
+                <User className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">PROFILE</span>
               </TabsTrigger>
             </TabsList>
           )}
@@ -780,6 +796,25 @@ export default function MutablePlatform({ publicKey, balance, provider, connecti
               </div>
             </CardFooter>
           </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="profile"
+          className={cn("mt-0 h-full min-h-[500px] pt-4", isCyberpunk && "rounded-lg py-4 px-0")}
+          style={
+            isCyberpunk
+              ? {
+                  color: "rgb(224, 255, 255) !important",
+                }
+              : {}
+          }
+        >
+          <UserProfile
+            publicKey={publicKey}
+            balance={localBalance}
+            mutbBalance={mutbBalance}
+            onDisconnect={onDisconnect}
+          />
         </TabsContent>
       </Tabs>
     </div>
