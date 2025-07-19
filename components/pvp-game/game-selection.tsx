@@ -387,7 +387,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
       <div className={cn("space-y-4", isCyberpunk ? "text-cyan-100" : "text-gray-900 dark:text-gray-100")}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Gamepad2 className={`h-5 w-5 ${isCyberpunk ? "text-[#0ff]" : ""}`} />
+            <Gamepad2 className={`h-5 w-5 ${isCyberpunk ? "text-[#0ff]" : "text-white"}`} />
             <h1
               className={`text-xl font-bold ${isCyberpunk ? "text-cyan-400 font-mono" : "font-mono text-white"} ${isMobile ? "text-lg" : ""}`}
             >
@@ -547,7 +547,11 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                     </CyberGameCard>
                   ) : (
                     <Card
-                      className={cn("cursor-pointer border-2 border-black overflow-hidden", cardHeight)}
+                      className={cn(
+                        "cursor-pointer overflow-hidden border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all duration-200",
+                        "border-amber-600 bg-[#FFD54F]",
+                        cardHeight,
+                      )}
                       onClick={() => handleCardClick(game.id)}
                     >
                       <div className="relative h-full">
@@ -561,14 +565,14 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                         {game.status === "coming-soon" && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <Badge className="bg-yellow-500 text-black font-mono">
+                            <Badge className="bg-yellow-500 text-black font-mono border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                               {game.id === "pixel-pool" ? "IN DEVELOPMENT" : "COMING SOON"}
                             </Badge>
                           </div>
                         )}
                         <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 lg:p-5">
                           <div className="flex items-center gap-2 mb-2">
-                            <div className="bg-[#FFD54F] p-1 rounded-md border border-black">
+                            <div className="bg-[#FFD54F] p-1 rounded-md border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                               {game.hasCustomIcon ? (
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -695,7 +699,11 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                     </CyberGameCard>
                   ) : (
                     <Card
-                      className={cn("cursor-pointer border-2 border-black overflow-hidden", cardHeight)}
+                      className={cn(
+                        "cursor-pointer overflow-hidden border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all duration-200",
+                        "border-amber-600 bg-[#FFD54F]",
+                        cardHeight,
+                      )}
                       onClick={() => handleCardClick(game.id)}
                     >
                       <div className="relative h-full">
@@ -715,13 +723,16 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 bg-amber-200/80 border border-black text-amber-800 hover:bg-amber-100"
+                                className="h-8 w-8 p-0 bg-amber-200/80 border-2 border-black text-amber-800 hover:bg-amber-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <HelpCircle className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent
+                              align="end"
+                              className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                            >
                               <DropdownMenuItem asChild>
                                 <a
                                   href={`/games/${game.id}/instructions`}
