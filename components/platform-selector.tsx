@@ -233,27 +233,23 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
           const IconComponent = platform.icon
 
           return (
-            <div key={platform.type} className="perspective-1000">
-              <Card
-                className={cn(
-                  "relative overflow-hidden transition-all duration-700 cursor-pointer group",
-                  "aspect-[4/3] border-4 p-0 transform-style-preserve-3d",
-                  isConnecting && "pointer-events-none opacity-50",
-                  isCyberpunk
-                    ? "border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]"
-                    : "border-amber-600/50 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:border-amber-500/70 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]",
-                  isSelected &&
-                    (isCyberpunk
-                      ? "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]"
-                      : "border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.5)]"),
-                  isSelected && "rotate-y-180",
-                )}
+            <div key={platform.type} className="flip-card">
+              <div
+                className={cn("flip-card-inner transition-transform duration-700", isSelected && "flip-card-flipped")}
               >
                 {/* Front Side - Platform Display */}
-                <div
+                <Card
                   className={cn(
-                    "absolute inset-0 backface-hidden transition-all duration-700",
-                    !isSelected ? "rotate-y-0" : "rotate-y-180",
+                    "flip-card-front absolute inset-0 overflow-hidden cursor-pointer group",
+                    "aspect-[4/3] border-4 p-0",
+                    isConnecting && "pointer-events-none opacity-50",
+                    isCyberpunk
+                      ? "border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]"
+                      : "border-amber-600/50 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:border-amber-500/70 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]",
+                    isSelected &&
+                      (isCyberpunk
+                        ? "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]"
+                        : "border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.5)]"),
                   )}
                   onClick={() => handlePlatformSelect(platform.type)}
                 >
@@ -273,13 +269,16 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                       {platform.title}
                     </h3>
                   </div>
-                </div>
+                </Card>
 
                 {/* Back Side - Wallet Connector */}
-                <div
+                <Card
                   className={cn(
-                    "absolute inset-0 backface-hidden transition-all duration-700 rotate-y-180",
-                    isSelected ? "rotate-y-0" : "rotate-y-180",
+                    "flip-card-back absolute inset-0 overflow-hidden",
+                    "aspect-[4/3] border-4 p-0",
+                    isCyberpunk
+                      ? "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]"
+                      : "border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.5)]",
                   )}
                 >
                   {/* Background Image & Overlay (same as front) */}
@@ -299,8 +298,8 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                         className={cn(
                           "p-2 rounded-lg border-2",
                           isCyberpunk
-                            ? ["bg-cyan-500/20 border-cyan-400/50", "shadow-[0_0_10px_rgba(0,255,255,0.5)]"]
-                            : ["bg-amber-200/50 border-amber-500/50", "shadow-[0_0_10px_rgba(245,158,11,0.3)]"],
+                            ? "bg-cyan-500/20 border-cyan-400/50 shadow-[0_0_10px_rgba(0,255,255,0.5)]"
+                            : "bg-amber-200/50 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
                         )}
                       >
                         <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-cyan-300" : "text-amber-700")} />
@@ -310,8 +309,8 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           className={cn(
                             "font-mono font-bold text-lg tracking-wider",
                             isCyberpunk
-                              ? ["text-cyan-300", "drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]"]
-                              : ["text-amber-800", "drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]"],
+                              ? "text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]"
+                              : "text-amber-800 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]",
                           )}
                         >
                           CONNECT WALLET
@@ -329,43 +328,17 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           className={cn(
                             "relative w-full justify-center h-12 font-bold text-sm px-4 border-2 transition-all duration-200 font-mono overflow-hidden group",
                             wallet.available
-                              ? [
-                                  isCyberpunk
-                                    ? [
-                                        "bg-gradient-to-r from-cyan-500/20 to-purple-500/20",
-                                        "border-cyan-400/60 text-cyan-300",
-                                        "hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-purple-500/30",
-                                        "shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.5)]",
-                                        "hover:scale-[1.02]",
-                                      ]
-                                    : [
-                                        "bg-gradient-to-r from-amber-400 to-orange-400",
-                                        "border-amber-600 text-amber-900",
-                                        "hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500",
-                                        "shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)]",
-                                        "hover:scale-[1.02]",
-                                      ],
-                                ]
-                              : [
-                                  isCyberpunk
-                                    ? [
-                                        "bg-slate-800/50 border-slate-600/50 text-slate-500",
-                                        "cursor-not-allowed opacity-60",
-                                      ]
-                                    : [
-                                        "bg-gray-300/70 border-gray-400/70 text-gray-600",
-                                        "cursor-not-allowed opacity-60",
-                                      ],
-                                ],
+                              ? isCyberpunk
+                                ? "bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-cyan-400/60 text-cyan-300 hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-purple-500/30 shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:scale-[1.02]"
+                                : "bg-gradient-to-r from-amber-400 to-orange-400 border-amber-600 text-amber-900 hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-[1.02]"
+                              : isCyberpunk
+                                ? "bg-slate-800/50 border-slate-600/50 text-slate-500 cursor-not-allowed opacity-60"
+                                : "bg-gray-300/70 border-gray-400/70 text-gray-600 cursor-not-allowed opacity-60",
                           )}
                         >
                           {/* Shine effect */}
                           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <div
-                              className={cn(
-                                "absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700",
-                              )}
-                            />
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                           </div>
 
                           <div className="relative flex items-center justify-center gap-3 z-10">
@@ -374,8 +347,8 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                                 className={cn(
                                   "p-1.5 rounded-full border-2",
                                   isCyberpunk
-                                    ? ["bg-purple-500/30 border-purple-400/60"]
-                                    : ["bg-orange-200 border-orange-400"],
+                                    ? "bg-purple-500/30 border-purple-400/60"
+                                    : "bg-orange-200 border-orange-400",
                                 )}
                               >
                                 <TestTube className="h-4 w-4" />
@@ -406,21 +379,15 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                       className={cn(
                         "mt-4 px-4 py-2 rounded border-2 font-mono text-sm transition-all duration-200",
                         isCyberpunk
-                          ? [
-                              "bg-slate-800/50 border-slate-600/50 text-slate-300",
-                              "hover:bg-slate-700/50 hover:border-slate-500/50",
-                            ]
-                          : [
-                              "bg-gray-200/50 border-gray-400/50 text-gray-700",
-                              "hover:bg-gray-300/50 hover:border-gray-500/50",
-                            ],
+                          ? "bg-slate-800/50 border-slate-600/50 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50"
+                          : "bg-gray-200/50 border-gray-400/50 text-gray-700 hover:bg-gray-300/50 hover:border-gray-500/50",
                       )}
                     >
                       ← Back to Platform Selection
                     </SoundButton>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             </div>
           )
         })}

@@ -68,24 +68,38 @@
   }
 }
 
-/* 3D Flip Animation Utilities */
-.perspective-1000 {
+/* 3D Flip Card Animation */
+.flip-card {
   perspective: 1000px;
+  position: relative;
+  aspect-ratio: 4 / 3;
 }
 
-.transform-style-preserve-3d {
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
   transform-style: preserve-3d;
 }
 
-.backface-hidden {
-  backface-visibility: hidden;
+.flip-card-flipped {
+  transform: rotateY(180deg);
 }
 
-.rotate-y-0 {
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-card-front {
   transform: rotateY(0deg);
 }
 
-.rotate-y-180 {
+.flip-card-back {
   transform: rotateY(180deg);
 }
 
