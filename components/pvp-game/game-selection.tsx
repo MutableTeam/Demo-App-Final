@@ -72,6 +72,17 @@ const imageGlow = keyframes`
   }
 `
 
+const buttonGlow = keyframes`
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.7), 0 0 10px rgba(0, 255, 255, 0.5);
+    border-color: rgba(0, 255, 255, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(255, 0, 255, 0.7), 0 0 15px rgba(255, 0, 255, 0.5);
+    border-color: rgba(255, 0, 255, 0.8);
+  }
+`
+
 const CyberGameCard = styled(Card)`
   background: rgba(16, 16, 48, 0.8) !important;
   border: 1px solid rgba(0, 255, 255, 0.3) !important;
@@ -100,7 +111,8 @@ const CyberGameCard = styled(Card)`
     max-height: 380px;
   }
   
-  &:hover {
+  /* Always apply hover effects, regardless of flip state */
+  &:hover, &.flipped:hover {
     transform: translateY(-5px);
     animation: ${cardHover} 3s infinite alternate;
     
@@ -111,12 +123,14 @@ const CyberGameCard = styled(Card)`
     .cyber-play-button {
       background: linear-gradient(90deg, #0ff 20%, #f0f 80%);
       box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+      color: #000;
+      font-weight: bold;
     }
   }
   
   /* Disable hover effects on touch devices */
   ${mediaQueries.touch} {
-    &:hover {
+    &:hover, &.flipped:hover {
       transform: none;
       animation: none;
       
@@ -156,9 +170,9 @@ const CyberGameCard = styled(Card)`
 `
 
 const CyberPlayButton = styled(Button)`
-  background: rgba(71, 85, 105, 0.7);
-  border: 1px solid rgba(100, 116, 139, 0.7);
-  color: rgb(226, 232, 240);
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
+  border: 1px solid rgba(0, 255, 255, 0.6);
+  color: #0ff;
   font-family: monospace;
   font-weight: bold;
   font-size: 0.875rem;
@@ -166,9 +180,10 @@ const CyberPlayButton = styled(Button)`
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease;
-  text-shadow: none;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
   width: 100%;
   min-height: 44px;
+  animation: ${buttonGlow} 3s infinite alternate;
   
   /* Mobile optimizations */
   ${mediaQueries.mobile} {
@@ -185,10 +200,12 @@ const CyberPlayButton = styled(Button)`
   }
   
   &:hover {
-    background: rgba(100, 116, 139, 0.8);
-    border-color: rgba(148, 163, 184, 0.8);
-    color: white;
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.3) 0%, rgba(255, 0, 255, 0.3) 100%);
+    border-color: rgba(0, 255, 255, 0.9);
+    color: #fff;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.9);
     transform: translateY(-2px);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
   }
   
   &:active {
@@ -199,9 +216,10 @@ const CyberPlayButton = styled(Button)`
   ${mediaQueries.touch} {
     &:hover {
       transform: none;
-      background: rgba(71, 85, 105, 0.7);
-      border-color: rgba(100, 116, 139, 0.7);
-      color: rgb(226, 232, 240);
+      background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%);
+      border-color: rgba(0, 255, 255, 0.6);
+      color: #0ff;
+      text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
     }
     
     /* Add active state for touch feedback instead */
@@ -216,6 +234,8 @@ const CyberPlayButton = styled(Button)`
     border-color: rgba(100, 116, 139, 0.5);
     color: rgb(100, 116, 139);
     transform: none;
+    animation: none;
+    text-shadow: none;
   }
 `
 
@@ -496,7 +516,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                 <div className="flip-card-front">
                   {isCyberpunk ? (
                     <CyberGameCard
-                      className={cn("cursor-pointer overflow-hidden", cardHeight)}
+                      className={cn("cursor-pointer overflow-hidden", cardHeight, isFlipped ? "flipped" : "")}
                       onClick={() => handleCardClick(game.id)}
                     >
                       <div className="relative h-full">
@@ -609,7 +629,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                 <div className="flip-card-back">
                   {isCyberpunk ? (
                     <CyberGameCard
-                      className={cn("cursor-pointer overflow-hidden", cardHeight)}
+                      className={cn("cursor-pointer overflow-hidden", cardHeight, isFlipped ? "flipped" : "")}
                       onClick={() => handleCardClick(game.id)}
                     >
                       <div className="relative h-full">
@@ -723,7 +743,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 bg-amber-200/80 border-2 border-black text-amber-800 hover:bg-amber-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                                className="h-8 w-8 p-0 bg-amber-200/80 border-2 border-black text-amber-800 hover:bg-amber-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm lg:text-base min-h-[44px] lg:min-h-[48px]"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <HelpCircle className="h-4 w-4" />
