@@ -389,13 +389,13 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
           <div className="flex items-center gap-2">
             <Gamepad2 className={`h-5 w-5 ${isCyberpunk ? "text-[#0ff]" : ""}`} />
             <h1
-              className={`text-xl font-bold ${isCyberpunk ? "text-cyan-400 font-mono" : "font-mono text-black"} ${isMobile ? "text-lg" : ""}`}
+              className={`text-xl font-bold ${isCyberpunk ? "text-cyan-400 font-mono" : "font-mono text-white"} ${isMobile ? "text-lg" : ""}`}
             >
               MUTABLE GAMES
             </h1>
           </div>
         </div>
-        <p className={cn("text-sm", isCyberpunk ? "text-[#0ff]/70" : "text-black font-medium")}>
+        <p className={cn("text-sm", isCyberpunk ? "text-[#0ff]/70" : "text-white font-medium")}>
           Select a game to play and wager tokens
         </p>
 
