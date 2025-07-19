@@ -357,6 +357,9 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
     }
   }
 
+  // Consistent card height for both themes
+  const cardHeight = isMobile ? "h-56" : "h-60"
+
   return (
     <Card
       className={
@@ -511,7 +514,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   <div className="flip-card-front">
                     {isCyberpunk ? (
                       <CyberGameCard
-                        className={cn("cursor-pointer overflow-hidden", isMobile ? "h-56" : "h-64")}
+                        className={cn("cursor-pointer overflow-hidden", cardHeight)}
                         onClick={() => handleCardClick(game.id)}
                       >
                         <div className="relative h-full">
@@ -560,10 +563,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                       </CyberGameCard>
                     ) : (
                       <Card
-                        className={cn(
-                          "cursor-pointer border-2 border-black overflow-hidden",
-                          isMobile ? "h-56" : "h-60",
-                        )}
+                        className={cn("cursor-pointer border-2 border-black overflow-hidden", cardHeight)}
                         onClick={() => handleCardClick(game.id)}
                       >
                         <div className="relative h-full">
@@ -619,7 +619,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   <div className="flip-card-back">
                     {isCyberpunk ? (
                       <CyberGameCard
-                        className={cn("cursor-pointer overflow-hidden", isMobile ? "h-56" : "h-64")}
+                        className={cn("cursor-pointer overflow-hidden", cardHeight)}
                         onClick={() => handleCardClick(game.id)}
                       >
                         <div className="relative h-full">
@@ -662,8 +662,8 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </DropdownMenu>
                           </div>
 
-                          <div className="relative h-full flex flex-col justify-between p-3 md:p-4">
-                            <div>
+                          <div className="relative h-full flex flex-col justify-between p-4">
+                            <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <Play className="h-4 w-4 text-slate-200" />
                                 <h3 className="text-base md:text-lg font-mono font-bold text-slate-200">{game.name}</h3>
@@ -692,7 +692,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </div>
 
                             <CyberPlayButton
-                              className="cyber-play-button"
+                              className="cyber-play-button mt-auto"
                               disabled={game.status !== "live"}
                               onClick={(e) => handleGameSelect(game.id, e)}
                             >
@@ -703,10 +703,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                       </CyberGameCard>
                     ) : (
                       <Card
-                        className={cn(
-                          "cursor-pointer border-2 border-black overflow-hidden",
-                          isMobile ? "h-56" : "h-64",
-                        )}
+                        className={cn("cursor-pointer border-2 border-black overflow-hidden", cardHeight)}
                         onClick={() => handleCardClick(game.id)}
                       >
                         <div className="relative h-full">
@@ -749,8 +746,8 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </DropdownMenu>
                           </div>
 
-                          <div className="relative h-full flex flex-col justify-between p-4 md:p-5">
-                            <div>
+                          <div className="relative h-full flex flex-col justify-between p-4">
+                            <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <Play className="h-4 w-4 text-white" />
                                 <h3 className="text-base md:text-lg font-mono font-bold text-white drop-shadow-lg">
@@ -761,7 +758,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                                 {game.description}
                               </p>
 
-                              <div className="space-y-1 mb-4">
+                              <div className="space-y-1 mb-3">
                                 <div className="flex items-center gap-2 text-xs text-white/80">
                                   <Users className="h-3 w-3" />
                                   <span>{gameStats.players}</span>
@@ -783,7 +780,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </div>
 
                             <SoundButton
-                              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm min-h-[44px]"
+                              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm min-h-[44px] mt-auto"
                               disabled={game.status !== "live"}
                               onClick={(e) => handleGameSelect(game.id, e)}
                             >
