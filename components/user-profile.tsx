@@ -78,7 +78,7 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
         <CardHeader>
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src="/placeholder.svg?height=80&width=80" alt="Profile" />
+              <AvatarImage src="/images/mutable-logo-transparent.png" alt="Profile" />
               <AvatarFallback className={cn("text-2xl", isCyberpunk && "bg-cyan-900/50 text-cyan-300")}>
                 {username.charAt(0).toUpperCase()}
               </AvatarFallback>
