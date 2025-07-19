@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Copy, LogOut, Edit3, Check, X, Trophy, Gamepad2, ArrowLeftRight, TrendingUp } from "lucide-react"
+import { Wallet, Copy, Edit3, Check, X, Trophy, Gamepad2, ArrowLeftRight, TrendingUp } from "lucide-react"
 import Image from "next/image"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
@@ -186,7 +186,12 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
               <Label className={cn("text-sm font-medium", isCyberpunk && "text-cyan-300")}>Token Balances</Label>
 
               {/* SOL Balance */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
+              <div
+                className={cn(
+                  "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                  isCyberpunk && "bg-black/50 border-cyan-500/30",
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <Image src="/solana-logo.png" alt="SOL" width={24} height={24} className="rounded-full" />
                   <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>SOL</span>
@@ -224,7 +229,6 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
                 isCyberpunk && "bg-red-900/50 hover:bg-red-800/50 border border-red-500/50 text-red-300",
               )}
             >
-              <LogOut className="h-4 w-4 mr-2" />
               Disconnect Wallet
             </Button>
           </CardContent>
@@ -243,7 +247,12 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Games Played */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
+            <div
+              className={cn(
+                "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                isCyberpunk && "bg-black/50 border-cyan-500/30",
+              )}
+            >
               <div className="flex items-center gap-2">
                 <Gamepad2 className={cn("h-5 w-5 text-blue-600", isCyberpunk && "text-cyan-500")} />
                 <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>Games Played</span>
@@ -266,7 +275,12 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
             </div>
 
             {/* Win Rate */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
+            <div
+              className={cn(
+                "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                isCyberpunk && "bg-black/50 border-cyan-500/30",
+              )}
+            >
               <div className="flex items-center gap-2">
                 <TrendingUp className={cn("h-5 w-5 text-green-600", isCyberpunk && "text-cyan-500")} />
                 <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>Win Rate</span>
