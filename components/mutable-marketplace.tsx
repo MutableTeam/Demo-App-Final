@@ -61,7 +61,7 @@ const mockItems: MarketplaceItem[] = [
     description: "Professional-grade pool cue with perfect balance",
     price: 0.05,
     currency: "SOL",
-    image: "/placeholder-7nyni.png",
+    image: "/pool-cue-supreme.png",
     category: "weapons",
     rarity: "rare",
     seller: "PoolPro",
