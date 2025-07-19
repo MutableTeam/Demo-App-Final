@@ -389,13 +389,13 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
           <div className="flex items-center gap-2">
             <Gamepad2 className={`h-5 w-5 ${isCyberpunk ? "text-[#0ff]" : ""}`} />
             <h1
-              className={`text-xl font-bold ${isCyberpunk ? "text-cyan-400 font-mono" : "font-mono"} ${isMobile ? "text-lg" : ""}`}
+              className={`text-xl font-bold ${isCyberpunk ? "text-cyan-400 font-mono" : "font-mono text-black"} ${isMobile ? "text-lg" : ""}`}
             >
               MUTABLE GAMES
             </h1>
           </div>
         </div>
-        <p className={cn("text-sm", isCyberpunk ? "text-[#0ff]/70" : "text-gray-600 dark:text-gray-400")}>
+        <p className={cn("text-sm", isCyberpunk ? "text-[#0ff]/70" : "text-black font-medium")}>
           Select a game to play and wager tokens
         </p>
 
@@ -405,13 +405,11 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
             "flex items-center justify-between px-4 py-3 rounded-lg border",
             isCyberpunk
               ? "bg-black/30 border-cyan-500/30"
-              : "bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700",
+              : "bg-[#FFD54F] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
           )}
         >
           <div className="flex items-center gap-3">
-            <span
-              className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-400" : "text-gray-700 dark:text-gray-300")}
-            >
+            <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
               Wager Token:
             </span>
             <div className="flex items-center gap-2">
@@ -421,8 +419,10 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   wagerToken === "MUTB"
                     ? isCyberpunk
                       ? "text-cyan-400 font-bold"
-                      : "text-black dark:text-white font-bold"
-                    : "text-gray-500",
+                      : "text-black font-bold"
+                    : isCyberpunk
+                      ? "text-gray-500"
+                      : "text-gray-600",
                 )}
               >
                 MUTB
@@ -438,8 +438,10 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   wagerToken === "SOL"
                     ? isCyberpunk
                       ? "text-cyan-400 font-bold"
-                      : "text-black dark:text-white font-bold"
-                    : "text-gray-500",
+                      : "text-black font-bold"
+                    : isCyberpunk
+                      ? "text-gray-500"
+                      : "text-gray-600",
                 )}
               >
                 SOL
@@ -456,18 +458,14 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   height={16}
                   className="rounded-full"
                 />
-                <span
-                  className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
-                >
+                <span className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
                   {mutbBalance.toFixed(2)} MUTB
                 </span>
               </>
             ) : (
               <>
                 <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
-                <span
-                  className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
-                >
+                <span className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
                   {balance?.toFixed(4) || "0.0000"} SOL
                 </span>
               </>
