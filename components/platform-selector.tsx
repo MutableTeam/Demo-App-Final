@@ -372,19 +372,6 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                         </SoundButton>
                       ))}
                     </div>
-
-                    {/* Back Button */}
-                    <SoundButton
-                      onClick={() => setSelectedPlatform(null)}
-                      className={cn(
-                        "mt-4 px-4 py-2 rounded border-2 font-mono text-sm transition-all duration-200",
-                        isCyberpunk
-                          ? "bg-slate-800/50 border-slate-600/50 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50"
-                          : "bg-gray-200/50 border-gray-400/50 text-gray-700 hover:bg-gray-300/50 hover:border-gray-500/50",
-                      )}
-                    >
-                      ← Back to Platform Selection
-                    </SoundButton>
                   </div>
                 </Card>
               </div>
