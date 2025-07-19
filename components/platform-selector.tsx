@@ -2,14 +2,40 @@
 
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Monitor, Smartphone } from "lucide-react"
+import { Monitor, Smartphone, TestTube, Wallet } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { LOGOS } from "@/utils/image-paths"
-import InlineWalletConnector from "./inline-wallet-connector"
-import { AnimatePresence, motion } from "framer-motion"
+import SoundButton from "./sound-button"
+import { audioManager, playIntroSound, initializeAudio, loadAudioFiles } from "@/utils/audio-manager"
+import { useEffect } from "react"
+
+// --- Types ---
+type PhantomEvent = "connect" | "disconnect" | "accountChanged"
+interface PhantomProvider {
+  publicKey: { toString: () => string }
+  isConnected: boolean
+  connect: () => Promise<{ publicKey: { toString: () => string } }>
+  disconnect: () => Promise<void>
+  on: (event: PhantomEvent, callback: (publicKey?: { toString: () => string }) => void) => void
+  isPhantom: boolean
+}
+interface SolflareProvider extends PhantomProvider {
+  isSolflare: boolean
+}
+type WindowWithSolana = Window & {
+  solana?: PhantomProvider
+  solflare?: SolflareProvider
+}
+type WalletType = "phantom" | "solflare" | "test"
+interface WalletInfo {
+  name: string
+  type: WalletType
+  icon: string
+  available: boolean
+}
 
 interface WalletConnectionData {
   connected: boolean
@@ -26,10 +52,42 @@ interface PlatformSelectorProps {
 export default function PlatformSelector({ onWalletConnect }: PlatformSelectorProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
+  const [wallets, setWallets] = useState<WalletInfo[]>([
+    { name: "Phantom", type: "phantom", icon: LOGOS.PHANTOM, available: false },
+    { name: "Solflare", type: "solflare", icon: LOGOS.SOLFLARE, available: false },
+    { name: "Test Mode", type: "test", icon: "", available: true },
+  ])
+  const [loading, setLoading] = useState(false)
+  const [isAudioInitialized, setIsAudioInitialized] = useState(false)
+  const [connectingWallet, setConnectingWallet] = useState<WalletType | null>(null)
+
   const { setPlatform } = usePlatform()
   const { styleMode } = useCyberpunkTheme()
 
   const isCyberpunk = styleMode === "cyberpunk"
+
+  // Initialize audio and wallet detection
+  useEffect(() => {
+    const initAudio = async () => {
+      await initializeAudio()
+      setIsAudioInitialized(true)
+    }
+    initAudio()
+  }, [])
+
+  useEffect(() => {
+    const solWindow = window as WindowWithSolana
+    const phantomAvailable = "solana" in window && !!solWindow.solana?.isPhantom
+    const solflareAvailable = "solflare" in window && !!solWindow.solflare?.isSolflare
+
+    setWallets((prev) =>
+      prev.map((wallet) => {
+        if (wallet.type === "phantom") return { ...wallet, available: phantomAvailable }
+        if (wallet.type === "solflare") return { ...wallet, available: solflareAvailable }
+        return wallet
+      }),
+    )
+  }, [])
 
   const handlePlatformSelect = (platform: PlatformType) => {
     // Don't allow platform change while connecting
@@ -44,37 +102,82 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
     }
   }
 
-  const handleWalletConnect = (walletData: {
-    publicKey: string
-    provider?: any
-    isTestMode?: boolean
-  }) => {
-    console.log(`Wallet connected with data:`, walletData)
-    setIsConnecting(true)
+  const connectWallet = async (walletType: WalletType) => {
+    if (isAudioInitialized && !audioManager.isSoundMuted()) {
+      await loadAudioFiles()
+    }
 
-    if (selectedPlatform) {
-      // Determine balance based on wallet type
-      const balance = walletData.isTestMode ? 5.0 : null
+    setLoading(true)
+    setConnectingWallet(walletType)
 
-      // Create the wallet connection data
-      const connectionData: WalletConnectionData = {
-        connected: true,
-        publicKey: walletData.publicKey,
-        balance: balance,
-        provider: walletData.provider || {
-          publicKey: { toString: () => walletData.publicKey },
-          isConnected: true,
-          isTestMode: walletData.isTestMode || false,
-        },
-        isTestMode: walletData.isTestMode,
+    try {
+      if (walletType === "test") {
+        console.log("Connecting to test wallet...")
+        if (!audioManager.isSoundMuted()) playIntroSound()
+
+        const testWalletData = {
+          publicKey: "TestModeWallet1111111111111111111111111",
+          provider: {
+            publicKey: { toString: () => "TestModeWallet1111111111111111111111111" },
+            isConnected: true,
+            isTestMode: true,
+          },
+          isTestMode: true,
+        }
+
+        if (selectedPlatform) {
+          const connectionData: WalletConnectionData = {
+            connected: true,
+            publicKey: testWalletData.publicKey,
+            balance: 5.0,
+            provider: testWalletData.provider,
+            isTestMode: true,
+          }
+
+          setTimeout(() => {
+            onWalletConnect(connectionData)
+          }, 500)
+        }
+        return
       }
 
-      console.log("Sending wallet connection data to parent:", connectionData)
+      const solWindow = window as WindowWithSolana
+      let provider: PhantomProvider | SolflareProvider | undefined
+      if (walletType === "phantom") provider = solWindow.solana
+      if (walletType === "solflare") provider = solWindow.solflare
 
-      // Small delay to show connection feedback
-      setTimeout(() => {
-        onWalletConnect(connectionData)
-      }, 500)
+      if (!provider) {
+        alert(`${walletType} wallet not detected. Please install the ${walletType} wallet extension.`)
+        return
+      }
+
+      console.log(`Connecting to ${walletType} wallet...`)
+      const response = await provider.connect()
+      const publicKey = response.publicKey.toString()
+
+      if (publicKey) {
+        if (!audioManager.isSoundMuted()) playIntroSound()
+
+        if (selectedPlatform) {
+          const connectionData: WalletConnectionData = {
+            connected: true,
+            publicKey,
+            balance: null,
+            provider,
+            isTestMode: false,
+          }
+
+          setTimeout(() => {
+            onWalletConnect(connectionData)
+          }, 500)
+        }
+      }
+    } catch (error) {
+      console.error(`${walletType} connection error:`, error)
+      alert(`Failed to connect to ${walletType}. Please try again.`)
+    } finally {
+      setLoading(false)
+      setConnectingWallet(null)
     }
   }
 
@@ -124,18 +227,17 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
       )}
 
       {/* Platform Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {platforms.map((platform) => {
           const isSelected = selectedPlatform === platform.type
           const IconComponent = platform.icon
 
           return (
-            <div key={platform.type} className="flex flex-col gap-4">
+            <div key={platform.type} className="perspective-1000">
               <Card
-                onClick={() => handlePlatformSelect(platform.type)}
                 className={cn(
-                  "relative overflow-hidden transition-all duration-300 cursor-pointer group",
-                  "aspect-[4/3] border-4 p-0",
+                  "relative overflow-hidden transition-all duration-700 cursor-pointer group",
+                  "aspect-[4/3] border-4 p-0 transform-style-preserve-3d",
                   isConnecting && "pointer-events-none opacity-50",
                   isCyberpunk
                     ? "border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]"
@@ -144,40 +246,181 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                     (isCyberpunk
                       ? "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]"
                       : "border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.5)]"),
+                  isSelected && "rotate-y-180",
                 )}
               >
-                {/* Background Image & Overlay */}
-                <Image
-                  src={platform.image || "/placeholder.svg"}
-                  alt={`${platform.title} Gaming`}
-                  fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+                {/* Front Side - Platform Display */}
+                <div
+                  className={cn(
+                    "absolute inset-0 backface-hidden transition-all duration-700",
+                    !isSelected ? "rotate-y-0" : "rotate-y-180",
+                  )}
+                  onClick={() => handlePlatformSelect(platform.type)}
+                >
+                  {/* Background Image & Overlay */}
+                  <Image
+                    src={platform.image || "/placeholder.svg"}
+                    alt={`${platform.title} Gaming`}
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
 
-                {/* Content */}
-                <div className="relative h-full flex flex-col items-center justify-center p-8 text-white text-shadow-lg">
-                  <IconComponent className="h-16 w-16 mb-4 text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] transition-transform duration-300 group-hover:scale-110" />
-                  <h3 className="text-4xl font-bold font-mono tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]">
-                    {platform.title}
-                  </h3>
+                  {/* Content */}
+                  <div className="relative h-full flex flex-col items-center justify-center p-8 text-white text-shadow-lg">
+                    <IconComponent className="h-16 w-16 mb-4 text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] transition-transform duration-300 group-hover:scale-110" />
+                    <h3 className="text-4xl font-bold font-mono tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]">
+                      {platform.title}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Back Side - Wallet Connector */}
+                <div
+                  className={cn(
+                    "absolute inset-0 backface-hidden transition-all duration-700 rotate-y-180",
+                    isSelected ? "rotate-y-0" : "rotate-y-180",
+                  )}
+                >
+                  {/* Background Image & Overlay (same as front) */}
+                  <Image
+                    src={platform.image || "/placeholder.svg"}
+                    alt={`${platform.title} Gaming`}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/50" />
+
+                  {/* Wallet Connection Content */}
+                  <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className={cn(
+                          "p-2 rounded-lg border-2",
+                          isCyberpunk
+                            ? ["bg-cyan-500/20 border-cyan-400/50", "shadow-[0_0_10px_rgba(0,255,255,0.5)]"]
+                            : ["bg-amber-200/50 border-amber-500/50", "shadow-[0_0_10px_rgba(245,158,11,0.3)]"],
+                        )}
+                      >
+                        <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-cyan-300" : "text-amber-700")} />
+                      </div>
+                      <div className="text-center">
+                        <h3
+                          className={cn(
+                            "font-mono font-bold text-lg tracking-wider",
+                            isCyberpunk
+                              ? ["text-cyan-300", "drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]"]
+                              : ["text-amber-800", "drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]"],
+                          )}
+                        >
+                          CONNECT WALLET
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* Wallet Buttons */}
+                    <div className="w-full space-y-3">
+                      {wallets.map((wallet) => (
+                        <SoundButton
+                          key={wallet.type}
+                          onClick={() => connectWallet(wallet.type)}
+                          disabled={loading || !wallet.available}
+                          className={cn(
+                            "relative w-full justify-center h-12 font-bold text-sm px-4 border-2 transition-all duration-200 font-mono overflow-hidden group",
+                            wallet.available
+                              ? [
+                                  isCyberpunk
+                                    ? [
+                                        "bg-gradient-to-r from-cyan-500/20 to-purple-500/20",
+                                        "border-cyan-400/60 text-cyan-300",
+                                        "hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-purple-500/30",
+                                        "shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.5)]",
+                                        "hover:scale-[1.02]",
+                                      ]
+                                    : [
+                                        "bg-gradient-to-r from-amber-400 to-orange-400",
+                                        "border-amber-600 text-amber-900",
+                                        "hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500",
+                                        "shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)]",
+                                        "hover:scale-[1.02]",
+                                      ],
+                                ]
+                              : [
+                                  isCyberpunk
+                                    ? [
+                                        "bg-slate-800/50 border-slate-600/50 text-slate-500",
+                                        "cursor-not-allowed opacity-60",
+                                      ]
+                                    : [
+                                        "bg-gray-300/70 border-gray-400/70 text-gray-600",
+                                        "cursor-not-allowed opacity-60",
+                                      ],
+                                ],
+                          )}
+                        >
+                          {/* Shine effect */}
+                          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div
+                              className={cn(
+                                "absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700",
+                              )}
+                            />
+                          </div>
+
+                          <div className="relative flex items-center justify-center gap-3 z-10">
+                            {wallet.type === "test" ? (
+                              <div
+                                className={cn(
+                                  "p-1.5 rounded-full border-2",
+                                  isCyberpunk
+                                    ? ["bg-purple-500/30 border-purple-400/60"]
+                                    : ["bg-orange-200 border-orange-400"],
+                                )}
+                              >
+                                <TestTube className="h-4 w-4" />
+                              </div>
+                            ) : (
+                              <div className="p-0.5 rounded-full bg-white/90 border-2 border-gray-300">
+                                <Image
+                                  src={wallet.icon || "/placeholder.svg"}
+                                  alt={wallet.name}
+                                  width={20}
+                                  height={20}
+                                  className="rounded-full"
+                                />
+                              </div>
+                            )}
+                            <span className="text-sm font-bold tracking-wide">{wallet.name}</span>
+                            {connectingWallet === wallet.type && (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            )}
+                          </div>
+                        </SoundButton>
+                      ))}
+                    </div>
+
+                    {/* Back Button */}
+                    <SoundButton
+                      onClick={() => setSelectedPlatform(null)}
+                      className={cn(
+                        "mt-4 px-4 py-2 rounded border-2 font-mono text-sm transition-all duration-200",
+                        isCyberpunk
+                          ? [
+                              "bg-slate-800/50 border-slate-600/50 text-slate-300",
+                              "hover:bg-slate-700/50 hover:border-slate-500/50",
+                            ]
+                          : [
+                              "bg-gray-200/50 border-gray-400/50 text-gray-700",
+                              "hover:bg-gray-300/50 hover:border-gray-500/50",
+                            ],
+                      )}
+                    >
+                      ← Back to Platform Selection
+                    </SoundButton>
+                  </div>
                 </div>
               </Card>
-
-              {/* Wallet Connector Pop-out */}
-              <AnimatePresence>
-                {isSelected && !isConnecting && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -20, height: 0 }}
-                    animate={{ opacity: 1, y: 0, height: "auto" }}
-                    exit={{ opacity: 0, y: -20, height: 0 }}
-                    transition={{ duration: 0.4, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <InlineWalletConnector onConnect={handleWalletConnect} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
           )
         })}
