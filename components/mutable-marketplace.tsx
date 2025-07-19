@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftRight, TrendingUp, Info, Loader2, AlertCircle, RefreshCw } from "lucide-react"
-import Image from "next/image"
 import { type Connection, PublicKey } from "@solana/web3.js"
 import { withClickSound } from "@/utils/sound-utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -368,7 +367,7 @@ export default function MutableMarketplace({
                   variant="outline"
                   onClick={handleRefreshTradability}
                   disabled={checkingTradability}
-                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
+                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-400/10 bg-transparent"
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
                   Refresh
@@ -429,35 +428,6 @@ export default function MutableMarketplace({
             <CardTitle className={isCyberpunk ? "" : "font-mono"}>EXCHANGE</CardTitle>
             <Badge variant="outline" className="text-orange-600 border-orange-500">
               DEVNET
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className={
-                isCyberpunk
-                  ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
-                  : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
-              }
-            >
-              <Image
-                src={MUTB_TOKEN.logoURI || "/placeholder.svg"}
-                alt={MUTB_TOKEN.symbol}
-                width={16}
-                height={16}
-                className="rounded-full"
-              />
-              {mutbBalance.toFixed(2)} {MUTB_TOKEN.symbol}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={
-                isCyberpunk
-                  ? "bg-[#0a0a24]/80 text-[#f0f] border border-[#f0f]/50 font-mono"
-                  : "bg-white text-black border-2 border-black font-mono"
-              }
-            >
-              {balance !== null ? `${balance.toFixed(2)} ${SOL_TOKEN.symbol}` : "..."}
             </Badge>
           </div>
         </div>

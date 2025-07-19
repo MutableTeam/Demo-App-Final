@@ -377,36 +377,6 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
               MUTABLE GAMES
             </CardTitle>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge
-              variant="outline"
-              className={
-                isCyberpunk
-                  ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
-                  : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
-              }
-            >
-              <Image
-                src={TOKENS.MUTABLE || "/placeholder.svg"}
-                alt="MUTB"
-                width={16}
-                height={16}
-                className="rounded-full"
-              />
-              {mutbBalance.toFixed(2)} MUTB
-            </Badge>
-            <Badge
-              variant="outline"
-              className={
-                isCyberpunk
-                  ? "bg-[#0a0a24]/80 text-[#0ff] border border-[#0ff]/50 flex items-center gap-1 font-mono"
-                  : "bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
-              }
-            >
-              <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
-              {balance?.toFixed(4) || "0.0000"} SOL
-            </Badge>
-          </div>
         </div>
         <CardDescription className={isCyberpunk ? "text-[#0ff]/70" : ""}>
           Select a game to play and wager tokens
@@ -452,43 +422,32 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600 dark:text-gray-400")}>
-              Selected Balance:
-            </span>
-            <div className="flex items-center gap-1">
-              {wagerToken === "MUTB" ? (
-                <>
-                  <Image
-                    src={TOKENS.MUTABLE || "/placeholder.svg"}
-                    alt="MUTB"
-                    width={16}
-                    height={16}
-                    className="rounded-full"
-                  />
-                  <span
-                    className={cn(
-                      "font-medium font-mono",
-                      isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
-                    )}
-                  >
-                    {mutbBalance.toFixed(2)} MUTB
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
-                  <span
-                    className={cn(
-                      "font-medium font-mono",
-                      isCyberpunk ? "text-cyan-400" : "text-black dark:text-white",
-                    )}
-                  >
-                    {balance?.toFixed(4) || "0.0000"} SOL
-                  </span>
-                </>
-              )}
-            </div>
+          <div className="flex items-center gap-1">
+            {wagerToken === "MUTB" ? (
+              <>
+                <Image
+                  src={TOKENS.MUTABLE || "/placeholder.svg"}
+                  alt="MUTB"
+                  width={16}
+                  height={16}
+                  className="rounded-full"
+                />
+                <span
+                  className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
+                >
+                  {mutbBalance.toFixed(2)} MUTB
+                </span>
+              </>
+            ) : (
+              <>
+                <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
+                <span
+                  className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
+                >
+                  {balance?.toFixed(4) || "0.0000"} SOL
+                </span>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
