@@ -263,20 +263,24 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                   onClick={() => handlePlatformSelect(platform.type)}
                 >
                   {/* Background Image & Overlay */}
-                  <Image
-                    src={platform.image || "/placeholder.svg"}
-                    alt={`${platform.title} Gaming`}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={platform.image || "/placeholder.svg"}
+                      alt={`${platform.title} Gaming`}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      priority
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
 
-                  {/* Content */}
-                  <div className="relative h-full flex flex-col items-center justify-center p-8 text-white text-shadow-lg">
-                    <IconComponent className="h-16 w-16 mb-4 text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] transition-transform duration-300 group-hover:scale-110" />
-                    <h3 className="text-4xl font-bold font-mono tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] md:text-4xl text-2xl">
-                      {platform.title}
-                    </h3>
+                    {/* Content */}
+                    <div className="relative h-full flex flex-col items-center justify-center p-8 text-white text-shadow-lg">
+                      <IconComponent className="h-16 w-16 mb-4 text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] transition-transform duration-300 group-hover:scale-110" />
+                      <h3 className="text-4xl font-bold font-mono tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] md:text-4xl text-2xl">
+                        {platform.title}
+                      </h3>
+                    </div>
                   </div>
                 </Card>
 
@@ -291,178 +295,181 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                   )}
                 >
                   {/* Background Image & Overlay (same as front) */}
-                  <Image
-                    src={platform.image || "/placeholder.svg"}
-                    alt={`${platform.title} Gaming`}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/50" />
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={platform.image || "/placeholder.svg"}
+                      alt={`${platform.title} Gaming`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/50" />
 
-                  {/* Help Button - Top Right */}
-                  <div className="absolute top-4 right-4 z-20">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <SoundButton
+                    {/* Help Button - Top Right */}
+                    <div className="absolute top-4 right-4 z-20">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <SoundButton
+                            className={cn(
+                              "p-2 rounded-full border-2 transition-all duration-200",
+                              isCyberpunk
+                                ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70 hover:border-slate-500/70 hover:text-cyan-300"
+                                : "bg-amber-200/80 border-amber-500/70 text-amber-900 hover:bg-amber-300/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
+                            )}
+                          >
+                            <HelpCircle className="h-4 w-4" />
+                          </SoundButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
                           className={cn(
-                            "p-2 rounded-full border-2 transition-all duration-200",
+                            "w-56 border-2 font-mono",
                             isCyberpunk
-                              ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70 hover:border-slate-500/70 hover:text-cyan-300"
-                              : "bg-amber-200/80 border-amber-500/70 text-amber-900 hover:bg-amber-300/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
+                              ? "bg-slate-900/95 border-slate-600/50 text-slate-300"
+                              : "bg-amber-50/95 border-amber-500/50 text-amber-900",
                           )}
                         >
-                          <HelpCircle className="h-4 w-4" />
-                        </SoundButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className={cn(
-                          "w-56 border-2 font-mono",
-                          isCyberpunk
-                            ? "bg-slate-900/95 border-slate-600/50 text-slate-300"
-                            : "bg-amber-50/95 border-amber-500/50 text-amber-900",
-                        )}
-                      >
-                        <DropdownMenuItem
-                          onClick={() => handleWalletDownload("phantom")}
-                          className={cn(
-                            "cursor-pointer transition-colors duration-200",
-                            isCyberpunk
-                              ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
-                              : "hover:bg-amber-200/50 focus:bg-amber-200/50",
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-1 rounded-full bg-white/90 border border-gray-300">
-                              <Image
-                                src={LOGOS.PHANTOM || "/placeholder.svg"}
-                                alt="Phantom"
-                                width={16}
-                                height={16}
-                                className="rounded-full"
-                              />
-                            </div>
-                            <span>Get Phantom Wallet</span>
-                            <ExternalLink className="h-3 w-3 ml-auto" />
-                          </div>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleWalletDownload("solflare")}
-                          className={cn(
-                            "cursor-pointer transition-colors duration-200",
-                            isCyberpunk
-                              ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
-                              : "hover:bg-amber-200/50 focus:bg-amber-200/50",
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-1 rounded-full bg-white/90 border border-gray-300">
-                              <Image
-                                src={LOGOS.SOLFLARE || "/placeholder.svg"}
-                                alt="Solflare"
-                                width={16}
-                                height={16}
-                                className="rounded-full"
-                              />
-                            </div>
-                            <span>Get Solflare Wallet</span>
-                            <ExternalLink className="h-3 w-3 ml-auto" />
-                          </div>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Wallet Connection Content */}
-                  <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4 md:p-6 p-4">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div
-                        className={cn(
-                          "p-2 rounded-lg border-2",
-                          isCyberpunk
-                            ? "bg-slate-800/60 border-slate-600/60"
-                            : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.4)]",
-                        )}
-                      >
-                        <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
-                      </div>
-                      <div className="text-center">
-                        <h3
-                          className={cn(
-                            "font-mono font-bold tracking-wider md:text-lg text-base",
-                            isCyberpunk
-                              ? "text-slate-200"
-                              : "text-white drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
-                          )}
-                        >
-                          CONNECT WALLET
-                        </h3>
-                      </div>
-                    </div>
-
-                    {/* Wallet Buttons */}
-                    <div className="w-full space-y-3">
-                      {wallets.map((wallet) => (
-                        <SoundButton
-                          key={wallet.type}
-                          onClick={() => connectWallet(wallet.type)}
-                          disabled={loading || !wallet.available}
-                          className={cn(
-                            "relative w-full justify-center font-bold px-4 border-2 transition-all duration-200 font-mono overflow-hidden group md:h-12 h-10 md:text-sm text-xs",
-                            wallet.available
-                              ? isCyberpunk
-                                ? "bg-slate-800/70 border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white hover:scale-[1.02]"
-                                : "bg-gradient-to-r from-amber-400 to-orange-400 border-amber-600 text-amber-900 hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-[1.02]"
-                              : isCyberpunk
-                                ? "bg-slate-900/50 border-slate-700/50 text-slate-600 cursor-not-allowed opacity-60"
-                                : "bg-gray-600/70 border-gray-500/70 text-gray-300 cursor-not-allowed opacity-60",
-                          )}
-                        >
-                          {/* Subtle shine effect for cyberpunk */}
-                          {isCyberpunk && wallet.available && (
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                            </div>
-                          )}
-
-                          {/* Regular shine effect for light mode */}
-                          {!isCyberpunk && wallet.available && (
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                            </div>
-                          )}
-
-                          <div className="relative flex items-center justify-center gap-3 z-10">
-                            {wallet.type === "test" ? (
-                              <div
-                                className={cn(
-                                  "p-1.5 rounded-full border-2",
-                                  isCyberpunk
-                                    ? "bg-slate-700/50 border-slate-500/50"
-                                    : "bg-orange-200 border-orange-400",
-                                )}
-                              >
-                                <TestTube className="h-4 w-4" />
-                              </div>
-                            ) : (
-                              <div className="p-0.5 rounded-full bg-white/90 border-2 border-gray-300">
+                          <DropdownMenuItem
+                            onClick={() => handleWalletDownload("phantom")}
+                            className={cn(
+                              "cursor-pointer transition-colors duration-200",
+                              isCyberpunk
+                                ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
+                                : "hover:bg-amber-200/50 focus:bg-amber-200/50",
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-1 rounded-full bg-white/90 border border-gray-300">
                                 <Image
-                                  src={wallet.icon || "/placeholder.svg"}
-                                  alt={wallet.name}
-                                  width={20}
-                                  height={20}
+                                  src={LOGOS.PHANTOM || "/placeholder.svg"}
+                                  alt="Phantom"
+                                  width={16}
+                                  height={16}
                                   className="rounded-full"
                                 />
                               </div>
+                              <span>Get Phantom Wallet</span>
+                              <ExternalLink className="h-3 w-3 ml-auto" />
+                            </div>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleWalletDownload("solflare")}
+                            className={cn(
+                              "cursor-pointer transition-colors duration-200",
+                              isCyberpunk
+                                ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
+                                : "hover:bg-amber-200/50 focus:bg-amber-200/50",
                             )}
-                            <span className="font-bold tracking-wide md:text-sm text-xs">{wallet.name}</span>
-                            {connectingWallet === wallet.type && (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-1 rounded-full bg-white/90 border border-gray-300">
+                                <Image
+                                  src={LOGOS.SOLFLARE || "/placeholder.svg"}
+                                  alt="Solflare"
+                                  width={16}
+                                  height={16}
+                                  className="rounded-full"
+                                />
+                              </div>
+                              <span>Get Solflare Wallet</span>
+                              <ExternalLink className="h-3 w-3 ml-auto" />
+                            </div>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Wallet Connection Content */}
+                    <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4 md:p-6 p-4">
+                      {/* Header */}
+                      <div className="flex items-center gap-3 mb-4">
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg border-2",
+                            isCyberpunk
+                              ? "bg-slate-800/60 border-slate-600/60"
+                              : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.4)]",
+                          )}
+                        >
+                          <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
+                        </div>
+                        <div className="text-center">
+                          <h3
+                            className={cn(
+                              "font-mono font-bold tracking-wider md:text-lg text-base",
+                              isCyberpunk
+                                ? "text-slate-200"
+                                : "text-white drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
                             )}
-                          </div>
-                        </SoundButton>
-                      ))}
+                          >
+                            CONNECT WALLET
+                          </h3>
+                        </div>
+                      </div>
+
+                      {/* Wallet Buttons */}
+                      <div className="w-full space-y-3">
+                        {wallets.map((wallet) => (
+                          <SoundButton
+                            key={wallet.type}
+                            onClick={() => connectWallet(wallet.type)}
+                            disabled={loading || !wallet.available}
+                            className={cn(
+                              "relative w-full justify-center font-bold px-4 border-2 transition-all duration-200 font-mono overflow-hidden group md:h-12 h-10 md:text-sm text-xs",
+                              wallet.available
+                                ? isCyberpunk
+                                  ? "bg-slate-800/70 border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white hover:scale-[1.02]"
+                                  : "bg-gradient-to-r from-amber-400 to-orange-400 border-amber-600 text-amber-900 hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-[1.02]"
+                                : isCyberpunk
+                                  ? "bg-slate-900/50 border-slate-700/50 text-slate-600 cursor-not-allowed opacity-60"
+                                  : "bg-gray-600/70 border-gray-500/70 text-gray-300 cursor-not-allowed opacity-60",
+                            )}
+                          >
+                            {/* Subtle shine effect for cyberpunk */}
+                            {isCyberpunk && wallet.available && (
+                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                              </div>
+                            )}
+
+                            {/* Regular shine effect for light mode */}
+                            {!isCyberpunk && wallet.available && (
+                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                              </div>
+                            )}
+
+                            <div className="relative flex items-center justify-center gap-3 z-10">
+                              {wallet.type === "test" ? (
+                                <div
+                                  className={cn(
+                                    "p-1.5 rounded-full border-2",
+                                    isCyberpunk
+                                      ? "bg-slate-700/50 border-slate-500/50"
+                                      : "bg-orange-200 border-orange-400",
+                                  )}
+                                >
+                                  <TestTube className="h-4 w-4" />
+                                </div>
+                              ) : (
+                                <div className="p-0.5 rounded-full bg-white/90 border-2 border-gray-300">
+                                  <Image
+                                    src={wallet.icon || "/placeholder.svg"}
+                                    alt={wallet.name}
+                                    width={20}
+                                    height={20}
+                                    className="rounded-full"
+                                  />
+                                </div>
+                              )}
+                              <span className="font-bold tracking-wide md:text-sm text-xs">{wallet.name}</span>
+                              {connectingWallet === wallet.type && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                              )}
+                            </div>
+                          </SoundButton>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </Card>
