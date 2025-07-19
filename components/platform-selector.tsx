@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Monitor, Smartphone, TestTube, Wallet, HelpCircle, ExternalLink } from "lucide-react"
+import { Monitor, Smartphone, TestTube, HelpCircle, ExternalLink } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
@@ -305,20 +305,21 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/50" />
 
-                    {/* Help Button - Top Right */}
+                    {/* Help Icon - Top Right (Mobile: smaller and more subtle) */}
                     <div className="absolute top-4 right-4 z-20">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <SoundButton
+                          <div
                             className={cn(
-                              "p-2 rounded-full border-2 transition-all duration-200",
+                              "cursor-pointer p-2 rounded-full transition-all duration-200",
+                              "md:border-2", // Only show border on desktop
                               isCyberpunk
-                                ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70 hover:border-slate-500/70 hover:text-cyan-300"
-                                : "bg-amber-200/80 border-amber-500/70 text-amber-900 hover:bg-amber-300/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
+                                ? "text-slate-400 hover:text-cyan-300 md:bg-slate-800/60 md:border-slate-600/60 md:hover:bg-slate-700/70 md:hover:border-slate-500/70"
+                                : "text-amber-300 hover:text-amber-100 md:bg-amber-200/80 md:border-amber-500/70 md:text-amber-900 md:hover:bg-amber-300/80 md:hover:border-amber-600 md:shadow-[0_0_10px_rgba(245,158,11,0.3)]",
                             )}
                           >
-                            <HelpCircle className="h-4 w-4" />
-                          </SoundButton>
+                            <HelpCircle className="h-4 w-4 md:h-4 md:w-4 h-5 w-5" />
+                          </div>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
@@ -381,33 +382,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
 
                     {/* Wallet Connection Content */}
                     <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4 md:p-6 p-4">
-                      {/* Header */}
-                      <div className="flex items-center gap-3 mb-4">
-                        <div
-                          className={cn(
-                            "p-2 rounded-lg border-2",
-                            isCyberpunk
-                              ? "bg-slate-800/60 border-slate-600/60"
-                              : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.4)]",
-                          )}
-                        >
-                          <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
-                        </div>
-                        <div className="text-center">
-                          <h3
-                            className={cn(
-                              "font-mono font-bold tracking-wider md:text-lg text-base",
-                              isCyberpunk
-                                ? "text-slate-200"
-                                : "text-white drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
-                            )}
-                          >
-                            CONNECT WALLET
-                          </h3>
-                        </div>
-                      </div>
-
-                      {/* Wallet Buttons */}
+                      {/* Wallet Buttons - No header on mobile */}
                       <div className="w-full space-y-3">
                         {wallets.map((wallet) => (
                           <SoundButton

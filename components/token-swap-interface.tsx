@@ -1,76 +1,65 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowUpDown, RefreshCw, Settings } from "lucide-react"
-import Image from "next/image"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { ArrowUpDown, TrendingUp, TrendingDown, BarChart3, Wallet, RefreshCw } from "lucide-react"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
-import type { Connection } from "@solana/web3.js"
+import Image from "next/image"
 
-interface TokenSwapInterfaceProps {
-  publicKey: string
-  balance: number | null
-  provider: any
-  connection: Connection
-  onBalanceChange?: (currency: "sol" | "mutb", newBalance: number) => void
-}
-
-interface Token {
-  symbol: string
-  name: string
-  image: string
-  balance: number
-  price: number
-}
-
-const mockTokens: Token[] = [
+// Mock token data
+const TOKENS = [
   {
     symbol: "SOL",
     name: "Solana",
-    image: "/images/solana-logo.png",
-    balance: 2.5,
+    icon: "/solana-logo.png",
+    balance: 12.5,
     price: 98.45,
+    change24h: 5.2,
   },
   {
-    symbol: "MUTB",
+    symbol: "MUTABLE",
     name: "Mutable Token",
-    image: "/images/mutable-token.png",
+    icon: "/images/mutable-token.png",
     balance: 1250.0,
-    price: 0.12,
+    price: 0.045,
+    change24h: -2.1,
+  },
+  {
+    symbol: "USDC",
+    name: "USD Coin",
+    icon: "/usdc-coins.png",
+    balance: 500.0,
+    price: 1.0,
+    change24h: 0.0,
   },
 ]
 
-export default function TokenSwapInterface({
-  publicKey,
-  balance,
-  provider,
-  connection,
-  onBalanceChange,
-}: TokenSwapInterfaceProps) {
-  const { styleMode } = useCyberpunkTheme()
-  const isCyberpunk = styleMode === "cyberpunk"
-
-  const [fromToken, setFromToken] = useState<Token>(mockTokens[0])
-  const [toToken, setToToken] = useState<Token>(mockTokens[1])
+export default function TokenSwapInterface() {
+  const [fromToken, setFromToken] = useState(TOKENS[0])
+  const [toToken, setToToken] = useState(TOKENS[1])
   const [fromAmount, setFromAmount] = useState("")
   const [toAmount, setToAmount] = useState("")
   const [isSwapping, setIsSwapping] = useState(false)
   const [slippage, setSlippage] = useState("0.5")
 
-  // Calculate exchange rate
-  const exchangeRate = fromToken.price / toToken.price
+  const { styleMode } = useCyberpunkTheme()
+  const isCyberpunk = styleMode === "cyberpunk"
 
+  // Calculate exchange rate and amounts
   useEffect(() => {
-    if (fromAmount && !isNaN(Number(fromAmount))) {
-      const calculatedToAmount = (Number(fromAmount) * exchangeRate).toFixed(6)
-      setToAmount(calculatedToAmount)
+    if (fromAmount && fromToken && toToken) {
+      const rate = fromToken.price / toToken.price
+      const calculatedAmount = (Number.parseFloat(fromAmount) * rate).toFixed(6)
+      setToAmount(calculatedAmount)
     } else {
       setToAmount("")
     }
-  }, [fromAmount, exchangeRate])
+  }, [fromAmount, fromToken, toToken])
 
   const handleSwapTokens = () => {
     const tempToken = fromToken
@@ -81,270 +70,325 @@ export default function TokenSwapInterface({
   }
 
   const handleSwap = async () => {
-    if (!fromAmount || !toAmount) return
-
     setIsSwapping(true)
-    try {
-      // Simulate swap transaction
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // Update balances (mock)
-      if (onBalanceChange) {
-        if (fromToken.symbol === "SOL") {
-          onBalanceChange("sol", (balance || 0) - Number(fromAmount))
-        } else {
-          onBalanceChange("mutb", fromToken.balance - Number(fromAmount))
-        }
-      }
-
-      // Reset form
-      setFromAmount("")
-      setToAmount("")
-    } catch (error) {
-      console.error("Swap failed:", error)
-    } finally {
-      setIsSwapping(false)
-    }
+    // Simulate swap transaction
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    setIsSwapping(false)
+    setFromAmount("")
+    setToAmount("")
   }
 
-  const canSwap = fromAmount && toAmount && Number(fromAmount) > 0 && Number(fromAmount) <= fromToken.balance
+  const exchangeRate = fromToken && toToken ? (fromToken.price / toToken.price).toFixed(6) : "0"
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-6xl mx-auto p-6 space-y-6">
       {/* Main Swap Interface */}
-      <Card
-        className={cn(
-          "relative overflow-hidden",
-          isCyberpunk
-            ? "bg-black/60 border border-cyan-500/30"
-            : "bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
-        )}
-      >
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className={cn("h-5 w-5", isCyberpunk ? "text-cyan-400" : "text-black")} />
-              <CardTitle className={cn("font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Swap Card */}
+        <div className="lg:col-span-2">
+          <Card
+            className={cn(
+              "border-2",
+              isCyberpunk
+                ? "bg-slate-900/50 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
+                : "bg-white border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
+            )}
+          >
+            <CardHeader>
+              <CardTitle
+                className={cn("flex items-center gap-2 font-mono", isCyberpunk ? "text-cyan-300" : "text-amber-700")}
+              >
+                <ArrowUpDown className="h-5 w-5" />
                 Token Swap
               </CardTitle>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8 w-8 p-0",
-                isCyberpunk ? "text-cyan-400 hover:bg-cyan-500/20" : "text-gray-600 hover:bg-gray-100",
-              )}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
-          <CardDescription className={isCyberpunk ? "text-cyan-400/70" : "text-gray-600"}>
-            Swap tokens instantly with low fees
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {/* From Token */}
-          <div
-            className={cn(
-              "p-4 rounded-lg border",
-              isCyberpunk ? "bg-black/40 border-cyan-500/20" : "bg-gray-50 border-gray-200",
-            )}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>From</span>
-              <span className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
-                Balance: {fromToken.balance.toFixed(4)} {fromToken.symbol}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Image
-                  src={fromToken.image || "/placeholder.svg"}
-                  alt={fromToken.symbol}
-                  width={32}
-                  height={32}
-                  className="rounded-full flex-shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className={cn("font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
-                    {fromToken.symbol}
-                  </div>
-                  <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
-                    ${fromToken.price.toFixed(2)}
-                  </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* From Token */}
+              <div className="space-y-2">
+                <label className={cn("text-sm font-medium", isCyberpunk ? "text-slate-300" : "text-gray-700")}>
+                  From
+                </label>
+                <div
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-lg border-2",
+                    isCyberpunk ? "bg-slate-800/50 border-slate-600/50" : "bg-amber-50/50 border-amber-300/50",
+                  )}
+                >
+                  <Select
+                    value={fromToken.symbol}
+                    onValueChange={(value) => setFromToken(TOKENS.find((t) => t.symbol === value) || TOKENS[0])}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TOKENS.map((token) => (
+                        <SelectItem key={token.symbol} value={token.symbol}>
+                          <div className="flex items-center gap-2">
+                            <Image
+                              src={token.icon || "/placeholder.svg"}
+                              alt={token.symbol}
+                              width={20}
+                              height={20}
+                              className="rounded-full"
+                            />
+                            <span>{token.symbol}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={fromAmount}
+                    onChange={(e) => setFromAmount(e.target.value)}
+                    className="flex-1 text-right text-lg font-mono"
+                  />
+                </div>
+                <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-gray-500")}>
+                  Balance: {fromToken.balance.toFixed(4)} {fromToken.symbol}
                 </div>
               </div>
 
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={fromAmount}
-                onChange={(e) => setFromAmount(e.target.value)}
-                className={cn(
-                  "text-right text-lg font-bold border-none bg-transparent p-0 focus-visible:ring-0",
-                  isCyberpunk ? "text-cyan-100" : "text-black",
-                )}
-              />
-            </div>
-          </div>
+              {/* Swap Button */}
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleSwapTokens}
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "rounded-full p-2 border-2",
+                    isCyberpunk
+                      ? "border-cyan-500/50 hover:border-cyan-400/70 hover:bg-cyan-500/10"
+                      : "border-amber-500/50 hover:border-amber-400/70 hover:bg-amber-500/10",
+                  )}
+                >
+                  <ArrowUpDown className="h-4 w-4" />
+                </Button>
+              </div>
 
-          {/* Swap Button */}
-          <div className="flex justify-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSwapTokens}
-              className={cn(
-                "h-10 w-10 rounded-full border-2",
-                isCyberpunk
-                  ? "border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100",
-              )}
-            >
-              <ArrowUpDown className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* To Token */}
-          <div
-            className={cn(
-              "p-4 rounded-lg border",
-              isCyberpunk ? "bg-black/40 border-cyan-500/20" : "bg-gray-50 border-gray-200",
-            )}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>To</span>
-              <span className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
-                Balance: {toToken.balance.toFixed(4)} {toToken.symbol}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Image
-                  src={toToken.image || "/placeholder.svg"}
-                  alt={toToken.symbol}
-                  width={32}
-                  height={32}
-                  className="rounded-full flex-shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className={cn("font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>{toToken.symbol}</div>
-                  <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
-                    ${toToken.price.toFixed(2)}
-                  </div>
+              {/* To Token */}
+              <div className="space-y-2">
+                <label className={cn("text-sm font-medium", isCyberpunk ? "text-slate-300" : "text-gray-700")}>
+                  To
+                </label>
+                <div
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-lg border-2",
+                    isCyberpunk ? "bg-slate-800/50 border-slate-600/50" : "bg-amber-50/50 border-amber-300/50",
+                  )}
+                >
+                  <Select
+                    value={toToken.symbol}
+                    onValueChange={(value) => setToToken(TOKENS.find((t) => t.symbol === value) || TOKENS[1])}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TOKENS.map((token) => (
+                        <SelectItem key={token.symbol} value={token.symbol}>
+                          <div className="flex items-center gap-2">
+                            <Image
+                              src={token.icon || "/placeholder.svg"}
+                              alt={token.symbol}
+                              width={20}
+                              height={20}
+                              className="rounded-full"
+                            />
+                            <span>{token.symbol}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={toAmount}
+                    readOnly
+                    className="flex-1 text-right text-lg font-mono bg-transparent"
+                  />
+                </div>
+                <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-gray-500")}>
+                  Balance: {toToken.balance.toFixed(4)} {toToken.symbol}
                 </div>
               </div>
 
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={toAmount}
-                readOnly
-                className={cn(
-                  "text-right text-lg font-bold border-none bg-transparent p-0 focus-visible:ring-0",
-                  isCyberpunk ? "text-cyan-100" : "text-black",
-                )}
-              />
-            </div>
-          </div>
-
-          {/* Exchange Rate */}
-          {fromAmount && toAmount && (
-            <div
-              className={cn(
-                "p-3 rounded-lg text-sm",
-                isCyberpunk ? "bg-black/40 text-cyan-300" : "bg-gray-50 text-gray-700",
+              {/* Exchange Rate */}
+              {fromAmount && (
+                <div
+                  className={cn(
+                    "p-3 rounded-lg border",
+                    isCyberpunk
+                      ? "bg-slate-800/30 border-slate-600/30 text-slate-300"
+                      : "bg-amber-50/30 border-amber-300/30 text-amber-700",
+                  )}
+                >
+                  <div className="text-sm">
+                    1 {fromToken.symbol} = {exchangeRate} {toToken.symbol}
+                  </div>
+                </div>
               )}
-            >
+
+              {/* Slippage Settings */}
               <div className="flex items-center justify-between">
-                <span>Exchange Rate</span>
-                <span className="font-mono">
-                  1 {fromToken.symbol} = {exchangeRate.toFixed(6)} {toToken.symbol}
+                <span className={cn("text-sm", isCyberpunk ? "text-slate-300" : "text-gray-700")}>
+                  Slippage Tolerance
                 </span>
+                <Select value={slippage} onValueChange={setSlippage}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.1">0.1%</SelectItem>
+                    <SelectItem value="0.5">0.5%</SelectItem>
+                    <SelectItem value="1.0">1.0%</SelectItem>
+                    <SelectItem value="3.0">3.0%</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          )}
 
-          {/* Swap Button */}
-          <Button
-            onClick={handleSwap}
-            disabled={!canSwap || isSwapping}
+              {/* Swap Button */}
+              <Button
+                onClick={handleSwap}
+                disabled={!fromAmount || !toAmount || isSwapping}
+                className={cn(
+                  "w-full h-12 font-bold text-lg",
+                  isCyberpunk
+                    ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                    : "bg-amber-600 hover:bg-amber-500 text-white",
+                )}
+              >
+                {isSwapping ? (
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Swapping...
+                  </div>
+                ) : (
+                  "Swap Tokens"
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Portfolio & Stats */}
+        <div className="space-y-6">
+          {/* Portfolio Overview */}
+          <Card
             className={cn(
-              "w-full h-12 text-lg font-bold",
+              "border-2",
               isCyberpunk
-                ? "bg-cyan-500 hover:bg-cyan-600 text-black disabled:bg-cyan-500/20 disabled:text-cyan-400/50"
-                : "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black disabled:bg-gray-200 disabled:text-gray-400",
+                ? "bg-slate-900/50 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
+                : "bg-white border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
             )}
           >
-            {isSwapping ? (
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Swapping...
-              </div>
-            ) : !canSwap ? (
-              "Enter Amount"
-            ) : (
-              `Swap ${fromToken.symbol} for ${toToken.symbol}`
+            <CardHeader>
+              <CardTitle
+                className={cn(
+                  "flex items-center gap-2 font-mono text-sm",
+                  isCyberpunk ? "text-cyan-300" : "text-amber-700",
+                )}
+              >
+                <Wallet className="h-4 w-4" />
+                Portfolio
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {TOKENS.map((token) => (
+                <div key={token.symbol} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={token.icon || "/placeholder.svg"}
+                      alt={token.symbol}
+                      width={24}
+                      height={24}
+                      className="rounded-full"
+                    />
+                    <div>
+                      <div className={cn("font-medium text-sm", isCyberpunk ? "text-slate-200" : "text-gray-900")}>
+                        {token.symbol}
+                      </div>
+                      <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-gray-500")}>
+                        ${token.price.toFixed(4)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={cn("font-medium text-sm", isCyberpunk ? "text-slate-200" : "text-gray-900")}>
+                      {token.balance.toFixed(2)}
+                    </div>
+                    <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-gray-500")}>
+                      ${(token.balance * token.price).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Market Stats */}
+          <Card
+            className={cn(
+              "border-2",
+              isCyberpunk
+                ? "bg-slate-900/50 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
+                : "bg-white border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
             )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Market Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className={cn(isCyberpunk ? "bg-black/40 border border-cyan-500/20" : "bg-white border-2 border-black")}>
-          <CardHeader className="pb-3">
-            <CardTitle className={cn("text-sm font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
-              Market Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>24h Volume</span>
-              <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>$2.4M</span>
-            </div>
-            <div className="flex justify-between">
-              <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Total Liquidity</span>
-              <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>$12.8M</span>
-            </div>
-            <div className="flex justify-between">
-              <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Fees (24h)</span>
-              <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>$7,200</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn(isCyberpunk ? "bg-black/40 border border-cyan-500/20" : "bg-white border-2 border-black")}>
-          <CardHeader className="pb-3">
-            <CardTitle className={cn("text-sm font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
-              Your Portfolio
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Total Value</span>
-              <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
-                ${((balance || 0) * 98.45 + 1250 * 0.12).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>SOL Balance</span>
-              <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
-                {(balance || 0).toFixed(4)} SOL
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>MUTB Balance</span>
-              <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
-                1,250.00 MUTB
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+          >
+            <CardHeader>
+              <CardTitle
+                className={cn(
+                  "flex items-center gap-2 font-mono text-sm",
+                  isCyberpunk ? "text-cyan-300" : "text-amber-700",
+                )}
+              >
+                <BarChart3 className="h-4 w-4" />
+                Market Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {TOKENS.map((token) => (
+                <div key={token.symbol} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={token.icon || "/placeholder.svg"}
+                      alt={token.symbol}
+                      width={20}
+                      height={20}
+                      className="rounded-full"
+                    />
+                    <span className={cn("font-medium text-sm", isCyberpunk ? "text-slate-200" : "text-gray-900")}>
+                      {token.symbol}
+                    </span>
+                  </div>
+                  <Badge
+                    variant={token.change24h >= 0 ? "default" : "destructive"}
+                    className={cn(
+                      "text-xs",
+                      token.change24h >= 0
+                        ? isCyberpunk
+                          ? "bg-green-500/20 text-green-400 border-green-500/30"
+                          : "bg-green-100 text-green-700 border-green-300"
+                        : isCyberpunk
+                          ? "bg-red-500/20 text-red-400 border-red-500/30"
+                          : "bg-red-100 text-red-700 border-red-300",
+                    )}
+                  >
+                    {token.change24h >= 0 ? (
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                    )}
+                    {Math.abs(token.change24h).toFixed(1)}%
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
