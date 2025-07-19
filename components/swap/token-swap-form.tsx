@@ -144,10 +144,6 @@ export function TokenSwapForm({
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
-  // Add default values to prevent undefined errors
-  const safeInputBalance = inputBalance ?? 0
-  const safeOutputBalance = outputBalance ?? 0
-
   // State for the swap form
   const [inputToken, setInputToken] = useState<TokenConfig>(swapPair.inputToken)
   const [outputToken, setOutputToken] = useState<TokenConfig>(swapPair.outputToken)
@@ -280,7 +276,7 @@ export function TokenSwapForm({
       }
 
       // Check balance
-      if (safeInputBalance > 0 && amount > safeInputBalance) {
+      if (inputBalance !== null && amount > inputBalance) {
         setSwapError(`Insufficient ${inputToken.symbol} balance`)
         setIsSwapping(false)
         return
@@ -384,20 +380,18 @@ export function TokenSwapForm({
             <div className="flex items-center gap-2">
               <span className="text-sm text-cyan-200">
                 Balance:{" "}
-                {safeInputBalance > 0
-                  ? `${formatTokenAmount(safeInputBalance, inputToken)} ${inputToken.symbol}`
-                  : "0.0000"}
+                {inputBalance !== null ? `${formatTokenAmount(inputBalance, inputToken)} ${inputToken.symbol}` : "..."}
               </span>
               <CyberButton
                 variant="outline"
                 size="sm"
                 className="h-6 text-xs"
                 onClick={() => {
-                  if (safeInputBalance > 0) {
-                    setSwapAmount(safeInputBalance.toString())
+                  if (inputBalance !== null) {
+                    setSwapAmount(inputBalance.toString())
                   }
                 }}
-                disabled={safeInputBalance === 0}
+                disabled={inputBalance === null || inputBalance === 0}
               >
                 MAX
               </CyberButton>
@@ -431,20 +425,18 @@ export function TokenSwapForm({
             <div className="flex items-center gap-2">
               <span className="text-sm">
                 Balance:{" "}
-                {safeInputBalance > 0
-                  ? `${formatTokenAmount(safeInputBalance, inputToken)} ${inputToken.symbol}`
-                  : "0.0000"}
+                {inputBalance !== null ? `${formatTokenAmount(inputBalance, inputToken)} ${inputToken.symbol}` : "..."}
               </span>
               <SoundButton
                 variant="outline"
                 size="sm"
                 className="h-6 text-xs border border-black"
                 onClick={() => {
-                  if (safeInputBalance > 0) {
-                    setSwapAmount(safeInputBalance.toString())
+                  if (inputBalance !== null) {
+                    setSwapAmount(inputBalance.toString())
                   }
                 }}
-                disabled={safeInputBalance === 0}
+                disabled={inputBalance === null || inputBalance === 0}
               >
                 MAX
               </SoundButton>

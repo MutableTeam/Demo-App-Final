@@ -244,10 +244,6 @@ interface GameSelectionProps {
 }
 
 export default function GameSelection({ publicKey, balance, mutbBalance, onSelectGame }: GameSelectionProps) {
-  // Add default values for balance and mutbBalance to prevent undefined errors
-  const safeBalance = balance ?? 0
-  const safeMutbBalance = mutbBalance ?? 0
-
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
   const isMobile = useIsMobile()
@@ -460,7 +456,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                 <span
                   className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
                 >
-                  {safeMutbBalance.toFixed(2)} MUTB
+                  {mutbBalance.toFixed(2)} MUTB
                 </span>
               </>
             ) : (
@@ -469,7 +465,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                 <span
                   className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black dark:text-white")}
                 >
-                  {safeBalance.toFixed(4) || "0.0000"} SOL
+                  {balance?.toFixed(4) || "0.0000"} SOL
                 </span>
               </>
             )}

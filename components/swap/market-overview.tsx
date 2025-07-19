@@ -129,7 +129,7 @@ export function MarketOverview({ tokens, recentTransactions }: MarketOverviewPro
                         Loading...
                       </span>
                     ) : (
-                      `$${(tokenPrices[token.id] ?? 0).toFixed(2)} USD`
+                      `$${tokenPrices[token.id]?.toFixed(2) || "..."} USD`
                     )}
                   </div>
                   <div className="text-sm text-green-400">
@@ -151,8 +151,7 @@ export function MarketOverview({ tokens, recentTransactions }: MarketOverviewPro
                 .map((tx, index) => (
                   <div key={index} className="flex justify-between items-center text-sm text-cyan-200">
                     <span>
-                      {(tx.inputAmount ?? 0).toFixed(2)} {tx.inputToken} → {(tx.outputAmount ?? 0).toFixed(2)}{" "}
-                      {tx.outputToken}
+                      {tx.inputAmount.toFixed(2)} {tx.inputToken} → {tx.outputAmount.toFixed(2)} {tx.outputToken}
                     </span>
                     <span className="text-cyan-400">{new Date(tx.timestamp).toLocaleTimeString()}</span>
                   </div>
@@ -193,7 +192,7 @@ export function MarketOverview({ tokens, recentTransactions }: MarketOverviewPro
                       Loading...
                     </span>
                   ) : (
-                    `$${(tokenPrices[token.id] ?? 0).toFixed(2)} USD`
+                    `$${tokenPrices[token.id]?.toFixed(2) || "..."} USD`
                   )}
                 </div>
                 <div className="text-sm text-green-600">
@@ -215,8 +214,7 @@ export function MarketOverview({ tokens, recentTransactions }: MarketOverviewPro
               .map((tx, index) => (
                 <div key={index} className="flex justify-between items-center text-sm">
                   <span>
-                    {(tx.inputAmount ?? 0).toFixed(2)} {tx.inputToken} → {(tx.outputAmount ?? 0).toFixed(2)}{" "}
-                    {tx.outputToken}
+                    {tx.inputAmount.toFixed(2)} {tx.inputToken} → {tx.outputAmount.toFixed(2)} {tx.outputToken}
                   </span>
                   <span className="text-gray-500">{new Date(tx.timestamp).toLocaleTimeString()}</span>
                 </div>

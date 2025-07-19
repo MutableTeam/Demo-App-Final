@@ -29,10 +29,6 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
   const [username, setUsername] = useState(`Player_${publicKey.substring(0, 4)}`)
   const [tempUsername, setTempUsername] = useState(username)
 
-  // Add default values to prevent undefined errors
-  const safeBalance = balance ?? 0
-  const safeMutbBalance = mutbBalance ?? 0
-
   // Mock user statistics
   const userStats = {
     gamesPlayed: 47,
@@ -196,7 +192,7 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
                   <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>SOL</span>
                 </div>
                 <span className={cn("font-mono font-bold", isCyberpunk && "text-cyan-400")}>
-                  {safeBalance.toFixed(4)}
+                  {balance?.toFixed(4) || "0.0000"}
                 </span>
               </div>
 
@@ -212,7 +208,7 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
                   <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>MUTB</span>
                 </div>
                 <span className={cn("font-mono font-bold", isCyberpunk && "text-cyan-400")}>
-                  {safeMutbBalance.toFixed(2)}
+                  {mutbBalance.toFixed(2)}
                 </span>
               </div>
             </div>

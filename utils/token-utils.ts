@@ -94,21 +94,17 @@ export async function getTokenBalance(
 }
 
 // Format token amount based on token decimals and symbol
-export function formatTokenAmount(amount: number | null | undefined, token: TokenConfig): string {
-  const safeAmount = amount ?? 0
-
+export function formatTokenAmount(amount: number, token: TokenConfig): string {
   // For SOL, show 4 decimal places
   if (token.symbol === "SOL") {
-    return safeAmount.toFixed(4)
+    return amount.toFixed(4)
   }
 
   // For other tokens, show 2 decimal places
-  return safeAmount.toFixed(2)
+  return amount.toFixed(2)
 }
 
 // Calculate USD value of token amount
-export function calculateUsdValue(amount: number | null | undefined, tokenPrice: number | null | undefined): number {
-  const safeAmount = amount ?? 0
-  const safePrice = tokenPrice ?? 0
-  return safeAmount * safePrice
+export function calculateUsdValue(amount: number, tokenPrice: number): number {
+  return amount * tokenPrice
 }

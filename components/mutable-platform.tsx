@@ -1,563 +1,866 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Gamepad2,
-  Trophy,
-  ArrowUpDown,
-  Wallet,
-  Settings,
-  User,
-  LogOut,
-  Volume2,
-  VolumeX,
-  ShoppingCart,
-} from "lucide-react"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import { cn } from "@/lib/utils"
+import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle, User, ShoppingCart } from "lucide-react"
 import Image from "next/image"
-import { LOGOS } from "@/utils/image-paths"
-import { audioManager, playIntroSound } from "@/utils/audio-manager"
-import SoundButton from "./sound-button"
-import GameSelection from "./pvp-game/game-selection"
 import MutableMarketplace from "./mutable-marketplace"
 import TokenSwapInterface from "./token-swap-interface"
+import GameSelection from "./pvp-game/game-selection"
+import MatchmakingLobby from "./pvp-game/matchmaking-lobby"
+import UserProfile from "./user-profile"
+import type { Connection } from "@solana/web3.js"
+import SoundButton from "./sound-button"
+import { withClickSound } from "@/utils/sound-utils"
+import { trackEvent } from "@/utils/analytics"
+import LastStandGameLauncher from "@/games/last-stand/game-launcher"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import { cn } from "@/lib/utils"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
 
-interface WalletConnectionData {
-  connected: boolean
-  publicKey: string
-  balance: number | null
-  provider: any
-  isTestMode?: boolean
+// Cyberpunk styled components
+const glitchAnim1 = keyframes`
+  0% {
+    clip-path: inset(40% 0 61% 0);
+    transform: translate(-2px, 2px);
+  }
+  20% {
+    clip-path: inset(92% 0 1% 0);
+    transform: translate(1px, 3px);
+  }
+  40% {
+    clip-path: inset(43% 0 1% 0);
+    transform: translate(-1px, -3px);
+  }
+  60% {
+    clip-path: inset(25% 0 58% 0);
+    transform: translate(3px, 1px);
+  }
+  80% {
+    clip-path: inset(54% 0 7% 0);
+    transform: translate(-3px, -2px);
+  }
+  100% {
+    clip-path: inset(58% 0 43% 0);
+    transform: translate(2px, -1px);
+  }
+`
+
+const glitchAnim2 = keyframes`
+  0% {
+    clip-path: inset(24% 0 29% 0);
+    transform: translate(2px, -2px);
+  }
+  20% {
+    clip-path: inset(54% 0 26% 0);
+    transform: translate(-3px, 1px);
+  }
+  40% {
+    clip-path: inset(9% 0 38% 0);
+    transform: translate(1px, 3px);
+  }
+  60% {
+    clip-path: inset(23% 0 75% 0);
+    transform: translate(3px, -1px);
+  }
+  80% {
+    clip-path: inset(74% 0 26% 0);
+    transform: translate(-2px, 2px);
+  }
+  100% {
+    clip-path: inset(46% 0 11% 0);
+    transform: translate(2px, -2px);
+  }
+`
+
+const flickerAnim = keyframes`
+  0% {
+    opacity: 0.1;
+  }
+  2% {
+    opacity: 0.9;
+  }
+  4% {
+    opacity: 0.3;
+  }
+  8% {
+    opacity: 0.8;
+  }
+  70% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+`
+
+const CyberTabsList = styled(TabsList)`
+  background: rgba(10, 10, 40, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.2;
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  &::before {
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), transparent);
+    animation: ${flickerAnim} 4s linear infinite;
+  }
+  
+  &::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 0, 255, 0.2), transparent);
+    animation: ${flickerAnim} 7s linear infinite reverse;
+  }
+`
+
+const CyberTabsTrigger = styled(TabsTrigger)`
+  color: rgba(150, 200, 255, 0.7);
+  position: relative;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  
+  &[data-state="active"] {
+    color: rgba(0, 255, 255, 0.9);
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+    background: transparent;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: rgba(0, 255, 255, 0.8);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+    }
+    
+    // Glitch effect for active tab
+    &::before {
+      content: attr(data-value);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      color: rgba(255, 0, 255, 0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: ${glitchAnim1} 4s infinite linear alternate-reverse;
+      z-index: -1;
+      opacity: 0.5;
+    }
+  }
+  
+  &:hover:not([data-state="active"]) {
+    color: rgba(150, 220, 255, 0.9);
+    background: rgba(0, 100, 200, 0.1);
+    
+    // Glitch effect on hover
+    &::before {
+      content: attr(data-value);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      color: rgba(0, 255, 255, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: ${glitchAnim2} 3s infinite linear alternate-reverse;
+      z-index: -1;
+      opacity: 0.3;
+    }
+  }
+`
+
+// Add responsive styles for tabs
+const tabStyles = {
+  container: "sticky top-0 z-30 bg-opacity-100 w-full",
+  list: "mb-6 border-2 border-black bg-[#FFD54F] dark:bg-[#D4AF37] dark:border-gray-700 w-full grid grid-cols-4 p-0 h-auto",
+  trigger:
+    "data-[state=active]:bg-white data-[state=active]:text-black dark:data-[state=active]:bg-gray-800 dark:data-[state=active]:text-white font-mono py-2 px-1 h-auto flex flex-col items-center justify-center text-center",
 }
 
 interface MutablePlatformProps {
-  walletData: WalletConnectionData
+  publicKey: string
+  balance: number | null
+  provider: any
+  connection: Connection
   onDisconnect: () => void
 }
 
-export default function MutablePlatform({ walletData, onDisconnect }: MutablePlatformProps) {
-  const [activeTab, setActiveTab] = useState("games")
-  const [exchangeSubTab, setExchangeSubTab] = useState("swap")
-  const [isSoundMuted, setIsSoundMuted] = useState(false)
-  const [userStats] = useState({
-    gamesPlayed: 47,
-    wins: 32,
-    winRate: 68,
-    tokensEarned: 1250,
-    rank: "Gold III",
-    level: 15,
-  })
-
-  // Add default values for walletData properties
-  const isTestMode = walletData?.isTestMode ?? false
-  const publicKey = walletData?.publicKey ?? ""
-  const balance = walletData?.balance ?? null
-  const provider = walletData?.provider ?? null
-
-  // Add safe defaults for all numeric values
-  const safeBalance = balance ?? 0
-  const safeMutbBalance = 100 // Default MUTB balance
-
+export default function MutablePlatform({
+  publicKey,
+  balance,
+  provider,
+  connection,
+  onDisconnect,
+}: MutablePlatformProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
+  const [activeTab, setActiveTab] = useState("desktop-games")
+  const [selectedGame, setSelectedGame] = useState<string | null>(null)
+  const [mutbBalance, setMutbBalance] = useState<number>(100) // Mock MUTB balance
+  // Local state to track balance changes without waiting for blockchain updates
+  const [localBalance, setLocalBalance] = useState<number | null>(balance)
+
+  // Update useEffect to sync localBalance with balance from props
   useEffect(() => {
-    setIsSoundMuted(audioManager.isSoundMuted())
-  }, [])
+    setLocalBalance(balance)
+  }, [balance])
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-    if (!audioManager.isSoundMuted()) {
-      playIntroSound()
-    }
+  const getPlayerName = () => {
+    if (!publicKey) return "Player"
+    return "Player_" + publicKey.substring(0, 4)
   }
 
-  const handleExchangeSubTabChange = (value: string) => {
-    setExchangeSubTab(value)
-    if (!audioManager.isSoundMuted()) {
-      playIntroSound()
-    }
+  const handleSelectGame = (gameId: string) => {
+    setSelectedGame(gameId)
   }
 
-  const toggleSound = () => {
-    audioManager.toggleSound()
-    setIsSoundMuted(audioManager.isSoundMuted())
+  const handleBackToSelection = () => {
+    setSelectedGame(null)
   }
 
-  const handleDisconnect = () => {
-    if (!audioManager.isSoundMuted()) {
-      playIntroSound()
-    }
-    onDisconnect()
-  }
-
-  const formatPublicKey = (key: string) => {
-    if (key.length <= 8) return key
-    return `${key.slice(0, 4)}...${key.slice(-4)}`
-  }
-
-  const handleSelectGame = () => {
-    if (!audioManager.isSoundMuted()) {
-      playIntroSound()
-    }
+  const handleDeveloperContact = () => {
+    // Track developer contact event
+    trackEvent("developer_contact", { source: "develop_tab" })
+    window.location.href =
+      "mailto:mutablepvp@gmail.com?subject=Game%20Developer%20Submission&body=I'm%20interested%20in%20developing%20a%20game%20for%20the%20Mutable%20platform.%0A%0AGame%20Name:%20%0AGame%20Type:%20%0ABrief%20Description:%20%0A%0AThank%20you!"
   }
 
   return (
-    <div className="min-h-screen w-full">
-      {/* Header */}
-      <header
-        className={cn(
-          "sticky top-0 z-50 border-b-2 backdrop-blur-sm",
-          isCyberpunk
-            ? "bg-slate-900/80 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
-            : "bg-white/80 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
-        )}
-      >
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-4">
-              <Image
-                src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
-                alt="Mutable"
-                width={120}
-                height={40}
-                className="h-10 w-auto filter drop-shadow-[0_0_8px_rgba(0,255,255,0.5)]"
-              />
-              <Badge
-                variant="outline"
-                className={cn(
-                  "font-mono text-xs border-2",
-                  isCyberpunk
-                    ? "border-cyan-500/50 text-cyan-300 bg-cyan-500/10"
-                    : "border-amber-500/50 text-amber-700 bg-amber-500/10",
-                )}
-              >
-                {isTestMode ? "TEST MODE" : "MAINNET"}
-              </Badge>
-            </div>
-
-            {/* User Info & Controls */}
-            <div className="flex items-center gap-4">
-              {/* Sound Toggle */}
-              <SoundButton
-                onClick={toggleSound}
-                className={cn(
-                  "p-2 rounded-lg border-2 transition-all duration-200",
-                  isCyberpunk
-                    ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70 hover:border-slate-500/70 hover:text-cyan-300"
-                    : "bg-amber-100/80 border-amber-500/70 text-amber-900 hover:bg-amber-200/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
-                )}
-              >
-                {isSoundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </SoundButton>
-
-              {/* Wallet Info */}
-              <div
-                className={cn(
-                  "flex items-center gap-3 px-4 py-2 rounded-lg border-2",
-                  isCyberpunk
-                    ? "bg-slate-800/60 border-slate-600/60"
-                    : "bg-amber-100/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
-                )}
-              >
-                <Wallet className={cn("h-4 w-4", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
-                <div className="text-sm">
-                  <div className={cn("font-mono font-bold", isCyberpunk ? "text-slate-200" : "text-amber-900")}>
-                    {formatPublicKey(publicKey)}
-                  </div>
-                  {safeBalance > 0 && (
-                    <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-amber-700")}>
-                      {safeBalance.toFixed(4)} SOL
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Disconnect Button */}
-              <SoundButton
-                onClick={handleDisconnect}
-                className={cn(
-                  "p-2 rounded-lg border-2 transition-all duration-200",
-                  isCyberpunk
-                    ? "bg-red-900/60 border-red-600/60 text-red-300 hover:bg-red-800/70 hover:border-red-500/70"
-                    : "bg-red-100/80 border-red-500/70 text-red-900 hover:bg-red-200/80 hover:border-red-600 shadow-[0_0_10px_rgba(239,68,68,0.3)]",
-                )}
-              >
-                <LogOut className="h-4 w-4" />
-              </SoundButton>
-            </div>
-          </div>
+    <div className="space-y-4 w-full">
+      <Tabs defaultValue="desktop-games" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className={isCyberpunk ? "" : tabStyles.container}>
+          {isCyberpunk ? (
+            <CyberTabsList className="w-full grid grid-cols-4 p-0 h-auto">
+              <CyberTabsTrigger value="exchange" data-value="EXCHANGE" onClick={withClickSound()}>
+                <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">EXCHANGE</span>
+              </CyberTabsTrigger>
+              <CyberTabsTrigger value="desktop-games" data-value="GAMES" onClick={withClickSound()}>
+                <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">GAMES</span>
+              </CyberTabsTrigger>
+              <CyberTabsTrigger value="develop" data-value="DEVELOP" onClick={withClickSound()}>
+                <Code className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">DEVELOP</span>
+              </CyberTabsTrigger>
+              <CyberTabsTrigger value="profile" data-value="PROFILE" onClick={withClickSound()}>
+                <User className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">PROFILE</span>
+              </CyberTabsTrigger>
+            </CyberTabsList>
+          ) : (
+            <TabsList className={tabStyles.list}>
+              <TabsTrigger value="exchange" className={tabStyles.trigger} onClick={withClickSound()}>
+                <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">EXCHANGE</span>
+              </TabsTrigger>
+              <TabsTrigger value="desktop-games" className={tabStyles.trigger} onClick={withClickSound()}>
+                <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">GAMES</span>
+              </TabsTrigger>
+              <TabsTrigger value="develop" className={tabStyles.trigger} onClick={withClickSound()}>
+                <Code className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">DEVELOP</span>
+              </TabsTrigger>
+              <TabsTrigger value="profile" className={tabStyles.trigger} onClick={withClickSound()}>
+                <User className="h-4 w-4 mb-1 mx-auto" />
+                <span className="text-xs sm:text-sm whitespace-normal text-center">PROFILE</span>
+              </TabsTrigger>
+            </TabsList>
+          )}
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Navigation Tabs */}
-          <TabsList
-            className={cn(
-              "grid w-full grid-cols-4 mb-8 h-14 p-1 border-2",
-              isCyberpunk
-                ? "bg-slate-900/50 border-cyan-500/30"
-                : "bg-amber-50/50 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]",
-            )}
-          >
-            <TabsTrigger
-              value="games"
-              className={cn(
-                "flex items-center gap-2 font-mono font-bold transition-all duration-200",
-                isCyberpunk
-                  ? "data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(0,255,255,0.5)] text-slate-300 hover:text-cyan-300"
-                  : "data-[state=active]:bg-amber-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(245,158,11,0.5)] text-amber-700 hover:text-amber-800",
-              )}
-            >
-              <Gamepad2 className="h-4 w-4" />
-              Games
-            </TabsTrigger>
-            <TabsTrigger
-              value="leaderboard"
-              className={cn(
-                "flex items-center gap-2 font-mono font-bold transition-all duration-200",
-                isCyberpunk
-                  ? "data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(0,255,255,0.5)] text-slate-300 hover:text-cyan-300"
-                  : "data-[state=active]:bg-amber-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(245,158,11,0.5)] text-amber-700 hover:text-amber-800",
-              )}
-            >
-              <Trophy className="h-4 w-4" />
-              Leaderboard
-            </TabsTrigger>
-            <TabsTrigger
-              value="exchange"
-              className={cn(
-                "flex items-center gap-2 font-mono font-bold transition-all duration-200",
-                isCyberpunk
-                  ? "data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(0,255,255,0.5)] text-slate-300 hover:text-cyan-300"
-                  : "data-[state=active]:bg-amber-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(245,158,11,0.5)] text-amber-700 hover:text-amber-800",
-              )}
-            >
-              <ArrowUpDown className="h-4 w-4" />
-              Exchange
-            </TabsTrigger>
-            <TabsTrigger
-              value="profile"
-              className={cn(
-                "flex items-center gap-2 font-mono font-bold transition-all duration-200",
-                isCyberpunk
-                  ? "data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(0,255,255,0.5)] text-slate-300 hover:text-cyan-300"
-                  : "data-[state=active]:bg-amber-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(245,158,11,0.5)] text-amber-700 hover:text-amber-800",
-              )}
-            >
-              <User className="h-4 w-4" />
-              Profile
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Games Tab */}
-          <TabsContent value="games" className="space-y-6">
-            <GameSelection
-              publicKey={publicKey}
-              balance={safeBalance}
-              mutbBalance={safeMutbBalance}
-              onSelectGame={handleSelectGame}
-            />
-          </TabsContent>
-
-          {/* Leaderboard Tab */}
-          <TabsContent value="leaderboard" className="space-y-6">
-            <Card
-              className={cn(
-                "border-2",
-                isCyberpunk
-                  ? "bg-slate-900/50 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
-                  : "bg-white border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
-              )}
-            >
-              <CardHeader>
-                <CardTitle
-                  className={cn("flex items-center gap-2 font-mono", isCyberpunk ? "text-cyan-300" : "text-amber-700")}
-                >
-                  <Trophy className="h-5 w-5" />
-                  Global Leaderboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { rank: 1, player: "CyberWarrior", wins: 156, tokens: 4250 },
-                    { rank: 2, player: "PixelMaster", wins: 142, tokens: 3890 },
-                    { rank: 3, player: "NeonGamer", wins: 138, tokens: 3750 },
-                    { rank: 4, player: "QuantumShot", wins: 124, tokens: 3200 },
-                    { rank: 5, player: "You", wins: userStats.wins, tokens: userStats.tokensEarned },
-                  ].map((entry) => (
-                    <div
-                      key={entry.rank}
-                      className={cn(
-                        "flex items-center justify-between p-4 rounded-lg border-2",
-                        entry.player === "You"
-                          ? isCyberpunk
-                            ? "bg-cyan-500/20 border-cyan-400/50"
-                            : "bg-amber-200/50 border-amber-500/50"
-                          : isCyberpunk
-                            ? "bg-slate-800/30 border-slate-600/30"
-                            : "bg-amber-50/30 border-amber-300/30",
-                      )}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center font-bold",
-                            entry.rank <= 3
-                              ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
-                              : isCyberpunk
-                                ? "bg-slate-700 text-slate-300"
-                                : "bg-amber-200 text-amber-800",
-                          )}
-                        >
-                          {entry.rank}
-                        </div>
-                        <div>
-                          <div
-                            className={cn(
-                              "font-bold",
-                              entry.player === "You"
-                                ? isCyberpunk
-                                  ? "text-cyan-300"
-                                  : "text-amber-700"
-                                : isCyberpunk
-                                  ? "text-slate-200"
-                                  : "text-gray-900",
-                            )}
-                          >
-                            {entry.player}
-                          </div>
-                          <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>
-                            {entry.wins} wins
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={cn("font-bold", isCyberpunk ? "text-cyan-300" : "text-amber-700")}>
-                          {entry.tokens} MUTABLE
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Exchange Tab with Sub-tabs */}
-          <TabsContent value="exchange" className="space-y-6">
-            <Tabs value={exchangeSubTab} onValueChange={handleExchangeSubTabChange} className="w-full">
-              {/* Exchange Sub-navigation */}
+        <TabsContent
+          value="exchange"
+          className={cn("mt-0 h-full min-h-[500px] pt-4", isCyberpunk && "rounded-lg py-4 px-0")}
+          style={
+            isCyberpunk
+              ? {
+                  color: "rgb(224, 255, 255) !important",
+                }
+              : {}
+          }
+        >
+          {activeTab === "exchange" && (
+            <Tabs defaultValue="swap" className="w-full">
               <TabsList
                 className={cn(
-                  "grid w-full grid-cols-2 mb-6 h-12 p-1 border-2",
+                  "grid w-full grid-cols-2 mb-6 max-w-md mx-auto",
                   isCyberpunk
-                    ? "bg-slate-900/50 border-cyan-500/30"
-                    : "bg-amber-50/50 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]",
+                    ? "bg-black/30 border border-cyan-500/30 p-1 h-12"
+                    : "bg-yellow-200 border-2 border-black h-12",
                 )}
               >
                 <TabsTrigger
                   value="swap"
                   className={cn(
-                    "flex items-center gap-2 font-mono font-bold transition-all duration-200",
+                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300",
                     isCyberpunk
-                      ? "data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(0,255,255,0.5)] text-slate-300 hover:text-cyan-300"
-                      : "data-[state=active]:bg-amber-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(245,158,11,0.5)] text-amber-700 hover:text-amber-800",
+                      ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
+                      : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
                   )}
+                  onClick={withClickSound()}
                 >
-                  <ArrowUpDown className="h-4 w-4" />
-                  Token Swap
+                  <ArrowLeftRight className="h-4 w-4" />
+                  <span>Token Swap</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="marketplace"
                   className={cn(
-                    "flex items-center gap-2 font-mono font-bold transition-all duration-200",
+                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300",
                     isCyberpunk
-                      ? "data-[state=active]:bg-cyan-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(0,255,255,0.5)] text-slate-300 hover:text-cyan-300"
-                      : "data-[state=active]:bg-amber-600/80 data-[state=active]:text-white data-[state=active]:shadow-[0_0_10px_rgba(245,158,11,0.5)] text-amber-700 hover:text-amber-800",
+                      ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
+                      : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
                   )}
+                  onClick={withClickSound()}
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  Marketplace
+                  <span>Marketplace</span>
                 </TabsTrigger>
               </TabsList>
 
-              {/* Token Swap Sub-tab */}
               <TabsContent value="swap">
-                <TokenSwapInterface />
+                <TokenSwapInterface
+                  publicKey={publicKey}
+                  balance={localBalance}
+                  provider={provider}
+                  connection={connection}
+                  onBalanceChange={(currency, newBalance) => {
+                    if (currency === "sol") {
+                      setLocalBalance(newBalance)
+                    }
+                  }}
+                />
               </TabsContent>
 
-              {/* Marketplace Sub-tab */}
               <TabsContent value="marketplace">
-                <MutableMarketplace />
+                <MutableMarketplace publicKey={publicKey} balance={localBalance} mutbBalance={mutbBalance} />
               </TabsContent>
             </Tabs>
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* User Stats */}
-              <Card
-                className={cn(
-                  "border-2",
-                  isCyberpunk
-                    ? "bg-slate-900/50 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
-                    : "bg-white border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
-                )}
-              >
-                <CardHeader>
-                  <CardTitle
-                    className={cn(
-                      "flex items-center gap-2 font-mono",
-                      isCyberpunk ? "text-cyan-300" : "text-amber-700",
-                    )}
-                  >
-                    <User className="h-5 w-5" />
-                    Player Stats
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div
+        <TabsContent
+          value="desktop-games"
+          className={cn("mt-0 h-full min-h-[500px] pt-4", isCyberpunk && "rounded-lg py-4 px-0")}
+          style={
+            isCyberpunk
+              ? {
+                  color: "rgb(224, 255, 255) !important",
+                }
+              : {}
+          }
+        >
+          {selectedGame ? (
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <SoundButton
+                  variant="outline"
+                  className={cn(
+                    "border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
+                    isCyberpunk && "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50 shadow-cyan-500/30",
+                  )}
+                  onClick={handleBackToSelection}
+                >
+                  Back to Game Selection
+                </SoundButton>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "ml-auto bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono dark:bg-[#D4AF37] dark:border-gray-700 dark:text-black",
+                    isCyberpunk && "bg-black/70 border-cyan-500 text-cyan-400",
+                  )}
+                >
+                  <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+                  {mutbBalance.toFixed(2)} MUTB
+                </Badge>
+              </div>
+              {selectedGame === "top-down-shooter" || selectedGame === "mutball-pool" ? (
+                <MatchmakingLobby
+                  publicKey={publicKey}
+                  playerName={getPlayerName()}
+                  mutbBalance={mutbBalance}
+                  onExit={handleBackToSelection}
+                  selectedGame={selectedGame}
+                />
+              ) : selectedGame === "archer-arena" ? (
+                <div className="space-y-4">
+                  <LastStandGameLauncher
+                    publicKey={publicKey}
+                    playerName={getPlayerName()}
+                    mutbBalance={mutbBalance}
+                    onExit={handleBackToSelection}
+                  />
+                </div>
+              ) : (
+                <Card className={cn("arcade-card", isCyberpunk && "bg-black/80 border-cyan-500/50")}>
+                  <CardContent className="p-12 flex flex-col items-center justify-center">
+                    <Gamepad2
+                      size={64}
+                      className={cn("mb-4 text-gray-700 dark:text-gray-400", isCyberpunk && "text-cyan-500")}
+                    />
+                    <h2
                       className={cn(
-                        "p-4 rounded-lg border-2 text-center",
-                        isCyberpunk ? "bg-slate-800/30 border-slate-600/30" : "bg-amber-50/30 border-amber-300/30",
+                        "text-3xl font-bold font-mono text-center mb-2 dark:text-white",
+                        isCyberpunk && "text-cyan-400",
                       )}
                     >
-                      <div className={cn("text-2xl font-bold", isCyberpunk ? "text-cyan-300" : "text-amber-700")}>
-                        {userStats.gamesPlayed}
-                      </div>
-                      <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>
-                        Games Played
-                      </div>
-                    </div>
-                    <div
+                      COMING SOON
+                    </h2>
+                    <p
                       className={cn(
-                        "p-4 rounded-lg border-2 text-center",
-                        isCyberpunk ? "bg-slate-800/30 border-slate-600/30" : "bg-amber-50/30 border-amber-300/30",
+                        "text-center text-gray-700 max-w-md dark:text-gray-300",
+                        isCyberpunk && "text-cyan-300/70",
                       )}
                     >
-                      <div className={cn("text-2xl font-bold", isCyberpunk ? "text-cyan-300" : "text-amber-700")}>
-                        {userStats.wins}
-                      </div>
-                      <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>Wins</div>
-                    </div>
-                    <div
-                      className={cn(
-                        "p-4 rounded-lg border-2 text-center",
-                        isCyberpunk ? "bg-slate-800/30 border-slate-600/30" : "bg-amber-50/30 border-amber-300/30",
-                      )}
-                    >
-                      <div className={cn("text-2xl font-bold", isCyberpunk ? "text-cyan-300" : "text-amber-700")}>
-                        {userStats.winRate}%
-                      </div>
-                      <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>Win Rate</div>
-                    </div>
-                    <div
-                      className={cn(
-                        "p-4 rounded-lg border-2 text-center",
-                        isCyberpunk ? "bg-slate-800/30 border-slate-600/30" : "bg-amber-50/30 border-amber-300/30",
-                      )}
-                    >
-                      <div className={cn("text-2xl font-bold", isCyberpunk ? "text-cyan-300" : "text-amber-700")}>
-                        {(userStats.tokensEarned ?? 0).toFixed(0)}
-                      </div>
-                      <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>
-                        MUTABLE Earned
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-600/30">
-                    <div>
-                      <div className={cn("font-bold", isCyberpunk ? "text-slate-200" : "text-gray-900")}>
-                        Current Rank
-                      </div>
-                      <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>
-                        Level {userStats.level}
-                      </div>
-                    </div>
-                    <Badge
-                      className={cn(
-                        "font-mono font-bold px-3 py-1",
-                        isCyberpunk
-                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white"
-                          : "bg-gradient-to-r from-amber-400 to-orange-500 text-white",
-                      )}
-                    >
-                      {userStats.rank}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Settings */}
-              <Card
-                className={cn(
-                  "border-2",
-                  isCyberpunk
-                    ? "bg-slate-900/50 border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)]"
-                    : "bg-white border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
-                )}
-              >
-                <CardHeader>
-                  <CardTitle
-                    className={cn(
-                      "flex items-center gap-2 font-mono",
-                      isCyberpunk ? "text-cyan-300" : "text-amber-700",
-                    )}
-                  >
-                    <Settings className="h-5 w-5" />
-                    Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className={cn("font-medium", isCyberpunk ? "text-slate-200" : "text-gray-900")}>
-                      Sound Effects
-                    </span>
+                      This game is currently in development and will be available soon!
+                    </p>
                     <SoundButton
-                      onClick={toggleSound}
+                      onClick={handleBackToSelection}
                       className={cn(
-                        "p-2 rounded-lg border-2 transition-all duration-200",
-                        isCyberpunk
-                          ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70"
-                          : "bg-amber-100/80 border-amber-500/70 text-amber-900 hover:bg-amber-200/80",
+                        "mt-8 bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:bg-[#D4AF37] dark:hover:bg-[#C4A137] dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] dark:text-black",
+                        isCyberpunk &&
+                          "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border-cyan-500 shadow-cyan-500/30",
                       )}
                     >
-                      {isSoundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      BACK TO GAMES
+                    </SoundButton>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <GameSelection
+              publicKey={publicKey}
+              balance={localBalance}
+              mutbBalance={mutbBalance}
+              onSelectGame={handleSelectGame}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent
+          value="develop"
+          className={cn("mt-0 h-full min-h-[500px] pt-4", isCyberpunk && "rounded-lg py-4 px-0")}
+          style={
+            isCyberpunk
+              ? {
+                  color: "rgb(224, 255, 255) !important",
+                }
+              : {}
+          }
+          data-tab="develop"
+        >
+          <Card
+            className={cn("arcade-card", isCyberpunk && "!bg-black/80 !border-cyan-500/50")}
+            style={isCyberpunk ? { backgroundColor: "rgba(0, 0, 0, 0.8)", borderColor: "rgba(6, 182, 212, 0.5)" } : {}}
+          >
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Code className={cn("h-5 w-5 dark:text-gray-300", isCyberpunk && "text-cyan-400")} />
+                  <CardTitle className={cn("font-mono dark:text-white", isCyberpunk && "text-cyan-400")}>
+                    GAME DEVELOPERS
+                  </CardTitle>
+                </div>
+              </div>
+              <CardDescription className={cn("dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                Build games for the Mutable platform and earn revenue
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      "p-4 border-2 border-black rounded-md bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600",
+                      isCyberpunk && "!bg-black/50 !border-cyan-500/50",
+                    )}
+                    style={
+                      isCyberpunk
+                        ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" }
+                        : {}
+                    }
+                  >
+                    <h3
+                      className={cn("font-bold mb-2 font-mono text-lg dark:text-white", isCyberpunk && "text-cyan-400")}
+                    >
+                      WHY DEVELOP FOR MUTABLE?
+                    </h3>
+                    <ul className={cn("space-y-2 text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Official SDK for Unity and Godot integration</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Revenue sharing from in-game transactions and token swaps</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Access to our growing player base and marketing support</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Integration with Solana blockchain and MUTB token ecosystem</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Technical support for blockchain integration and game development</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-4 border-2 border-black rounded-md bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600",
+                      isCyberpunk && "!bg-black/50 !border-cyan-500/50",
+                    )}
+                    style={
+                      isCyberpunk
+                        ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" }
+                        : {}
+                    }
+                  >
+                    <h3
+                      className={cn("font-bold mb-2 font-mono text-lg dark:text-white", isCyberpunk && "text-cyan-400")}
+                    >
+                      REQUIREMENTS
+                    </h3>
+                    <ul className={cn("space-y-2 text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle
+                          className={cn("h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-pink-500")}
+                        />
+                        <span>Games must be compatible with our platform's architecture</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle
+                          className={cn("h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-pink-500")}
+                        />
+                        <span>Integration with MUTB token for in-game transactions</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle
+                          className={cn("h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-pink-500")}
+                        />
+                        <span>Adherence to our content guidelines and quality standards</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle
+                          className={cn("h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-pink-500")}
+                        />
+                        <span>Regular updates and maintenance of your game</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-4 border-2 border-black rounded-md bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600",
+                      isCyberpunk && "!bg-black/50 !border-cyan-500/50",
+                    )}
+                    style={
+                      isCyberpunk
+                        ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" }
+                        : {}
+                    }
+                  >
+                    <h3
+                      className={cn("font-bold mb-2 font-mono text-lg dark:text-white", isCyberpunk && "text-cyan-400")}
+                    >
+                      DEVELOPMENT RESOURCES
+                    </h3>
+                    <p className={cn("text-sm mb-4 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      We provide resources to help you develop games for our platform:
+                    </p>
+                    <ul className={cn("space-y-2 text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>
+                          <strong>Mutable SDK</strong> - Our official SDK for Unity and Godot integration
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>API documentation for platform integration</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>SDK for Solana and MUTB token integration</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Design guidelines for the retro arcade aesthetic</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-green-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Technical support during development</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      "p-4 border-2 border-black rounded-md bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600",
+                      isCyberpunk && "!bg-black/50 !border-cyan-500/50",
+                    )}
+                    style={
+                      isCyberpunk
+                        ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" }
+                        : {}
+                    }
+                  >
+                    <h3
+                      className={cn("font-bold mb-2 font-mono text-lg dark:text-white", isCyberpunk && "text-cyan-400")}
+                    >
+                      CONTACT US
+                    </h3>
+                    <p className={cn("text-sm mb-4 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      Interested in developing games for the Mutable platform? We'd love to hear from you! Contact us
+                      directly to discuss your game ideas, get technical support, or learn more about our developer
+                      program.
+                    </p>
+
+                    <div
+                      className={cn(
+                        "bg-white dark:bg-gray-800 p-4 rounded-md border-2 border-black dark:border-gray-600 mb-4",
+                        isCyberpunk && "bg-black/70 border-cyan-500/70",
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Mail className={cn("h-5 w-5 text-blue-600", isCyberpunk && "text-cyan-500")} />
+                        <span className={cn("font-mono font-bold dark:text-white", isCyberpunk && "text-cyan-400")}>
+                          Email Us
+                        </span>
+                      </div>
+                      <p className={cn("text-sm mb-3 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                        Send us your game concept, portfolio, or questions:
+                      </p>
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-md",
+                          isCyberpunk && "bg-black/50 border border-cyan-500/30",
+                        )}
+                      >
+                        <Mail className={cn("h-4 w-4 text-blue-600", isCyberpunk && "text-cyan-500")} />
+                        <span className={cn("font-mono text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300")}>
+                          mutablepvp@gmail.com
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className={cn("text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                        <span className="font-bold">What to include in your email:</span>
+                      </p>
+                      <ul
+                        className={cn(
+                          "text-sm list-disc pl-5 dark:text-gray-300 space-y-1",
+                          isCyberpunk && "text-cyan-300/70",
+                        )}
+                      >
+                        <li>Brief description of your game concept</li>
+                        <li>Your development experience or portfolio</li>
+                        <li>Technical questions or requirements</li>
+                        <li>Timeline for development</li>
+                      </ul>
+                    </div>
+
+                    <SoundButton
+                      onClick={handleDeveloperContact}
+                      className={cn(
+                        "w-full mt-4 bg-[#4CAF50] hover:bg-[#45a049] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
+                        isCyberpunk &&
+                          "bg-cyan-900/70 hover:bg-cyan-800/70 border-cyan-500 shadow-cyan-500/30 text-cyan-300",
+                      )}
+                    >
+                      <div className="flex items-center justify-center">
+                        <Mail className="h-4 w-4 mr-2 flex-shrink-0" />
+                        <span>CONTACT US</span>
+                      </div>
                     </SoundButton>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className={cn("font-medium", isCyberpunk ? "text-slate-200" : "text-gray-900")}>
-                      Theme Mode
-                    </span>
-                    <Badge
-                      className={cn(
-                        "font-mono",
-                        isCyberpunk
-                          ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
-                          : "bg-amber-500/20 text-amber-700 border-amber-500/30",
-                      )}
+
+                  <div
+                    className={cn(
+                      "p-4 border-2 border-black rounded-md bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600",
+                      isCyberpunk && "!bg-black/50 !border-cyan-500/50",
+                    )}
+                    style={
+                      isCyberpunk
+                        ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" }
+                        : {}
+                    }
+                  >
+                    <h3
+                      className={cn("font-bold mb-2 font-mono text-lg dark:text-white", isCyberpunk && "text-cyan-400")}
                     >
-                      {isCyberpunk ? "Cyberpunk" : "Retro"}
-                    </Badge>
+                      UPCOMING FEATURES
+                    </h3>
+                    <p className={cn("text-sm mb-4 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      We're expanding our platform with these upcoming features:
+                    </p>
+                    <ul className={cn("space-y-2 text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Developer dashboard for analytics and revenue tracking</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Cross-game asset marketplace for NFTs and in-game items</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Tournament and leaderboard infrastructure</span>
+                      </li>
+                    </ul>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </main>
+
+                  <div
+                    className={cn(
+                      "p-4 border-2 border-black rounded-md bg-[#f5efdc] dark:bg-gray-700 dark:border-gray-600",
+                      isCyberpunk && "!bg-black/50 !border-cyan-500/50",
+                    )}
+                    style={
+                      isCyberpunk
+                        ? { backgroundColor: "rgba(0, 0, 0, 0.5)", borderColor: "rgba(6, 182, 212, 0.5)" }
+                        : {}
+                    }
+                  >
+                    <h3
+                      className={cn("font-bold mb-2 font-mono text-lg dark:text-white", isCyberpunk && "text-cyan-400")}
+                    >
+                      TECHNOLOGY STACK
+                    </h3>
+                    <p className={cn("text-sm mb-4 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      The Mutable platform is built using modern web technologies:
+                    </p>
+                    <ul className={cn("space-y-2 text-sm dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Node.js backend for high-performance game servers</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>React frontend for responsive and interactive UI</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>Solana blockchain integration for secure transactions</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle
+                          className={cn("h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0", isCyberpunk && "text-cyan-500")}
+                        />
+                        <span>WebSocket for real-time multiplayer functionality</span>
+                      </li>
+                    </ul>
+                    <p className={cn("text-sm mt-4 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      Developers can use our SDK and APIs to integrate with our Node.js and React-based platform.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <div className={cn("text-sm text-center w-full dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                <p>Join our growing ecosystem of game developers and earn revenue through the Mutable platform!</p>
+                <p
+                  className={cn(
+                    "mt-1 text-xs text-muted-foreground dark:text-gray-400",
+                    isCyberpunk && "text-cyan-400/50",
+                  )}
+                >
+                  All games are reviewed for quality and compliance before being added to the platform.
+                </p>
+              </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent
+          value="profile"
+          className={cn("mt-0 h-full min-h-[500px] pt-4", isCyberpunk && "rounded-lg py-4 px-0")}
+          style={
+            isCyberpunk
+              ? {
+                  color: "rgb(224, 255, 255) !important",
+                }
+              : {}
+          }
+        >
+          <UserProfile
+            publicKey={publicKey}
+            balance={localBalance}
+            mutbBalance={mutbBalance}
+            onDisconnect={onDisconnect}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
