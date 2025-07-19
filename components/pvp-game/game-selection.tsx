@@ -42,6 +42,8 @@ const breakpoints = {
 // Define media queries directly in this file to avoid import issues
 const mediaQueries = {
   mobile: `@media (max-width: ${breakpoints.md - 1}px)`,
+  tablet: `@media (min-width: ${breakpoints.md}px) and (max-width: ${breakpoints.lg - 1}px)`,
+  desktop: `@media (min-width: ${breakpoints.lg}px)`,
   touch: "@media (hover: none) and (pointer: coarse)",
 }
 
@@ -90,6 +92,12 @@ const CyberGameCard = styled(Card)`
     & button {
       min-height: 44px;
     }
+  }
+  
+  /* Desktop optimizations */
+  ${mediaQueries.desktop} {
+    min-height: 320px;
+    max-height: 380px;
   }
   
   &:hover {
@@ -160,12 +168,20 @@ const CyberPlayButton = styled(Button)`
   transition: all 0.3s ease;
   text-shadow: none;
   width: 100%;
+  min-height: 44px;
   
   /* Mobile optimizations */
   ${mediaQueries.mobile} {
     padding: 0.75rem;
     font-size: 0.8rem;
     min-height: 44px; /* Ensure touch target size */
+  }
+  
+  /* Desktop optimizations */
+  ${mediaQueries.desktop} {
+    min-height: 48px;
+    font-size: 0.9rem;
+    padding: 0.875rem 1rem;
   }
   
   &:hover {
@@ -357,8 +373,13 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
     }
   }
 
-  // Consistent card height for both themes
-  const cardHeight = isMobile ? "h-56" : "h-60"
+  // Responsive card height based on screen size
+  const getCardHeight = () => {
+    if (isMobile) return "h-56"
+    return "h-72 lg:h-80" // Taller cards for desktop
+  }
+
+  const cardHeight = getCardHeight()
 
   return (
     <Card
@@ -490,7 +511,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                               <CyberBadge>{game.id === "pixel-pool" ? "IN DEVELOPMENT" : "COMING SOON"}</CyberBadge>
                             </div>
                           )}
-                          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 lg:p-5">
                             <div className="flex items-center gap-2 mb-2">
                               <div className="bg-[#0a0a24] p-1 rounded-md border border-[#0ff]/50 text-[#0ff]">
                                 {game.hasCustomIcon ? (
@@ -514,7 +535,9 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                                 )}
                               </div>
                             </div>
-                            <h3 className={`text-lg md:text-xl font-mono font-bold text-[#0ff] text-shadow-lg`}>
+                            <h3
+                              className={`text-lg md:text-xl lg:text-2xl font-mono font-bold text-[#0ff] text-shadow-lg`}
+                            >
                               {game.name}
                             </h3>
                           </div>
@@ -541,7 +564,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                               </Badge>
                             </div>
                           )}
-                          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                          <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 lg:p-5">
                             <div className="flex items-center gap-2 mb-2">
                               <div className="bg-[#FFD54F] p-1 rounded-md border border-black">
                                 {game.hasCustomIcon ? (
@@ -565,7 +588,9 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                                 )}
                               </div>
                             </div>
-                            <h3 className={`text-lg md:text-xl font-mono font-bold text-white text-shadow-lg`}>
+                            <h3
+                              className={`text-lg md:text-xl lg:text-2xl font-mono font-bold text-white text-shadow-lg`}
+                            >
                               {game.name}
                             </h3>
                           </div>
@@ -621,25 +646,29 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </DropdownMenu>
                           </div>
 
-                          <div className="relative h-full flex flex-col justify-between p-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
+                          <div className="relative h-full flex flex-col justify-between p-4 lg:p-6">
+                            <div className="flex-1 space-y-3 lg:space-y-4">
+                              <div className="flex items-center gap-2">
                                 <Play className="h-4 w-4 text-slate-200" />
-                                <h3 className="text-base md:text-lg font-mono font-bold text-slate-200">{game.name}</h3>
+                                <h3 className="text-base md:text-lg lg:text-xl font-mono font-bold text-slate-200">
+                                  {game.name}
+                                </h3>
                               </div>
-                              <p className="text-xs md:text-sm text-slate-300 mb-3 line-clamp-2">{game.description}</p>
+                              <p className="text-xs md:text-sm lg:text-base text-slate-300 line-clamp-2 lg:line-clamp-3">
+                                {game.description}
+                              </p>
 
-                              <div className="space-y-1 mb-3">
-                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                  <Users className="h-3 w-3" />
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-xs lg:text-sm text-slate-400">
+                                  <Users className="h-3 w-3 lg:h-4 lg:w-4" />
                                   <span>{gameStats.players}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                  <Clock className="h-3 w-3" />
+                                <div className="flex items-center gap-2 text-xs lg:text-sm text-slate-400">
+                                  <Clock className="h-3 w-3 lg:h-4 lg:w-4" />
                                   <span>{gameStats.duration}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                  <Trophy className="h-3 w-3" />
+                                <div className="flex items-center gap-2 text-xs lg:text-sm text-slate-400">
+                                  <Trophy className="h-3 w-3 lg:h-4 lg:w-4" />
                                   <span>
                                     Min Wager:{" "}
                                     {wagerToken === "MUTB"
@@ -650,13 +679,15 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                               </div>
                             </div>
 
-                            <CyberPlayButton
-                              className="cyber-play-button mt-auto"
-                              disabled={game.status !== "live"}
-                              onClick={(e) => handleGameSelect(game.id, e)}
-                            >
-                              {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
-                            </CyberPlayButton>
+                            <div className="mt-4 lg:mt-6">
+                              <CyberPlayButton
+                                className="cyber-play-button"
+                                disabled={game.status !== "live"}
+                                onClick={(e) => handleGameSelect(game.id, e)}
+                              >
+                                {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
+                              </CyberPlayButton>
+                            </div>
                           </div>
                         </div>
                       </CyberGameCard>
@@ -705,29 +736,29 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </DropdownMenu>
                           </div>
 
-                          <div className="relative h-full flex flex-col justify-between p-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
+                          <div className="relative h-full flex flex-col justify-between p-4 lg:p-6">
+                            <div className="flex-1 space-y-3 lg:space-y-4">
+                              <div className="flex items-center gap-2">
                                 <Play className="h-4 w-4 text-white" />
-                                <h3 className="text-base md:text-lg font-mono font-bold text-white drop-shadow-lg">
+                                <h3 className="text-base md:text-lg lg:text-xl font-mono font-bold text-white drop-shadow-lg">
                                   {game.name}
                                 </h3>
                               </div>
-                              <p className="text-xs md:text-sm text-white/90 mb-3 line-clamp-2 drop-shadow">
+                              <p className="text-xs md:text-sm lg:text-base text-white/90 line-clamp-2 lg:line-clamp-3 drop-shadow">
                                 {game.description}
                               </p>
 
-                              <div className="space-y-1 mb-3">
-                                <div className="flex items-center gap-2 text-xs text-white/80">
-                                  <Users className="h-3 w-3" />
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-xs lg:text-sm text-white/80">
+                                  <Users className="h-3 w-3 lg:h-4 lg:w-4" />
                                   <span>{gameStats.players}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-white/80">
-                                  <Clock className="h-3 w-3" />
+                                <div className="flex items-center gap-2 text-xs lg:text-sm text-white/80">
+                                  <Clock className="h-3 w-3 lg:h-4 lg:w-4" />
                                   <span>{gameStats.duration}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-white/80">
-                                  <Trophy className="h-3 w-3" />
+                                <div className="flex items-center gap-2 text-xs lg:text-sm text-white/80">
+                                  <Trophy className="h-3 w-3 lg:h-4 lg:w-4" />
                                   <span>
                                     Min Wager:{" "}
                                     {wagerToken === "MUTB"
@@ -738,13 +769,15 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                               </div>
                             </div>
 
-                            <SoundButton
-                              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm min-h-[44px] mt-auto"
-                              disabled={game.status !== "live"}
-                              onClick={(e) => handleGameSelect(game.id, e)}
-                            >
-                              {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
-                            </SoundButton>
+                            <div className="mt-4 lg:mt-6">
+                              <SoundButton
+                                className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm lg:text-base min-h-[44px] lg:min-h-[48px]"
+                                disabled={game.status !== "live"}
+                                onClick={(e) => handleGameSelect(game.id, e)}
+                              >
+                                {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
+                              </SoundButton>
+                            </div>
                           </div>
                         </div>
                       </Card>
