@@ -274,7 +274,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                   {/* Content */}
                   <div className="relative h-full flex flex-col items-center justify-center p-8 text-white text-shadow-lg">
                     <IconComponent className="h-16 w-16 mb-4 text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] transition-transform duration-300 group-hover:scale-110" />
-                    <h3 className="text-4xl font-bold font-mono tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]">
+                    <h3 className="text-4xl font-bold font-mono tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)] md:text-4xl text-2xl">
                       {platform.title}
                     </h3>
                   </div>
@@ -374,7 +374,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                   </div>
 
                   {/* Wallet Connection Content */}
-                  <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4">
+                  <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4 md:p-6 p-4">
                     {/* Header */}
                     <div className="flex items-center gap-3 mb-4">
                       <div
@@ -390,7 +390,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                       <div className="text-center">
                         <h3
                           className={cn(
-                            "font-mono font-bold text-lg tracking-wider",
+                            "font-mono font-bold tracking-wider md:text-lg text-base",
                             isCyberpunk
                               ? "text-slate-200"
                               : "text-white drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
@@ -409,7 +409,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           onClick={() => connectWallet(wallet.type)}
                           disabled={loading || !wallet.available}
                           className={cn(
-                            "relative w-full justify-center h-12 font-bold text-sm px-4 border-2 transition-all duration-200 font-mono overflow-hidden group",
+                            "relative w-full justify-center font-bold px-4 border-2 transition-all duration-200 font-mono overflow-hidden group md:h-12 h-10 md:text-sm text-xs",
                             wallet.available
                               ? isCyberpunk
                                 ? "bg-slate-800/70 border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white hover:scale-[1.02]"
@@ -456,7 +456,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                                 />
                               </div>
                             )}
-                            <span className="text-sm font-bold tracking-wide">{wallet.name}</span>
+                            <span className="font-bold tracking-wide md:text-sm text-xs">{wallet.name}</span>
                             {connectingWallet === wallet.type && (
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                             )}
