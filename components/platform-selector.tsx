@@ -1,24 +1,16 @@
 "use client"
 
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-
-import { DropdownMenuContent } from "@/components/ui/dropdown-menu"
-
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-
-import { DropdownMenu } from "@/components/ui/dropdown-menu"
-
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
-import { Monitor, TestTube, Wallet, HelpCircle, ExternalLink } from "lucide-react"
+import { Monitor, Smartphone, TestTube, Wallet, HelpCircle, ExternalLink } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { LOGOS } from "@/utils/image-paths"
 import SoundButton from "./sound-button"
-import { audioManager, playIntroSound, loadAudioFiles } from "@/utils/audio-manager"
-import { initializeAudio } from "@/utils/audio-initializer" // Import initializeAudio
+import { audioManager, playIntroSound, initializeAudio, loadAudioFiles } from "@/utils/audio-manager"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // --- Types ---
 type PhantomEvent = "connect" | "disconnect" | "accountChanged"
@@ -211,7 +203,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
     {
       type: "mobile" as PlatformType,
       title: "Mobile",
-      icon: Monitor,
+      icon: Smartphone,
       image: "/images/retro-mobile-gaming.png",
     },
   ]
@@ -399,7 +391,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                             "p-2 rounded-lg border-2",
                             isCyberpunk
                               ? "bg-slate-800/60 border-slate-600/60"
-                              : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_15px_rgba(245,158,11,0.4)]",
+                              : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.4)]",
                           )}
                         >
                           <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
