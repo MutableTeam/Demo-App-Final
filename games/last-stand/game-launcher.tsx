@@ -193,28 +193,6 @@ export default function LastStandGameLauncher({
                 {isHourlyMode ? "HOURLY CHALLENGE" : "ARCHER ARENA: LAST STAND"}
               </CardTitle>
             </div>
-          </div>
-          <CardDescription className={cn(isCyberpunk && isHourlyMode && "text-cyan-300/90")}>
-            Confirm your entry to {mode.name}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <LastStandInstructions mode={mode} isCyberpunk={isCyberpunk} />
-        </CardContent>
-
-        <CardFooter className="flex justify-between">
-          <div className="flex items-center gap-4">
-            <SoundButton
-              className={cn(
-                lightButtonStyle,
-                isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30",
-              )}
-              onClick={() => setSelectedMode(null)}
-            >
-              BACK
-            </SoundButton>
-
             <Badge
               variant="outline"
               className={cn(
@@ -229,6 +207,22 @@ export default function LastStandGameLauncher({
               {mutbBalance.toFixed(2)} MUTB
             </Badge>
           </div>
+          <CardDescription className={cn(isCyberpunk && isHourlyMode && "text-cyan-300/90")}>
+            Confirm your entry to {mode.name}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <LastStandInstructions mode={mode} isCyberpunk={isCyberpunk} />
+        </CardContent>
+
+        <CardFooter className="flex justify-between">
+          <SoundButton
+            className={cn(lightButtonStyle, isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30")}
+            onClick={() => setSelectedMode(null)}
+          >
+            BACK
+          </SoundButton>
 
           <SoundButton
             className={cn(
@@ -259,6 +253,18 @@ export default function LastStandGameLauncher({
             <Skull className={cn("h-5 w-5", isCyberpunk && "text-cyan-400")} />
             <CardTitle className="font-mono">ARCHER ARENA: LAST STAND</CardTitle>
           </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "flex items-center gap-1 font-mono",
+              isCyberpunk
+                ? "bg-black/70 text-cyan-400 border border-cyan-500/50"
+                : "bg-[#FFD54F] text-black border-2 border-black",
+            )}
+          >
+            <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
+            {mutbBalance.toFixed(2)} MUTB
+          </Badge>
         </div>
         <CardDescription>Select a game mode to begin</CardDescription>
       </CardHeader>
