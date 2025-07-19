@@ -307,7 +307,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           className={cn(
                             "p-2 rounded-full border-2 transition-all duration-200",
                             isCyberpunk
-                              ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 hover:border-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)]"
+                              ? "bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/70 hover:border-slate-500/70 hover:text-cyan-300"
                               : "bg-amber-200/80 border-amber-500/70 text-amber-900 hover:bg-amber-300/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
                           )}
                         >
@@ -319,7 +319,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                         className={cn(
                           "w-56 border-2 font-mono",
                           isCyberpunk
-                            ? "bg-slate-900/95 border-cyan-400/50 text-cyan-300"
+                            ? "bg-slate-900/95 border-slate-600/50 text-slate-300"
                             : "bg-amber-50/95 border-amber-500/50 text-amber-900",
                         )}
                       >
@@ -328,7 +328,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           className={cn(
                             "cursor-pointer transition-colors duration-200",
                             isCyberpunk
-                              ? "hover:bg-cyan-500/20 focus:bg-cyan-500/20"
+                              ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
                               : "hover:bg-amber-200/50 focus:bg-amber-200/50",
                           )}
                         >
@@ -351,7 +351,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           className={cn(
                             "cursor-pointer transition-colors duration-200",
                             isCyberpunk
-                              ? "hover:bg-cyan-500/20 focus:bg-cyan-500/20"
+                              ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
                               : "hover:bg-amber-200/50 focus:bg-amber-200/50",
                           )}
                         >
@@ -381,18 +381,18 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                         className={cn(
                           "p-2 rounded-lg border-2",
                           isCyberpunk
-                            ? "bg-cyan-500/20 border-cyan-400/50 shadow-[0_0_10px_rgba(0,255,255,0.5)]"
+                            ? "bg-slate-800/60 border-slate-600/60"
                             : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.4)]",
                         )}
                       >
-                        <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-cyan-300" : "text-amber-900")} />
+                        <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
                       </div>
                       <div className="text-center">
                         <h3
                           className={cn(
                             "font-mono font-bold text-lg tracking-wider",
                             isCyberpunk
-                              ? "text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]"
+                              ? "text-slate-200"
                               : "text-amber-100 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
                           )}
                         >
@@ -412,17 +412,26 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                             "relative w-full justify-center h-12 font-bold text-sm px-4 border-2 transition-all duration-200 font-mono overflow-hidden group",
                             wallet.available
                               ? isCyberpunk
-                                ? "bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-cyan-400/60 text-cyan-300 hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-purple-500/30 shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:scale-[1.02]"
+                                ? "bg-slate-800/70 border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white hover:scale-[1.02]"
                                 : "bg-gradient-to-r from-amber-400 to-orange-400 border-amber-600 text-amber-900 hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-[1.02]"
                               : isCyberpunk
-                                ? "bg-slate-800/50 border-slate-600/50 text-slate-500 cursor-not-allowed opacity-60"
+                                ? "bg-slate-900/50 border-slate-700/50 text-slate-600 cursor-not-allowed opacity-60"
                                 : "bg-gray-600/70 border-gray-500/70 text-gray-300 cursor-not-allowed opacity-60",
                           )}
                         >
-                          {/* Shine effect */}
-                          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                          </div>
+                          {/* Subtle shine effect for cyberpunk */}
+                          {isCyberpunk && wallet.available && (
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                            </div>
+                          )}
+
+                          {/* Regular shine effect for light mode */}
+                          {!isCyberpunk && wallet.available && (
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                            </div>
+                          )}
 
                           <div className="relative flex items-center justify-center gap-3 z-10">
                             {wallet.type === "test" ? (
@@ -430,7 +439,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                                 className={cn(
                                   "p-1.5 rounded-full border-2",
                                   isCyberpunk
-                                    ? "bg-purple-500/30 border-purple-400/60"
+                                    ? "bg-slate-700/50 border-slate-500/50"
                                     : "bg-orange-200 border-orange-400",
                                 )}
                               >
