@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle, User } from "lucide-react"
+import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle, User, ShoppingCart } from "lucide-react"
 import Image from "next/image"
 import MutableMarketplace from "./mutable-marketplace"
+import TokenSwapInterface from "./token-swap-interface"
 import GameSelection from "./pvp-game/game-selection"
 import MatchmakingLobby from "./pvp-game/matchmaking-lobby"
 import UserProfile from "./user-profile"
@@ -310,18 +311,61 @@ export default function MutablePlatform({
           }
         >
           {activeTab === "exchange" && (
-            <MutableMarketplace
-              publicKey={publicKey}
-              balance={localBalance}
-              provider={provider}
-              connection={connection}
-              onBalanceChange={(currency, newBalance) => {
-                if (currency === "sol") {
-                  // Update the SOL balance in the parent component
-                  setLocalBalance(newBalance)
-                }
-              }}
-            />
+            <Tabs defaultValue="swap" className="w-full">
+              <TabsList
+                className={cn(
+                  "grid w-full grid-cols-2 mb-6 max-w-md mx-auto",
+                  isCyberpunk
+                    ? "bg-black/30 border border-cyan-500/30 p-1 h-12"
+                    : "bg-yellow-200 border-2 border-black h-12",
+                )}
+              >
+                <TabsTrigger
+                  value="swap"
+                  className={cn(
+                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300",
+                    isCyberpunk
+                      ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
+                      : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
+                  )}
+                  onClick={withClickSound()}
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                  <span>Token Swap</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="marketplace"
+                  className={cn(
+                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300",
+                    isCyberpunk
+                      ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
+                      : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
+                  )}
+                  onClick={withClickSound()}
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  <span>Marketplace</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="swap">
+                <TokenSwapInterface
+                  publicKey={publicKey}
+                  balance={localBalance}
+                  provider={provider}
+                  connection={connection}
+                  onBalanceChange={(currency, newBalance) => {
+                    if (currency === "sol") {
+                      setLocalBalance(newBalance)
+                    }
+                  }}
+                />
+              </TabsContent>
+
+              <TabsContent value="marketplace">
+                <MutableMarketplace publicKey={publicKey} balance={localBalance} mutbBalance={mutbBalance} />
+              </TabsContent>
+            </Tabs>
           )}
         </TabsContent>
 
