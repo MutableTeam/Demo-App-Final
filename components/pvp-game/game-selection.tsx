@@ -1,8 +1,10 @@
 "use client"
 
+import type React from "react"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2, Play, Users, Trophy, Clock, HelpCircle, ExternalLink } from 'lucide-react'
+import { Gamepad2, Play, Users, Trophy, Clock, HelpCircle, ExternalLink } from "lucide-react"
 import Image from "next/image"
 import SoundButton from "../sound-button"
 import { gameRegistry } from "@/types/game-registry"
@@ -319,7 +321,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
   // Handle game selection with Google Analytics tracking
   const handleGameSelect = (gameId: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card flip when clicking play button
-    
+
     // Check if SOL is selected and show popup
     if (wagerToken === "SOL") {
       setShowSolWarning(true)
@@ -487,7 +489,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
           </div>
         </div>
       </CardHeader>
-      <CardContent className={isMobile ? "p-4" : undefined}>
+      <CardContent className={isMobile ? "p-4" : "p-6"}>
         <ResponsiveGrid
           columns={{
             base: 1,
@@ -508,7 +510,10 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   {/* Front Side - Game Image and Name */}
                   <div className="flip-card-front">
                     {isCyberpunk ? (
-                      <CyberGameCard className="cursor-pointer h-48 md:h-56" onClick={() => handleCardClick(game.id)}>
+                      <CyberGameCard
+                        className={cn("cursor-pointer overflow-hidden", isMobile ? "h-56" : "h-64")}
+                        onClick={() => handleCardClick(game.id)}
+                      >
                         <div className="relative h-full">
                           <Image
                             src={getGameImage(game) || "/placeholder.svg"}
@@ -555,7 +560,10 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                       </CyberGameCard>
                     ) : (
                       <Card
-                        className="cursor-pointer h-48 md:h-56 border-2 border-black overflow-hidden"
+                        className={cn(
+                          "cursor-pointer border-2 border-black overflow-hidden",
+                          isMobile ? "h-56" : "h-60",
+                        )}
                         onClick={() => handleCardClick(game.id)}
                       >
                         <div className="relative h-full">
@@ -610,7 +618,10 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   {/* Back Side - Game Info and Play Button */}
                   <div className="flip-card-back">
                     {isCyberpunk ? (
-                      <CyberGameCard className="cursor-pointer h-48 md:h-56" onClick={() => handleCardClick(game.id)}>
+                      <CyberGameCard
+                        className={cn("cursor-pointer overflow-hidden", isMobile ? "h-56" : "h-64")}
+                        onClick={() => handleCardClick(game.id)}
+                      >
                         <div className="relative h-full">
                           <Image
                             src={getGameImage(game) || "/placeholder.svg"}
@@ -691,7 +702,13 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                         </div>
                       </CyberGameCard>
                     ) : (
-                      <Card className="cursor-pointer h-48 md:h-56 border-2 border-black overflow-hidden" onClick={() => handleCardClick(game.id)}>
+                      <Card
+                        className={cn(
+                          "cursor-pointer border-2 border-black overflow-hidden",
+                          isMobile ? "h-56" : "h-64",
+                        )}
+                        onClick={() => handleCardClick(game.id)}
+                      >
                         <div className="relative h-full">
                           <Image
                             src={getGameImage(game) || "/placeholder.svg"}
@@ -732,7 +749,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </DropdownMenu>
                           </div>
 
-                          <div className="relative h-full flex flex-col justify-between p-3 md:p-4">
+                          <div className="relative h-full flex flex-col justify-between p-4 md:p-5">
                             <div>
                               <div className="flex items-center gap-2 mb-2">
                                 <Play className="h-4 w-4 text-white" />
@@ -744,7 +761,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                                 {game.description}
                               </p>
 
-                              <div className="space-y-1 mb-3">
+                              <div className="space-y-1 mb-4">
                                 <div className="flex items-center gap-2 text-xs text-white/80">
                                   <Users className="h-3 w-3" />
                                   <span>{gameStats.players}</span>
@@ -766,7 +783,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             </div>
 
                             <SoundButton
-                              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm"
+                              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm min-h-[44px]"
                               disabled={game.status !== "live"}
                               onClick={(e) => handleGameSelect(game.id, e)}
                             >
