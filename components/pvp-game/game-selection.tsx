@@ -1,10 +1,8 @@
 "use client"
 
-import type React from "react"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2, Play, Users, Trophy, Clock, ArrowLeft } from "lucide-react"
+import { Gamepad2, Play, Users, Trophy, Clock, HelpCircle, ExternalLink } from 'lucide-react'
 import Image from "next/image"
 import SoundButton from "../sound-button"
 import { gameRegistry } from "@/types/game-registry"
@@ -27,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // Define breakpoints locally to avoid import issues
 const breakpoints = {
@@ -247,7 +246,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
 
   const [wagerToken, setWagerToken] = useState<"MUTB" | "SOL">("MUTB")
   const [showSolWarning, setShowSolWarning] = useState(false)
-  const [flippedCard, setFlippedCard] = useState<string | null>(null)
+  const [flippedCards, setFlippedCards] = useState<Set<string>>(new Set())
 
   // Modify the name for Archer Arena: Last Stand
   const processedGames = allGames.map((game) => {
@@ -304,19 +303,23 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
     return game.image || "/placeholder.svg"
   }
 
-  // Handle card flip - only one card can be flipped at a time
+  // Handle card flip
   const handleCardClick = (gameId: string) => {
-    setFlippedCard((prev) => (prev === gameId ? null : gameId))
-  }
-
-  // Handle back button click
-  const handleBackClick = (gameId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setFlippedCard(null)
+    setFlippedCards((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(gameId)) {
+        newSet.delete(gameId)
+      } else {
+        newSet.add(gameId)
+      }
+      return newSet
+    })
   }
 
   // Handle game selection with Google Analytics tracking
-  const handleGameSelect = (gameId: string) => {
+  const handleGameSelect = (gameId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card flip when clicking play button
+    
     // Check if SOL is selected and show popup
     if (wagerToken === "SOL") {
       setShowSolWarning(true)
@@ -494,7 +497,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
           gap={isMobile ? "0.75rem" : "1rem"}
         >
           {games.map((game) => {
-            const isFlipped = flippedCard === game.id
+            const isFlipped = flippedCards.has(game.id)
             const gameStats = getGameStats(game)
 
             return (
@@ -607,7 +610,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                   {/* Back Side - Game Info and Play Button */}
                   <div className="flip-card-back">
                     {isCyberpunk ? (
-                      <CyberGameCard className="h-48 md:h-56">
+                      <CyberGameCard className="cursor-pointer h-48 md:h-56" onClick={() => handleCardClick(game.id)}>
                         <div className="relative h-full">
                           <Image
                             src={getGameImage(game) || "/placeholder.svg"}
@@ -618,16 +621,34 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                           />
                           <div className="absolute inset-0 bg-black/60" />
 
-                          {/* Back Button */}
+                          {/* Help Button */}
                           <div className="absolute top-2 right-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 bg-slate-800/70 border border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white"
-                              onClick={(e) => handleBackClick(game.id, e)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 bg-slate-800/70 border border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <HelpCircle className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
+                                <DropdownMenuItem asChild>
+                                  <a
+                                    href={`/games/${game.id}/instructions`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-slate-200 hover:text-white"
+                                  >
+                                    <HelpCircle className="h-4 w-4" />
+                                    Game Instructions
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
 
                           <div className="relative h-full flex flex-col justify-between p-3 md:p-4">
@@ -662,7 +683,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             <CyberPlayButton
                               className="cyber-play-button"
                               disabled={game.status !== "live"}
-                              onClick={() => handleGameSelect(game.id)}
+                              onClick={(e) => handleGameSelect(game.id, e)}
                             >
                               {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
                             </CyberPlayButton>
@@ -670,7 +691,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                         </div>
                       </CyberGameCard>
                     ) : (
-                      <Card className="h-48 md:h-56 border-2 border-black overflow-hidden">
+                      <Card className="cursor-pointer h-48 md:h-56 border-2 border-black overflow-hidden" onClick={() => handleCardClick(game.id)}>
                         <div className="relative h-full">
                           <Image
                             src={getGameImage(game) || "/placeholder.svg"}
@@ -681,16 +702,34 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                           />
                           <div className="absolute inset-0 bg-black/60" />
 
-                          {/* Back Button */}
+                          {/* Help Button */}
                           <div className="absolute top-2 right-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 bg-amber-200/80 border border-black text-amber-800 hover:bg-amber-100"
-                              onClick={(e) => handleBackClick(game.id, e)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 bg-amber-200/80 border border-black text-amber-800 hover:bg-amber-100"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <HelpCircle className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <a
+                                    href={`/games/${game.id}/instructions`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2"
+                                  >
+                                    <HelpCircle className="h-4 w-4" />
+                                    Game Instructions
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
 
                           <div className="relative h-full flex flex-col justify-between p-3 md:p-4">
@@ -729,7 +768,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                             <SoundButton
                               className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm"
                               disabled={game.status !== "live"}
-                              onClick={() => handleGameSelect(game.id)}
+                              onClick={(e) => handleGameSelect(game.id, e)}
                             >
                               {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
                             </SoundButton>
