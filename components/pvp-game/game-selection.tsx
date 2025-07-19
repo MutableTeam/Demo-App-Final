@@ -1,8 +1,10 @@
 "use client"
 
+import type React from "react"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2, Play, Users, Trophy, Clock, HelpCircle, ExternalLink } from "lucide-react"
+import { Gamepad2, Play, Users, Trophy, Clock, ArrowLeft } from "lucide-react"
 import Image from "next/image"
 import SoundButton from "../sound-button"
 import { gameRegistry } from "@/types/game-registry"
@@ -25,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // Define breakpoints locally to avoid import issues
 const breakpoints = {
@@ -246,7 +247,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
 
   const [wagerToken, setWagerToken] = useState<"MUTB" | "SOL">("MUTB")
   const [showSolWarning, setShowSolWarning] = useState(false)
-  const [flippedCards, setFlippedCards] = useState<Set<string>>(new Set())
+  const [flippedCard, setFlippedCard] = useState<string | null>(null)
 
   // Modify the name for Archer Arena: Last Stand
   const processedGames = allGames.map((game) => {
@@ -303,17 +304,15 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
     return game.image || "/placeholder.svg"
   }
 
-  // Handle card flip
+  // Handle card flip - only one card can be flipped at a time
   const handleCardClick = (gameId: string) => {
-    setFlippedCards((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(gameId)) {
-        newSet.delete(gameId)
-      } else {
-        newSet.add(gameId)
-      }
-      return newSet
-    })
+    setFlippedCard((prev) => (prev === gameId ? null : gameId))
+  }
+
+  // Handle back button click
+  const handleBackClick = (gameId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setFlippedCard(null)
   }
 
   // Handle game selection with Google Analytics tracking
@@ -495,7 +494,7 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
           gap={isMobile ? "0.75rem" : "1rem"}
         >
           {games.map((game) => {
-            const isFlipped = flippedCards.has(game.id)
+            const isFlipped = flippedCard === game.id
             const gameStats = getGameStats(game)
 
             return (
@@ -619,33 +618,16 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                           />
                           <div className="absolute inset-0 bg-black/60" />
 
-                          {/* Help Button */}
+                          {/* Back Button */}
                           <div className="absolute top-2 right-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 bg-slate-800/70 border border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white"
-                                >
-                                  <HelpCircle className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
-                                <DropdownMenuItem asChild>
-                                  <a
-                                    href={`/games/${game.id}/instructions`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-slate-200 hover:text-white"
-                                  >
-                                    <HelpCircle className="h-4 w-4" />
-                                    Game Instructions
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 bg-slate-800/70 border border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white"
+                              onClick={(e) => handleBackClick(game.id, e)}
+                            >
+                              <ArrowLeft className="h-4 w-4" />
+                            </Button>
                           </div>
 
                           <div className="relative h-full flex flex-col justify-between p-3 md:p-4">
@@ -699,33 +681,16 @@ export default function GameSelection({ publicKey, balance, mutbBalance, onSelec
                           />
                           <div className="absolute inset-0 bg-black/60" />
 
-                          {/* Help Button */}
+                          {/* Back Button */}
                           <div className="absolute top-2 right-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 bg-amber-200/80 border border-black text-amber-800 hover:bg-amber-100"
-                                >
-                                  <HelpCircle className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <a
-                                    href={`/games/${game.id}/instructions`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2"
-                                  >
-                                    <HelpCircle className="h-4 w-4" />
-                                    Game Instructions
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 bg-amber-200/80 border border-black text-amber-800 hover:bg-amber-100"
+                              onClick={(e) => handleBackClick(game.id, e)}
+                            >
+                              <ArrowLeft className="h-4 w-4" />
+                            </Button>
                           </div>
 
                           <div className="relative h-full flex flex-col justify-between p-3 md:p-4">
