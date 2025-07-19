@@ -95,6 +95,7 @@
   height: 100%;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  border-radius: inherit;
 }
 
 .flip-card-front {
