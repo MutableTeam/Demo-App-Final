@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Monitor, Smartphone, TestTube, Wallet } from "lucide-react"
+import { Monitor, Smartphone, TestTube, Wallet, HelpCircle, ExternalLink } from "lucide-react"
 import { usePlatform, type PlatformType } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
@@ -11,6 +11,7 @@ import { LOGOS } from "@/utils/image-paths"
 import SoundButton from "./sound-button"
 import { audioManager, playIntroSound, initializeAudio, loadAudioFiles } from "@/utils/audio-manager"
 import { useEffect } from "react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 // --- Types ---
 type PhantomEvent = "connect" | "disconnect" | "accountChanged"
@@ -181,6 +182,14 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
     }
   }
 
+  const handleWalletDownload = (walletType: "phantom" | "solflare") => {
+    const urls = {
+      phantom: "https://phantom.app/download",
+      solflare: "https://solflare.com/download",
+    }
+    window.open(urls[walletType], "_blank", "noopener,noreferrer")
+  }
+
   const platforms = [
     {
       type: "desktop" as PlatformType,
@@ -290,6 +299,80 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/50" />
 
+                  {/* Help Button - Top Right */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <SoundButton
+                          className={cn(
+                            "p-2 rounded-full border-2 transition-all duration-200",
+                            isCyberpunk
+                              ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 hover:border-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)]"
+                              : "bg-amber-200/80 border-amber-500/70 text-amber-900 hover:bg-amber-300/80 hover:border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
+                          )}
+                        >
+                          <HelpCircle className="h-4 w-4" />
+                        </SoundButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className={cn(
+                          "w-56 border-2 font-mono",
+                          isCyberpunk
+                            ? "bg-slate-900/95 border-cyan-400/50 text-cyan-300"
+                            : "bg-amber-50/95 border-amber-500/50 text-amber-900",
+                        )}
+                      >
+                        <DropdownMenuItem
+                          onClick={() => handleWalletDownload("phantom")}
+                          className={cn(
+                            "cursor-pointer transition-colors duration-200",
+                            isCyberpunk
+                              ? "hover:bg-cyan-500/20 focus:bg-cyan-500/20"
+                              : "hover:bg-amber-200/50 focus:bg-amber-200/50",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-1 rounded-full bg-white/90 border border-gray-300">
+                              <Image
+                                src={LOGOS.PHANTOM || "/placeholder.svg"}
+                                alt="Phantom"
+                                width={16}
+                                height={16}
+                                className="rounded-full"
+                              />
+                            </div>
+                            <span>Get Phantom Wallet</span>
+                            <ExternalLink className="h-3 w-3 ml-auto" />
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleWalletDownload("solflare")}
+                          className={cn(
+                            "cursor-pointer transition-colors duration-200",
+                            isCyberpunk
+                              ? "hover:bg-cyan-500/20 focus:bg-cyan-500/20"
+                              : "hover:bg-amber-200/50 focus:bg-amber-200/50",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-1 rounded-full bg-white/90 border border-gray-300">
+                              <Image
+                                src={LOGOS.SOLFLARE || "/placeholder.svg"}
+                                alt="Solflare"
+                                width={16}
+                                height={16}
+                                className="rounded-full"
+                              />
+                            </div>
+                            <span>Get Solflare Wallet</span>
+                            <ExternalLink className="h-3 w-3 ml-auto" />
+                          </div>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
                   {/* Wallet Connection Content */}
                   <div className="relative h-full flex flex-col items-center justify-center p-6 space-y-4">
                     {/* Header */}
@@ -299,10 +382,10 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           "p-2 rounded-lg border-2",
                           isCyberpunk
                             ? "bg-cyan-500/20 border-cyan-400/50 shadow-[0_0_10px_rgba(0,255,255,0.5)]"
-                            : "bg-amber-200/50 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]",
+                            : "bg-amber-200/80 border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.4)]",
                         )}
                       >
-                        <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-cyan-300" : "text-amber-700")} />
+                        <Wallet className={cn("h-5 w-5", isCyberpunk ? "text-cyan-300" : "text-amber-900")} />
                       </div>
                       <div className="text-center">
                         <h3
@@ -310,7 +393,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                             "font-mono font-bold text-lg tracking-wider",
                             isCyberpunk
                               ? "text-cyan-300 drop-shadow-[0_0_8px_rgba(0,255,255,0.7)]"
-                              : "text-amber-800 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]",
+                              : "text-amber-100 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
                           )}
                         >
                           CONNECT WALLET
@@ -333,7 +416,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                                 : "bg-gradient-to-r from-amber-400 to-orange-400 border-amber-600 text-amber-900 hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-[1.02]"
                               : isCyberpunk
                                 ? "bg-slate-800/50 border-slate-600/50 text-slate-500 cursor-not-allowed opacity-60"
-                                : "bg-gray-300/70 border-gray-400/70 text-gray-600 cursor-not-allowed opacity-60",
+                                : "bg-gray-600/70 border-gray-500/70 text-gray-300 cursor-not-allowed opacity-60",
                           )}
                         >
                           {/* Shine effect */}
