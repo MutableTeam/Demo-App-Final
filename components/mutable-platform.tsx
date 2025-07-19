@@ -58,6 +58,10 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
   const balance = walletData?.balance ?? null
   const provider = walletData?.provider ?? null
 
+  // Add safe defaults for all numeric values
+  const safeBalance = balance ?? 0
+  const safeMutbBalance = 100 // Default MUTB balance
+
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
@@ -94,6 +98,12 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
   const formatPublicKey = (key: string) => {
     if (key.length <= 8) return key
     return `${key.slice(0, 4)}...${key.slice(-4)}`
+  }
+
+  const handleSelectGame = () => {
+    if (!audioManager.isSoundMuted()) {
+      playIntroSound()
+    }
   }
 
   return (
@@ -160,9 +170,9 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
                   <div className={cn("font-mono font-bold", isCyberpunk ? "text-slate-200" : "text-amber-900")}>
                     {formatPublicKey(publicKey)}
                   </div>
-                  {balance !== null && (
+                  {safeBalance > 0 && (
                     <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-amber-700")}>
-                      {balance.toFixed(4)} SOL
+                      {safeBalance.toFixed(4)} SOL
                     </div>
                   )}
                 </div>
@@ -249,7 +259,12 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
 
           {/* Games Tab */}
           <TabsContent value="games" className="space-y-6">
-            <GameSelection />
+            <GameSelection
+              publicKey={publicKey}
+              balance={safeBalance}
+              mutbBalance={safeMutbBalance}
+              onSelectGame={handleSelectGame}
+            />
           </TabsContent>
 
           {/* Leaderboard Tab */}
@@ -454,7 +469,7 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
                       )}
                     >
                       <div className={cn("text-2xl font-bold", isCyberpunk ? "text-cyan-300" : "text-amber-700")}>
-                        {userStats.tokensEarned}
+                        {(userStats.tokensEarned ?? 0).toFixed(0)}
                       </div>
                       <div className={cn("text-sm", isCyberpunk ? "text-slate-400" : "text-gray-600")}>
                         MUTABLE Earned
