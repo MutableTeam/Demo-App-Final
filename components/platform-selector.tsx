@@ -393,7 +393,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                             "font-mono font-bold text-lg tracking-wider",
                             isCyberpunk
                               ? "text-slate-200"
-                              : "text-amber-100 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
+                              : "text-white drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] font-black text-shadow-lg",
                           )}
                         >
                           CONNECT WALLET
