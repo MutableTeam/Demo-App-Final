@@ -52,6 +52,12 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
     level: 15,
   })
 
+  // Add default values for walletData properties
+  const isTestMode = walletData?.isTestMode ?? false
+  const publicKey = walletData?.publicKey ?? ""
+  const balance = walletData?.balance ?? null
+  const provider = walletData?.provider ?? null
+
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
@@ -121,7 +127,7 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
                     : "border-amber-500/50 text-amber-700 bg-amber-500/10",
                 )}
               >
-                {walletData.isTestMode ? "TEST MODE" : "MAINNET"}
+                {isTestMode ? "TEST MODE" : "MAINNET"}
               </Badge>
             </div>
 
@@ -152,11 +158,11 @@ export default function MutablePlatform({ walletData, onDisconnect }: MutablePla
                 <Wallet className={cn("h-4 w-4", isCyberpunk ? "text-slate-300" : "text-amber-900")} />
                 <div className="text-sm">
                   <div className={cn("font-mono font-bold", isCyberpunk ? "text-slate-200" : "text-amber-900")}>
-                    {formatPublicKey(walletData.publicKey)}
+                    {formatPublicKey(publicKey)}
                   </div>
-                  {walletData.balance !== null && (
+                  {balance !== null && (
                     <div className={cn("text-xs", isCyberpunk ? "text-slate-400" : "text-amber-700")}>
-                      {walletData.balance.toFixed(4)} SOL
+                      {balance.toFixed(4)} SOL
                     </div>
                   )}
                 </div>
