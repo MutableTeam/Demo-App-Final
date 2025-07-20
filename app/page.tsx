@@ -1,146 +1,141 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import PromoWatermark from "@/components/promo-watermark"
-import GlobalAudioControls from "@/components/global-audio-controls"
-import DebugOverlay from "@/components/debug-overlay"
-import PlatformSelector from "@/components/platform-selector"
-import { registerGames } from "@/games/registry"
-import MutablePlatform from "@/components/mutable-platform"
-import RetroArcadeBackground from "@/components/retro-arcade-background"
-import { Connection, clusterApiUrl } from "@solana/web3.js"
-import "@/styles/retro-arcade.css"
-import { initializeGoogleAnalytics } from "@/utils/analytics"
-import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
-import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
+import { Connection, PublicKey } from "@solana/web3.js"
+import { AnchorProvider, web3 } from "@project-serum/anchor"
 
-// Google Analytics Measurement ID
-const GA_MEASUREMENT_ID = "G-41DL97N287"
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom"
+import { useWallet, WalletProvider } from "@solana/wallet-adapter-react"
+import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui"
+require("@solana/wallet-adapter-react-ui/styles.css")
 
-function HomeContent() {
+import idl from "../idl.json"
+import { MutablePlatform } from "./MutablePlatform"
+
+const programID = new PublicKey(idl.metadata.address)
+const network = "http://127.0.0.1:8899"
+const opts = {
+  preflightCommitment: "processed",
+}
+
+const platformTypes = ["Twitter", "YouTube", "TikTok"]
+
+const App = () => {
   const [walletConnected, setWalletConnected] = useState(false)
-  const [publicKey, setPublicKey] = useState("")
-  const [balance, setBalance] = useState<number | null>(null)
-  const [provider, setProvider] = useState<any>(null)
-  const [showPlatform, setShowPlatform] = useState(false)
+  const [publicKey, setPublicKey] = useState(null)
+  const [balance, setBalance] = useState(0)
+  const [provider, setProvider] = useState(null)
+  const [connection, setConnection] = useState(null)
+  const [platformType, setPlatformType] = useState(null)
 
-  // Platform context
-  const { isSelected: isPlatformSelected } = usePlatform()
+  const wallet = useWallet()
 
-  // Initialize Google Analytics
   useEffect(() => {
-    initializeGoogleAnalytics(GA_MEASUREMENT_ID)
-  }, [])
-
-  // Initialize games registry
-  useEffect(() => {
-    registerGames()
-    // Initialize enhanced renderer
-    initializeEnhancedRenderer()
-  }, [])
-
-  const handleWalletConnection = (walletData: {
-    connected: boolean
-    publicKey: string
-    balance: number | null
-    provider: any
-    isTestMode?: boolean
-  }) => {
-    console.log("Wallet connection data received:", walletData)
-
-    if (walletData.connected && walletData.publicKey) {
+    if (wallet.connected) {
+      setPublicKey(wallet.publicKey.toString())
       setWalletConnected(true)
-      setPublicKey(walletData.publicKey)
-      setBalance(walletData.balance)
-      setProvider(walletData.provider)
-      setShowPlatform(true)
+    }
+  }, [wallet.connected, wallet.publicKey])
 
-      console.log("Setting wallet state:", {
-        connected: true,
-        publicKey: walletData.publicKey,
-        balance: walletData.balance,
-        showPlatform: true,
-      })
-    } else {
-      // Only reset if we're not already connected
-      if (!showPlatform) {
-        setWalletConnected(false)
-        setPublicKey("")
-        setBalance(null)
-        setProvider(null)
-        setShowPlatform(false)
+  useEffect(() => {
+    const establishConnection = async () => {
+      const connection = new Connection(network, opts.preflightCommitment)
+      setConnection(connection)
+
+      if (wallet.publicKey) {
+        const provider = getProvider()
+        setProvider(provider)
       }
     }
+
+    establishConnection()
+  }, [wallet.publicKey])
+
+  useEffect(() => {
+    const getWalletBalance = async () => {
+      if (publicKey && connection) {
+        try {
+          const balance = await connection.getBalance(new PublicKey(publicKey))
+          setBalance(balance / web3.LAMPORTS_PER_SOL)
+        } catch (e) {
+          console.error(e)
+          setBalance(0)
+        }
+      }
+    }
+
+    getWalletBalance()
+  }, [publicKey, connection])
+
+  const getProvider = () => {
+    const provider = new AnchorProvider(connection, wallet, opts.preflightCommitment)
+    return provider
   }
 
   const handleDisconnect = () => {
-    if (provider && typeof provider.disconnect === "function") {
-      provider.disconnect()
-    }
     setWalletConnected(false)
-    setPublicKey("")
-    setBalance(null)
+    setPublicKey(null)
+    setBalance(0)
     setProvider(null)
-    setShowPlatform(false)
+    setConnection(null)
+    setPlatformType(null)
   }
 
-  // Create a connection object for Solana
-  const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
-
-  console.log("Current app state:", { walletConnected, publicKey, balance, showPlatform })
-
-  // Show platform selector until wallet is connected and we should show platform
-  if (!showPlatform || !walletConnected || !publicKey) {
-    return (
-      <main className="min-h-screen bg-background relative">
-        <PromoWatermark />
-
-        <div className="fixed top-4 right-4 md:right-8 z-[90]">
-          <GlobalAudioControls />
-        </div>
-
-        <RetroArcadeBackground>
-          <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative flex items-center justify-center min-h-screen">
-            <PlatformSelector onWalletConnect={handleWalletConnection} />
-            <DebugOverlay initiallyVisible={false} position="bottom-right" />
-          </div>
-        </RetroArcadeBackground>
-      </main>
-    )
-  }
-
-  // Show main platform once wallet is connected (wallet widget removed from top-right)
   return (
-    <main className="min-h-screen bg-background relative">
-      <PromoWatermark />
-
-      {/* Audio controls positioned at top right */}
-      <div className="fixed top-4 right-4 md:right-8 z-[90]">
-        <GlobalAudioControls />
+    <div className="App">
+      <div>
+        {!walletConnected ? (
+          <WalletMultiButton />
+        ) : (
+          <>
+            <p>
+              <strong>Public Key:</strong> {publicKey}
+            </p>
+            <p>
+              <strong>Balance:</strong> {balance} SOL
+            </p>
+            <button onClick={handleDisconnect}>Disconnect Wallet</button>
+            <div>
+              <label htmlFor="platformType">Choose a platform:</label>
+              <select name="platformType" id="platformType" onChange={(e) => setPlatformType(e.target.value)}>
+                <option value="">Select a platform</option>
+                {platformTypes.map((platform) => (
+                  <option key={platform} value={platform}>
+                    {platform}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
-      <RetroArcadeBackground>
-        <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
-          <div className="mt-16">
-            <MutablePlatform
-              publicKey={publicKey}
-              balance={balance}
-              provider={provider}
-              connection={connection}
-              onDisconnect={handleDisconnect}
-            />
-          </div>
-          <DebugOverlay initiallyVisible={false} position="bottom-right" />
-        </div>
-      </RetroArcadeBackground>
-    </main>
+      {platformType && walletConnected ? (
+        <MutablePlatform
+          publicKey={publicKey}
+          balance={balance}
+          provider={provider}
+          connection={connection}
+          onDisconnect={handleDisconnect}
+          platformType={platformType}
+        />
+      ) : (
+        <p>Please connect your wallet and select a platform.</p>
+      )}
+    </div>
   )
 }
 
-export default function Home() {
+export default function Page() {
+  const wallets = [new PhantomWalletAdapter()]
+
   return (
-    <PlatformProvider>
-      <HomeContent />
-    </PlatformProvider>
+    <div>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <App />
+        </WalletModalProvider>
+      </WalletProvider>
+    </div>
   )
 }
