@@ -10,11 +10,27 @@ import { lastStandConfig } from "./config"
 import LastStandInstructions from "./instructions"
 import { withClickSound } from "@/utils/sound-utils"
 import { useToast } from "@/hooks/use-toast"
+import { GameContainer } from "@/components/game-container"
 import GamePopOutContainer from "@/components/game-pop-out-container"
 import { cn } from "@/lib/utils"
-import { usePlatform } from "@/contexts/platform-context"
-import MobileGameContainer from "@/components/mobile-game-container"
-import LastStandGameComponent from "./game-component"
+
+// Add this after the existing imports
+import { keyframes } from "@emotion/react"
+import styled from "@emotion/styled"
+
+// Add these styled components and keyframes
+const pulseGlow = keyframes`
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.7), 0 0 12px rgba(0, 255, 255, 0.4);
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.9), 0 0 20px rgba(0, 255, 255, 0.6);
+  }
+`
+
+const TextShadowGlow = styled.span`
+  animation: ${pulseGlow} 2s infinite;
+`
 
 interface LastStandGameLauncherProps {
   publicKey: string
@@ -35,11 +51,6 @@ export default function LastStandGameLauncher({
   const [gameStarted, setGameStarted] = useState(false)
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
   const { toast } = useToast()
-  const { platformType } = usePlatform()
-
-  // Mobile touch control states
-  const [joystickState, setJoystickState] = useState({ x: 0, y: 0 })
-  const [actionState, setActionState] = useState<{ action: string; pressed: boolean } | null>(null)
 
   // Define the consistent button style for light UI
   const lightButtonStyle =
@@ -62,73 +73,52 @@ export default function LastStandGameLauncher({
   }
 
   const handleGameOver = (stats: any) => {
+    // Here you would submit the score to the leaderboard
     toast({
       title: "Game Over!",
-      description: `Your final score: ${stats?.score || 0}`,
+      description: `Your final score: ${stats.score}`,
     })
 
+    // Close the pop-out
     setIsGamePopOutOpen(false)
+
+    // Reset game state
     setGameStarted(false)
     setSelectedMode(null)
   }
 
   const handleStartGame = () => {
     setGameStarted(true)
-    if (platformType === "desktop") {
-      setIsGamePopOutOpen(true)
-    }
+    setIsGamePopOutOpen(true)
   }
 
   const handleClosePopOut = () => {
+    // Show a confirmation dialog before closing the game
     if (window.confirm("Are you sure you want to exit the game? Your progress will be lost.")) {
       setIsGamePopOutOpen(false)
       setGameStarted(false)
     }
   }
 
-  const handleJoystickMove = (direction: { x: number; y: number }) => {
-    setJoystickState(direction)
-  }
-
-  const handleActionPress = (action: string, pressed: boolean) => {
-    setActionState({ action, pressed })
-  }
-
-  // Game content to be rendered
+  // Game content to be rendered in the pop-out
   const renderGameContent = () => {
     if (!selectedMode) return null
 
     return (
-      <LastStandGameComponent
-        playerId={publicKey}
-        playerName={playerName}
-        gameMode={selectedMode}
-        onGameEnd={handleGameOver}
-        platformType={platformType}
-        joystickInput={joystickState}
-        actionInput={actionState}
-      />
+      <div className="w-full h-full">
+        <GameContainer
+          gameId="archer-arena"
+          playerId={publicKey}
+          playerName={playerName}
+          isHost={true}
+          gameMode={selectedMode}
+          onGameEnd={handleGameOver}
+        />
+      </div>
     )
   }
 
   if (gameStarted && selectedMode) {
-    // Mobile full-screen game
-    if (platformType === "mobile") {
-      return (
-        <MobileGameContainer
-          onJoystickMove={handleJoystickMove}
-          onActionPress={handleActionPress}
-          onExit={() => {
-            setGameStarted(false)
-            setSelectedMode(null)
-          }}
-        >
-          {renderGameContent()}
-        </MobileGameContainer>
-      )
-    }
-
-    // Desktop pop-out game
     return (
       <>
         <GamePopOutContainer isOpen={isGamePopOutOpen} onClose={handleClosePopOut} title="ARCHER ARENA: LAST STAND">
