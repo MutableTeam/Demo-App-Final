@@ -103,53 +103,67 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Handle joystick movement for mobile - ONLY MOVEMENT
+  // Handle joystick movement for mobile - ONLY MOVEMENT, NO SHOOTING
   const handleJoystickMove = (direction: { x: number; y: number }) => {
-    if (!gameStateRef.current.players[playerId]) return
+    console.log("Game controller received joystick movement:", direction)
+
+    if (!gameStateRef.current.players[playerId]) {
+      console.log("No player found for joystick movement")
+      return
+    }
+
     const player = gameStateRef.current.players[playerId]
     const deadzone = 0.1
 
-    // Apply movement controls based on joystick direction
+    // ONLY set movement controls - NO shooting controls
+    const wasMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
+
     player.controls.up = direction.y < -deadzone
     player.controls.down = direction.y > deadzone
     player.controls.left = direction.x < -deadzone
     player.controls.right = direction.x > deadzone
 
-    // Update player animation state based on movement
-    if (Math.abs(direction.x) > deadzone || Math.abs(direction.y) > deadzone) {
+    const isMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
+
+    console.log("Player movement controls updated:", {
+      up: player.controls.up,
+      down: player.controls.down,
+      left: player.controls.left,
+      right: player.controls.right,
+      isMoving,
+      wasMoving,
+    })
+
+    // Update animation state based on movement ONLY if not in combat actions
+    if (isMoving && !wasMoving) {
       if (player.animationState === "idle" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
         player.animationState = "run"
         player.lastAnimationChange = Date.now()
+        console.log("Changed animation to run")
       }
-    } else {
+    } else if (!isMoving && wasMoving) {
       if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
         player.animationState = "idle"
         player.lastAnimationChange = Date.now()
+        console.log("Changed animation to idle")
       }
     }
-
-    // Debug logging
-    debugManager.logDebug("MOBILE_INPUT", "Joystick movement", {
-      direction,
-      controls: {
-        up: player.controls.up,
-        down: player.controls.down,
-        left: player.controls.left,
-        right: player.controls.right,
-      },
-      animationState: player.animationState,
-    })
   }
 
-  // Handle action button presses - ONLY ACTIONS
+  // Handle action button presses - ONLY ACTIONS, NO MOVEMENT
   const handleActionPress = (action: string, pressed: boolean) => {
-    if (!gameStateRef.current.players[playerId]) return
-    const player = gameStateRef.current.players[playerId]
+    console.log("Game controller received action press:", { action, pressed })
 
-    debugManager.logDebug("MOBILE_INPUT", "Action button", { action, pressed })
+    if (!gameStateRef.current.players[playerId]) {
+      console.log("No player found for action press")
+      return
+    }
+
+    const player = gameStateRef.current.players[playerId]
 
     switch (action) {
       case "shoot": // Bow shooting
+        console.log("Handling shoot action:", pressed)
         player.controls.shoot = pressed
         if (pressed) {
           // Start drawing bow
@@ -157,44 +171,47 @@ export default function GameControllerEnhanced({
           player.drawStartTime = Date.now() / 1000
           player.animationState = "draw"
           player.lastAnimationChange = Date.now()
-          debugManager.logDebug("MOBILE_INPUT", "Started drawing bow")
+          console.log("Started drawing bow")
         } else {
           // Release bow
           if (player.isDrawingBow) {
             player.isDrawingBow = false
             player.animationState = "fire"
             player.lastAnimationChange = Date.now()
-            debugManager.logDebug("MOBILE_INPUT", "Released bow")
+            console.log("Released bow - firing arrow")
           }
         }
         break
       case "dash": // Dash movement
+        console.log("Handling dash action:", pressed)
         if (pressed && !player.isDashing && (player.dashCooldown || 0) <= 0) {
           player.controls.dash = true
-          debugManager.logDebug("MOBILE_INPUT", "Dash activated")
+          console.log("Dash activated")
         } else {
           player.controls.dash = false
         }
         break
       case "special": // Special attack
+        console.log("Handling special action:", pressed)
         player.controls.special = pressed
         if (pressed) {
           player.isChargingSpecial = true
           player.specialStartTime = Date.now() / 1000
           player.animationState = "special"
           player.lastAnimationChange = Date.now()
-          debugManager.logDebug("MOBILE_INPUT", "Started charging special")
+          console.log("Started charging special")
         } else {
           if (player.isChargingSpecial) {
             player.isChargingSpecial = false
-            debugManager.logDebug("MOBILE_INPUT", "Released special attack")
+            console.log("Released special attack")
           }
         }
         break
       case "explosive": // Explosive arrow
+        console.log("Handling explosive action:", pressed)
         if (pressed && (player.explosiveArrowCooldown || 0) <= 0) {
           player.controls.explosiveArrow = true
-          debugManager.logDebug("MOBILE_INPUT", "Explosive arrow activated")
+          console.log("Explosive arrow activated")
         } else {
           player.controls.explosiveArrow = false
         }
