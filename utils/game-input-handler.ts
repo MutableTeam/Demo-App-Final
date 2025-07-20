@@ -2,7 +2,6 @@ import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
 import { audioManager } from "@/utils/audio-manager"
 import { debugManager } from "./debug-utils"
-import type { TouchPoint } from "@/utils/touch-point"
 
 export interface InputHandlerOptions {
   playerId: string
@@ -13,6 +12,15 @@ export interface InputHandlerOptions {
   onMouseUp?: (e: MouseEvent, player: any) => void
   onKeyDown?: (e: KeyboardEvent, player: any) => void
   onKeyUp?: (e: KeyboardEvent, player: any) => void
+}
+
+export interface TouchPoint {
+  id: number
+  x: number
+  y: number
+  startX: number
+  startY: number
+  startTime: number
 }
 
 export interface AimingState {
@@ -56,7 +64,7 @@ class GameInputHandler {
       touchPoints: new Map(),
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "Centralized GameInputHandler (Actions Only) created.")
+    debugManager.logInfo("INPUT", "GameInputHandler created (no joystick support)")
   }
 
   public handleActionPress = (action: string, pressed: boolean) => {

@@ -93,50 +93,6 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  const handleJoystickMove = (direction: { x: number; y: number }) => {
-    console.log("Game controller received joystick movement:", direction)
-
-    if (!gameStateRef.current.players[playerId]) {
-      console.log("No player found for joystick movement")
-      return
-    }
-
-    const player = gameStateRef.current.players[playerId]
-    const deadzone = 0.1
-
-    const wasMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
-
-    player.controls.up = direction.y < -deadzone
-    player.controls.down = direction.y > deadzone
-    player.controls.left = direction.x < -deadzone
-    player.controls.right = direction.x > deadzone
-
-    const isMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
-
-    console.log("Player movement controls updated:", {
-      up: player.controls.up,
-      down: player.controls.down,
-      left: player.controls.left,
-      right: player.controls.right,
-      isMoving,
-      wasMoving,
-    })
-
-    if (isMoving && !wasMoving) {
-      if (player.animationState === "idle" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
-        player.animationState = "run"
-        player.lastAnimationChange = Date.now()
-        console.log("Changed animation to run")
-      }
-    } else if (!isMoving && wasMoving) {
-      if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
-        player.animationState = "idle"
-        player.lastAnimationChange = Date.now()
-        console.log("Changed animation to idle")
-      }
-    }
-  }
-
   const handleActionPress = (action: string, pressed: boolean) => {
     console.log("Game controller received action press:", { action, pressed })
 
@@ -585,9 +541,9 @@ export default function GameControllerEnhanced({
       }
     } else {
       return {
-        primary: "Touch & Drag",
-        secondary: "Tap",
-        special: "Long Press",
+        primary: "Touch Controls",
+        secondary: "Tap Actions",
+        special: "Hold Actions",
         hint: "Touch controls optimized for mobile",
       }
     }
@@ -606,7 +562,7 @@ export default function GameControllerEnhanced({
 
   if (platformType === "mobile") {
     return (
-      <MobileGameContainer onJoystickMove={handleJoystickMove} onActionPress={handleActionPress}>
+      <MobileGameContainer onActionPress={handleActionPress}>
         {gameRenderer}
         {gameState.isGameOver && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
