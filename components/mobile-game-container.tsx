@@ -9,8 +9,8 @@ import type { IJoystickUpdateEvent } from "react-joystick-component"
 interface MobileGameContainerProps {
   children: React.ReactNode
   className?: string
-  onMovementChange: (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => void
-  onActionPress: (action: string, pressed: boolean) => void
+  onMovementChange?: (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => void
+  onActionPress?: (action: string, pressed: boolean) => void
 }
 
 interface ActionButtonProps {
@@ -71,8 +71,8 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
 export default function MobileGameContainer({
   children,
   className,
-  onMovementChange,
-  onActionPress,
+  onMovementChange = () => {},
+  onActionPress = () => {},
 }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
 
@@ -89,25 +89,25 @@ export default function MobileGameContainer({
   // Handle joystick movement - ONLY for player movement, NOT shooting
   const handleJoystickMove = useCallback(
     (event: IJoystickUpdateEvent) => {
-      const deadzone = 0.2 // Increased deadzone for better control
+      if (!onMovementChange) {
+        console.warn("onMovementChange not provided to MobileGameContainer")
+        return
+      }
+
+      const deadzone = 0.2
       const x = event.x ?? 0
       const y = event.y ?? 0
 
-      // Normalize joystick values (joystick returns values roughly -50 to 50)
       const normalizedX = Math.max(-1, Math.min(1, x / 50))
-      const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Invert Y for standard game coordinates
+      const normalizedY = Math.max(-1, Math.min(1, -y / 50))
 
-      // Apply deadzone
       const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
 
       if (distance < deadzone) {
-        // Stop all movement when in deadzone
         onMovementChange({ up: false, down: false, left: false, right: false })
         return
       }
 
-      // Convert analog input to digital movement controls
-      // Use threshold to determine direction
       const threshold = 0.3
       const movement = {
         up: normalizedY > threshold,
@@ -130,6 +130,11 @@ export default function MobileGameContainer({
 
   // Handle joystick stop - ensure movement stops
   const handleJoystickStop = useCallback(() => {
+    if (!onMovementChange) {
+      console.warn("onMovementChange not provided to MobileGameContainer")
+      return
+    }
+
     console.log("Joystick stopped - clearing all movement")
     onMovementChange({ up: false, down: false, left: false, right: false })
   }, [onMovementChange])

@@ -95,6 +95,7 @@ export default function GameControllerEnhanced({
   // Handle movement from joystick - ONLY movement, no shooting
   const handleMovementChange = useCallback(
     (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => {
+      console.log("handleMovementChange called with:", movement)
       if (!gameStateRef.current.players[playerId]) {
         console.log("No player found for movement change")
         return
@@ -113,7 +114,7 @@ export default function GameControllerEnhanced({
 
       const isMoving = movement.up || movement.down || movement.left || movement.right
 
-      console.log("Movement change:", {
+      console.log("Movement change applied:", {
         movement,
         isMoving,
         wasMoving,
@@ -152,7 +153,7 @@ export default function GameControllerEnhanced({
   // Handle action button presses - ONLY actions, no movement
   const handleActionPress = useCallback(
     (action: string, pressed: boolean) => {
-      console.log("Action press:", { action, pressed })
+      console.log("handleActionPress called with:", { action, pressed })
 
       if (!gameStateRef.current.players[playerId]) {
         console.log("No player found for action press")
@@ -621,7 +622,11 @@ export default function GameControllerEnhanced({
 
   if (platformType === "mobile") {
     return (
-      <MobileGameContainer onMovementChange={handleMovementChange} onActionPress={handleActionPress}>
+      <MobileGameContainer
+        onMovementChange={handleMovementChange}
+        onActionPress={handleActionPress}
+        className={className}
+      >
         {gameRenderer}
         {gameState.isGameOver && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
