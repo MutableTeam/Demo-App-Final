@@ -103,7 +103,7 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Correctly handle joystick movement for mobile
+  // Handle joystick movement for mobile - ONLY MOVEMENT
   const handleJoystickMove = (direction: { x: number; y: number }) => {
     if (!gameStateRef.current.players[playerId]) return
     const player = gameStateRef.current.players[playerId]
@@ -117,25 +117,39 @@ export default function GameControllerEnhanced({
 
     // Update player animation state based on movement
     if (Math.abs(direction.x) > deadzone || Math.abs(direction.y) > deadzone) {
-      if (player.animationState === "idle" && !player.isDrawingBow && !player.isDashing) {
+      if (player.animationState === "idle" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
         player.animationState = "run"
         player.lastAnimationChange = Date.now()
       }
     } else {
-      if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing) {
+      if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
         player.animationState = "idle"
         player.lastAnimationChange = Date.now()
       }
     }
+
+    // Debug logging
+    debugManager.logDebug("MOBILE_INPUT", "Joystick movement", {
+      direction,
+      controls: {
+        up: player.controls.up,
+        down: player.controls.down,
+        left: player.controls.left,
+        right: player.controls.right,
+      },
+      animationState: player.animationState,
+    })
   }
 
-  // Map action buttons to game controls
+  // Handle action button presses - ONLY ACTIONS
   const handleActionPress = (action: string, pressed: boolean) => {
     if (!gameStateRef.current.players[playerId]) return
     const player = gameStateRef.current.players[playerId]
 
+    debugManager.logDebug("MOBILE_INPUT", "Action button", { action, pressed })
+
     switch (action) {
-      case "shoot": // Main shoot button (bow)
+      case "shoot": // Bow shooting
         player.controls.shoot = pressed
         if (pressed) {
           // Start drawing bow
@@ -143,27 +157,44 @@ export default function GameControllerEnhanced({
           player.drawStartTime = Date.now() / 1000
           player.animationState = "draw"
           player.lastAnimationChange = Date.now()
+          debugManager.logDebug("MOBILE_INPUT", "Started drawing bow")
+        } else {
+          // Release bow
+          if (player.isDrawingBow) {
+            player.isDrawingBow = false
+            player.animationState = "fire"
+            player.lastAnimationChange = Date.now()
+            debugManager.logDebug("MOBILE_INPUT", "Released bow")
+          }
         }
         break
-      case "dash": // Dash button
+      case "dash": // Dash movement
         if (pressed && !player.isDashing && (player.dashCooldown || 0) <= 0) {
           player.controls.dash = true
+          debugManager.logDebug("MOBILE_INPUT", "Dash activated")
         } else {
           player.controls.dash = false
         }
         break
-      case "special": // Special attack button
+      case "special": // Special attack
         player.controls.special = pressed
         if (pressed) {
           player.isChargingSpecial = true
           player.specialStartTime = Date.now() / 1000
           player.animationState = "special"
           player.lastAnimationChange = Date.now()
+          debugManager.logDebug("MOBILE_INPUT", "Started charging special")
+        } else {
+          if (player.isChargingSpecial) {
+            player.isChargingSpecial = false
+            debugManager.logDebug("MOBILE_INPUT", "Released special attack")
+          }
         }
         break
-      case "explosive": // Explosive arrow button
+      case "explosive": // Explosive arrow
         if (pressed && (player.explosiveArrowCooldown || 0) <= 0) {
           player.controls.explosiveArrow = true
+          debugManager.logDebug("MOBILE_INPUT", "Explosive arrow activated")
         } else {
           player.controls.explosiveArrow = false
         }
@@ -406,18 +437,6 @@ export default function GameControllerEnhanced({
             gameStateRef.current.players[aiId].rotation = targetRotation
           }
         })
-
-        // Apply touch controls for mobile platform
-        // if (platformType === "mobile" && gameStateRef.current.players[playerId]) {
-        //   const player = gameStateRef.current.players[playerId]
-        //   player.controls.up = touchControls.up
-        //   player.controls.down = touchControls.down
-        //   player.controls.left = touchControls.left
-        //   player.controls.right = touchControls.right
-        //   player.controls.shoot = touchControls.shoot
-        //   player.controls.special = touchControls.special
-        //   player.controls.dash = touchControls.dash
-        // }
 
         // Update game state with error handling and timeout protection
         let newState = gameStateRef.current

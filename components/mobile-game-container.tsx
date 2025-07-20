@@ -71,7 +71,7 @@ export default function MobileGameContainer({
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  const handleJoystickUpdate = (event: IJoystickUpdateEvent) => {
+  const handleJoystickMove = (event: IJoystickUpdateEvent) => {
     const deadzone = 0.15
     const x = event.x ?? 0
     const y = event.y ?? 0
@@ -87,6 +87,7 @@ export default function MobileGameContainer({
       return
     }
 
+    // Call the movement handler
     onJoystickMove({ x: normalizedX, y: normalizedY })
   }
 
@@ -112,23 +113,25 @@ export default function MobileGameContainer({
         {/* Left/Top Controls for Landscape/Portrait */}
         {isLandscape && (
           <div className="flex flex-col items-center justify-center w-1/4 h-full space-y-2">
-            <span className="text-xs tracking-widest">MOVEMENT</span>
-            <Joystick
-              size={120}
-              sticky={false}
-              baseColor="rgba(75, 85, 99, 0.8)"
-              stickColor="rgba(156, 163, 175, 0.9)"
-              move={handleJoystickUpdate}
-              stop={handleJoystickStop}
-              throttle={16}
-            />
+            <span className="text-xs tracking-widest text-zinc-300">MOVEMENT</span>
+            <div className="relative">
+              <Joystick
+                size={120}
+                sticky={false}
+                baseColor="rgba(75, 85, 99, 0.8)"
+                stickColor="rgba(156, 163, 175, 0.9)"
+                move={handleJoystickMove}
+                stop={handleJoystickStop}
+                throttle={16}
+              />
+            </div>
           </div>
         )}
 
         {/* Game Screen */}
         <div
           className={cn(
-            "bg-black/70 border border-dashed border-zinc-600 rounded-lg flex items-center justify-center relative",
+            "bg-black/70 border border-dashed border-zinc-600 rounded-lg flex items-center justify-center relative overflow-hidden",
             isLandscape ? "w-1/2 h-full" : "w-full h-3/5",
           )}
         >
@@ -139,32 +142,58 @@ export default function MobileGameContainer({
         <div
           className={cn(
             "flex items-center",
-            isLandscape ? "w-1/4 h-full flex-col justify-center space-y-2" : "w-full h-2/5 justify-between px-4",
+            isLandscape ? "w-1/4 h-full flex-col justify-center space-y-4" : "w-full h-2/5 justify-between px-4",
           )}
         >
           {!isLandscape && (
             <div className="flex flex-col items-center justify-center space-y-2">
-              <Joystick
-                size={120}
-                sticky={false}
-                baseColor="rgba(75, 85, 99, 0.8)"
-                stickColor="rgba(156, 163, 175, 0.9)"
-                move={handleJoystickUpdate}
-                stop={handleJoystickStop}
-                throttle={16}
-              />
-              <span className="text-xs tracking-widest">MOVE</span>
+              <div className="relative">
+                <Joystick
+                  size={120}
+                  sticky={false}
+                  baseColor="rgba(75, 85, 99, 0.8)"
+                  stickColor="rgba(156, 163, 175, 0.9)"
+                  move={handleJoystickMove}
+                  stop={handleJoystickStop}
+                  throttle={16}
+                />
+              </div>
+              <span className="text-xs tracking-widest text-zinc-300">MOVEMENT</span>
             </div>
           )}
 
           <div className="flex flex-col items-center justify-center space-y-2">
             <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
-              <ActionButton label="🏹" action="shoot" onPress={onActionPress} className="col-start-1 row-start-1" />
-              <ActionButton label="⚡" action="special" onPress={onActionPress} className="col-start-2 row-start-1" />
-              <ActionButton label="💨" action="dash" onPress={onActionPress} className="col-start-1 row-start-2" />
-              <ActionButton label="💥" action="explosive" onPress={onActionPress} className="col-start-2 row-start-2" />
+              <ActionButton
+                label="🏹"
+                action="shoot"
+                onPress={onActionPress}
+                className="col-start-1 row-start-1"
+                title="Shoot Arrow"
+              />
+              <ActionButton
+                label="⚡"
+                action="special"
+                onPress={onActionPress}
+                className="col-start-2 row-start-1"
+                title="Special Attack"
+              />
+              <ActionButton
+                label="💨"
+                action="dash"
+                onPress={onActionPress}
+                className="col-start-1 row-start-2"
+                title="Dash"
+              />
+              <ActionButton
+                label="💥"
+                action="explosive"
+                onPress={onActionPress}
+                className="col-start-2 row-start-2"
+                title="Explosive Arrow"
+              />
             </div>
-            <span className="text-xs tracking-widest">ACTIONS</span>
+            <span className="text-xs tracking-widest text-zinc-300">ACTIONS</span>
           </div>
         </div>
       </div>
