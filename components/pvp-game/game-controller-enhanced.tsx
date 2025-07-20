@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
-import EnhancedGameRenderer from "./enhanced-game-renderer"
+import GameRendererFinal from "./game-renderer-final"
 import {
   playBowDrawSound,
   playBowReleaseSound,
@@ -23,7 +23,6 @@ import transitionDebugger from "@/utils/transition-debug"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import MobileGameContainer from "@/components/mobile-game-container"
 
@@ -239,6 +238,7 @@ export default function GameControllerEnhanced({
       shoot: false,
       special: false,
       dash: false,
+      explosiveArrow: false,
     }
     localPlayer.rotation = 0
     localPlayer.size = 20
@@ -246,7 +246,6 @@ export default function GameControllerEnhanced({
     localPlayer.isDrawingBow = false
     localPlayer.isDashing = false
     localPlayer.isChargingSpecial = false
-    localPlayer.drawPower = 0
 
     currentState.players[playerId] = localPlayer
     debugManager.logInfo("GAME", `Created player with ID: ${playerId}, name: ${playerName}`)
@@ -280,6 +279,7 @@ export default function GameControllerEnhanced({
         shoot: false,
         special: false,
         dash: false,
+        explosiveArrow: false,
       }
       aiPlayer.rotation = 0
       aiPlayer.size = 20
@@ -367,18 +367,6 @@ export default function GameControllerEnhanced({
             gameStateRef.current.players[aiId].rotation = targetRotation
           }
         })
-
-        // Apply touch controls for mobile platform
-        // if (platformType === "mobile" && gameStateRef.current.players[playerId]) {
-        //   const player = gameStateRef.current.players[playerId]
-        //   player.controls.up = touchControls.up
-        //   player.controls.down = touchControls.down
-        //   player.controls.left = touchControls.left
-        //   player.controls.right = touchControls.right
-        //   player.controls.shoot = touchControls.shoot
-        //   player.controls.special = touchControls.special
-        //   player.controls.dash = touchControls.dash
-        // }
 
         // Update game state with error handling and timeout protection
         let newState = gameStateRef.current
@@ -880,51 +868,7 @@ export default function GameControllerEnhanced({
     debugManager.trackComponentRender("GameControllerEnhanced")
   })
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
-
-  const getConnectionColor = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "text-green-500"
-      case "connecting":
-        return "text-yellow-500"
-      default:
-        return "text-red-500"
-    }
-  }
-
-  const getPlatformControls = () => {
-    if (platformType === "desktop") {
-      return {
-        primary: "WASD + Mouse",
-        secondary: "Space/Enter",
-        special: "Shift/Ctrl",
-        hint: "Use keyboard and mouse for precise control",
-      }
-    } else {
-      return {
-        primary: "Touch & Drag",
-        secondary: "Tap",
-        special: "Long Press",
-        hint: "Touch controls optimized for mobile",
-      }
-    }
-  }
-
-  const controls = getPlatformControls()
-
-  const gameRenderer = (
-    <EnhancedGameRenderer
-      gameState={gameState}
-      localPlayerId={playerId}
-      debugMode={showDebug}
-      platformType={platformType}
-    />
-  )
+  const gameRenderer = <GameRendererFinal gameState={gameState} localPlayerId={playerId} />
 
   if (platformType === "mobile") {
     return (
@@ -943,17 +887,6 @@ export default function GameControllerEnhanced({
   // Desktop Layout
   return (
     <div className={cn("relative w-full h-[600px] bg-gray-900", className)}>
-      <div className="absolute top-2 left-2 z-10">
-        <Card className="bg-gray-800/50 text-white border-cyan-400/50">
-          <CardHeader>
-            <CardTitle>Archer Arena</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Score: {gameStats.score}</p>
-            <p>Time: {Math.floor(gameState.gameTime)}</p>
-          </CardContent>
-        </Card>
-      </div>
       {gameRenderer}
       {gameState.isGameOver && (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">

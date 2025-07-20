@@ -12,9 +12,6 @@ import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanc
 import { usePlatform } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Badge } from "@/components/ui/badge"
-import { Monitor } from "lucide-react"
-import { cn } from "@/lib/utils"
-import MobileGameContainer from "@/components/mobile-game-container"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -265,20 +262,8 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     return LoadingComponent
   }
 
-  const initialGameState = game.initializeGameState({
-    playerId,
-    playerName,
-    isHost,
-    gameMode,
-    players: [
-      { id: playerId, name: playerName, isHost },
-      { id: "ai-1", name: "AI Player 1", isHost: false },
-      { id: "ai-2", name: "AI Player 2", isHost: false },
-      { id: "ai-3", name: "AI Player 3", isHost: false },
-    ],
-  })
-
-  const GameComponent = game.GameComponent
+  // Simplified logic: Always use GameControllerEnhanced for archer-arena
+  // Other games can have their own logic
   const GameContent =
     game.id === "archer-arena" || game.id === "last-stand" ? (
       <GameControllerEnhanced
@@ -288,62 +273,18 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
         gameMode={gameMode}
         onGameEnd={onGameEnd}
         platformType={platformType}
+        gameId={gameId}
+        onGameStart={() => {}}
+        onGamePause={() => {}}
+        onGameReset={() => {}}
+        onGameStop={() => {}}
       />
     ) : (
-      <GameComponent
-        playerId={playerId}
-        playerName={playerName}
-        isHost={isHost}
-        gameMode={gameMode}
-        initialGameState={initialGameState}
-        onGameEnd={onGameEnd}
-        onError={handleError}
-        platformType={platformType}
-      />
+      <div className="text-white">Game component for {game.name} not implemented here.</div>
     )
 
-  if (platformType === "mobile") {
-    return (
-      <MobileGameContainer
-        onJoystickMove={(direction) => {
-          // This would be wired to a global input handler in a full implementation
-          console.log("Joystick Move:", direction)
-        }}
-        onActionPress={(action, pressed) => {
-          console.log("Action Press:", action, pressed)
-        }}
-      >
-        <GameErrorBoundary>{GameContent}</GameErrorBoundary>
-      </MobileGameContainer>
-    )
-  }
-
-  // Default to desktop container
-  const DesktopContainer = isCyberpunk ? (
-    <CyberpunkGameContainer>
-      <CyberpunkDevBanner>
-        <span>Demo Game : Does Not Represent Final Product</span>
-        <PlatformBadge>
-          <Monitor className="h-3 w-3" />
-          Desktop Mode
-        </PlatformBadge>
-      </CyberpunkDevBanner>
-      <GameErrorBoundary>{GameContent}</GameErrorBoundary>
-    </CyberpunkGameContainer>
-  ) : (
-    <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
-      <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
-        <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
-        <Badge variant="outline" className="flex items-center gap-1">
-          <Monitor className="h-3 w-3" />
-          Desktop Mode
-        </Badge>
-      </div>
-      <GameErrorBoundary>{GameContent}</GameErrorBoundary>
-    </div>
-  )
-
-  return DesktopContainer
+  // The GameControllerEnhanced will handle mobile vs desktop rendering internally
+  return <GameErrorBoundary>{GameContent}</GameErrorBoundary>
 }
 
 // Export as default
