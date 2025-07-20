@@ -27,9 +27,9 @@ import type { PlatformType } from "@/contexts/platform-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Play, Pause, Square, RotateCcw, Settings, Users, Zap, Monitor, Smartphone, Gamepad2 } from "lucide-react"
+import { Play, Pause, Square, RotateCcw, Settings, Users, Zap, Monitor, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import MobileGameContainer from "@/components/mobile-game-container"
 
 interface GameStats {
   score: number
@@ -99,23 +99,44 @@ export default function GameControllerEnhanced({
   const [showDebug, setShowDebug] = useState<boolean>(false)
   const [showResourceMonitor, setShowResourceMonitor] = useState<boolean>(false)
   const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
-  const [showTutorial, setShowTutorial] = useState<boolean>(false)
   const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
   const memoryTrackingInterval = useRef<NodeJS.Timeout | null>(null)
 
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
   const [playersOnline, setPlayersOnline] = useState(0)
 
-  // Touch controls state for mobile
-  const [touchControls, setTouchControls] = useState({
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-    shoot: false,
-    special: false,
-    dash: false,
-  })
+  const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
+
+  const handleJoystickMove = (direction: { x: number; y: number }) => {
+    if (!gameStateRef.current.players[playerId]) return
+    const player = gameStateRef.current.players[playerId]
+
+    // A small deadzone
+    const deadzone = 0.1
+    player.controls.up = direction.y > deadzone
+    player.controls.down = direction.y < -deadzone
+    player.controls.left = direction.x < -deadzone
+    player.controls.right = direction.x > deadzone
+  }
+
+  const handleActionPress = (action: string, pressed: boolean) => {
+    if (!gameStateRef.current.players[playerId]) return
+    const player = gameStateRef.current.players[playerId]
+    switch (action) {
+      case "actionA": // Main shoot button
+        player.controls.shoot = pressed
+        break
+      case "actionB": // Dash button
+        player.controls.dash = pressed
+        break
+      case "actionX": // Special attack button
+        player.controls.special = pressed
+        break
+      case "actionY": // Explosive arrow button
+        player.controls.explosiveArrow = pressed
+        break
+    }
+  }
 
   // Initialize debug system
   useEffect(() => {
@@ -354,16 +375,16 @@ export default function GameControllerEnhanced({
         })
 
         // Apply touch controls for mobile platform
-        if (platformType === "mobile" && gameStateRef.current.players[playerId]) {
-          const player = gameStateRef.current.players[playerId]
-          player.controls.up = touchControls.up
-          player.controls.down = touchControls.down
-          player.controls.left = touchControls.left
-          player.controls.right = touchControls.right
-          player.controls.shoot = touchControls.shoot
-          player.controls.special = touchControls.special
-          player.controls.dash = touchControls.dash
-        }
+        // if (platformType === "mobile" && gameStateRef.current.players[playerId]) {
+        //   const player = gameStateRef.current.players[playerId]
+        //   player.controls.up = touchControls.up
+        //   player.controls.down = touchControls.down
+        //   player.controls.left = touchControls.left
+        //   player.controls.right = touchControls.right
+        //   player.controls.shoot = touchControls.shoot
+        //   player.controls.special = touchControls.special
+        //   player.controls.dash = touchControls.dash
+        // }
 
         // Update game state with error handling and timeout protection
         let newState = gameStateRef.current
@@ -865,28 +886,6 @@ export default function GameControllerEnhanced({
     debugManager.trackComponentRender("GameControllerEnhanced")
   })
 
-  const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
-
-  // Touch control handlers for mobile
-  const handleTouchControl = (control: keyof typeof touchControls, active: boolean) => {
-    setTouchControls((prev) => ({
-      ...prev,
-      [control]: active,
-    }))
-  }
-
-  // Show loading state while game initializes
-  if (!gameState) {
-    return (
-      <div className="flex items-center justify-center h-[600px] bg-gray-800 rounded-lg">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-xl font-bold">Loading Enhanced Game...</p>
-        </div>
-      </div>
-    )
-  }
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = Math.floor(seconds % 60)
@@ -924,6 +923,23 @@ export default function GameControllerEnhanced({
 
   const controls = getPlatformControls()
 
+  const gameRenderer = (
+    <EnhancedGameRenderer
+      gameState={gameState}
+      localPlayerId={playerId}
+      debugMode={showDebug}
+      platformType={platformType}
+    />
+  )
+
+  if (platformType === "mobile") {
+    return (
+      <MobileGameContainer onJoystickMove={handleJoystickMove} onActionPress={handleActionPress}>
+        {gameRenderer}
+      </MobileGameContainer>
+    )
+  }
+
   return (
     <div className={cn("relative w-full h-full", className)}>
       {/* Game Stats Header */}
@@ -940,12 +956,6 @@ export default function GameControllerEnhanced({
                 <Users className="w-3 h-3" />
                 {Object.keys(gameState.players).length}
               </Badge>
-              {platformType === "mobile" && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Smartphone className="w-3 h-3" />
-                  Mobile
-                </Badge>
-              )}
               {platformType === "desktop" && (
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Monitor className="w-3 h-3" />
@@ -1038,13 +1048,7 @@ export default function GameControllerEnhanced({
 
       {/* Game Renderer */}
       <div className="relative">
-        <EnhancedGameRenderer
-          gameState={gameState}
-          localPlayerId={playerId}
-          debugMode={showDebug}
-          platformType={platformType}
-          onTouchControl={handleTouchControl}
-        />
+        {gameRenderer}
 
         {/* Debug Overlay */}
         {showDebug && (
@@ -1064,38 +1068,6 @@ export default function GameControllerEnhanced({
         {showResourceMonitor && (
           <div className="absolute bottom-4 right-4 z-50">
             <ResourceMonitor />
-          </div>
-        )}
-
-        {/* Mobile Tutorial Overlay */}
-        {platformType === "mobile" && showTutorial && (
-          <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
-            <Card className="max-w-md mx-4">
-              <CardHeader>
-                <CardTitle>Mobile Controls</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="font-semibold mb-2">Movement</h4>
-                  <p className="text-sm text-muted-foreground">Use the joystick on the left to move your archer</p>
-                </div>
-                <Separator />
-                <div>
-                  <h4 className="font-semibold mb-2">Aiming & Shooting</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Touch and drag on the right side to aim. Release to shoot arrows
-                  </p>
-                </div>
-                <Separator />
-                <div>
-                  <h4 className="font-semibold mb-2">Special Actions</h4>
-                  <p className="text-sm text-muted-foreground">Use DASH and SPEC buttons for special abilities</p>
-                </div>
-                <Button onClick={() => setShowTutorial(false)} className="w-full">
-                  Got it!
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         )}
 
