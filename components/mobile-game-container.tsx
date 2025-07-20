@@ -2,11 +2,14 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
+import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
 
 interface MobileGameContainerProps {
   children: React.ReactNode
   className?: string
+  onJoystickMove: (direction: { x: number; y: number }) => void
   onActionPress: (action: string, pressed: boolean) => void
 }
 
@@ -34,9 +37,9 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
   return (
     <button
       className={cn(
-        "w-20 h-20 rounded-full border-2 flex items-center justify-center font-mono text-3xl font-bold transition-all duration-150",
+        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-150",
         "touch-none select-none active:scale-95",
-        "bg-zinc-800/80 border-zinc-600/90 text-zinc-200 active:bg-zinc-700/90 shadow-lg backdrop-blur-sm",
+        "bg-zinc-700/90 border-zinc-500/70 text-zinc-200 active:bg-zinc-600/90 shadow-lg backdrop-blur-sm",
         className,
       )}
       onTouchStart={handleInteractionStart}
@@ -52,7 +55,12 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
   )
 }
 
-export default function MobileGameContainer({ children, className, onActionPress }: MobileGameContainerProps) {
+export default function MobileGameContainer({
+  children,
+  className,
+  onJoystickMove,
+  onActionPress,
+}: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
 
   useEffect(() => {
@@ -65,29 +73,118 @@ export default function MobileGameContainer({ children, className, onActionPress
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
+  const handleMove = (event: IJoystickUpdateEvent) => {
+    const deadzone = 0.15
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+
+    // Normalize values from joystick range to -1 to 1
+    const normalizedX = Math.max(-1, Math.min(1, x / 50))
+    const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Invert Y-axis for standard game coordinates
+
+    const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
+    if (distance < deadzone) {
+      onJoystickMove({ x: 0, y: 0 })
+      return
+    }
+
+    onJoystickMove({ x: normalizedX, y: normalizedY })
+  }
+
+  const handleStop = () => {
+    onJoystickMove({ x: 0, y: 0 })
+  }
+
   const isLandscape = orientation === "landscape"
 
+  if (isLandscape) {
+    // Landscape Layout: Movement | Game Screen | Actions
+    return (
+      <div
+        className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
+      >
+        <div className="w-full h-full flex flex-row items-center p-4 gap-4">
+          {/* Movement Controls - Left Side */}
+          <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
+              <Joystick
+                size={120}
+                sticky={false}
+                baseColor="rgba(63, 63, 70, 0.8)"
+                stickColor="rgba(113, 113, 122, 0.9)"
+                move={handleMove}
+                stop={handleStop}
+                throttle={16}
+              />
+              <span className="text-xs text-zinc-500">Move</span>
+            </div>
+          </div>
+
+          {/* Game Screen - Center */}
+          <div className="w-1/2 h-full flex items-center justify-center">
+            <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden">
+              {children}
+            </div>
+          </div>
+
+          {/* Action Controls - Right Side */}
+          <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
+              <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
+                <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
+                <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
+                <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+                <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Portrait Layout: Game Screen on top, Controls on bottom
   return (
     <div
       className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
     >
-      <div className={cn("w-full h-full flex", isLandscape ? "flex-row" : "flex-col")}>
-        {/* Game Screen - takes up most of the space */}
-        <div className={cn("flex items-center justify-center", isLandscape ? "w-3/4 h-full" : "w-full h-3/4")}>
-          <div className="w-full h-full bg-black/70 border-2 border-zinc-700 relative overflow-hidden">{children}</div>
+      <div className="w-full h-full flex flex-col items-center p-4 gap-4">
+        {/* Game Screen - Top */}
+        <div className="w-full h-2/3 flex items-center justify-center">
+          <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden max-w-md">
+            {children}
+          </div>
         </div>
 
-        {/* Action Controls */}
-        <div className={cn("flex items-center justify-center p-4", isLandscape ? "w-1/4 h-full" : "w-full h-1/4")}>
-          <div className="flex flex-col items-center justify-center gap-4">
-            <span className="text-sm tracking-widest font-bold text-zinc-300">ACTIONS</span>
-            <div className="grid grid-cols-2 gap-4">
-              <ActionButton label="🏹" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
-              <ActionButton label="⚡" action="special" onPress={onActionPress} title="Special Attack" />
-              <ActionButton label="💨" action="dash" onPress={onActionPress} title="Dash" />
-              <ActionButton label="💥" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+        {/* Controls - Bottom */}
+        <div className="w-full h-1/3 flex flex-row items-center justify-between px-8">
+          {/* Movement Controls - Bottom Left */}
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
+            <Joystick
+              size={100}
+              sticky={false}
+              baseColor="rgba(63, 63, 70, 0.8)"
+              stickColor="rgba(113, 113, 122, 0.9)"
+              move={handleMove}
+              stop={handleStop}
+              throttle={16}
+            />
+            <span className="text-xs text-zinc-500">Move</span>
+          </div>
+
+          {/* Action Controls - Bottom Right */}
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
+            <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
+              <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
+              <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
+              <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+              <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
             </div>
-            <span className="text-xs text-zinc-500">Tap for combat</span>
+            <span className="text-xs text-zinc-500">Actions</span>
           </div>
         </div>
       </div>

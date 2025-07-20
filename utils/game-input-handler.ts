@@ -33,8 +33,15 @@ export interface AimingState {
   currentY: number
 }
 
+export interface JoystickState {
+  x: number // -1 to 1
+  y: number // -1 to 1
+  active: boolean
+}
+
 export interface GameInputState {
   aiming: AimingState
+  joystick: JoystickState
   actions: {
     shoot: boolean
     dash: boolean
@@ -47,6 +54,7 @@ export interface GameInputState {
 class GameInputHandler {
   private state: GameInputState
   private callbacks: {
+    onJoystickMove?: (state: JoystickState) => void
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
     onShoot?: () => void
@@ -55,6 +63,7 @@ class GameInputHandler {
   constructor() {
     this.state = {
       aiming: { angle: 0, power: 0, active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
+      joystick: { x: 0, y: 0, active: false },
       actions: {
         shoot: false,
         dash: false,
@@ -64,7 +73,33 @@ class GameInputHandler {
       touchPoints: new Map(),
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "GameInputHandler created (no joystick support)")
+    debugManager.logInfo("INPUT", "GameInputHandler created with joystick support")
+  }
+
+  // Handle joystick movement
+  public handleJoystickMove = (direction: { x: number; y: number }) => {
+    this.state.joystick.x = direction.x
+    this.state.joystick.y = direction.y
+    this.state.joystick.active = Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1
+
+    debugManager.logDebug("INPUT", `Joystick move: x=${direction.x.toFixed(2)}, y=${direction.y.toFixed(2)}`)
+
+    if (this.callbacks.onJoystickMove) {
+      this.callbacks.onJoystickMove(this.state.joystick)
+    }
+  }
+
+  // Handle joystick stop
+  public handleJoystickStop = () => {
+    this.state.joystick.x = 0
+    this.state.joystick.y = 0
+    this.state.joystick.active = false
+
+    debugManager.logDebug("INPUT", "Joystick stopped")
+
+    if (this.callbacks.onJoystickMove) {
+      this.callbacks.onJoystickMove(this.state.joystick)
+    }
   }
 
   public handleActionPress = (action: string, pressed: boolean) => {
@@ -89,6 +124,7 @@ class GameInputHandler {
   }
 
   setCallbacks(callbacks: {
+    onJoystickMove?: (state: JoystickState) => void
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
     onShoot?: () => void
@@ -159,11 +195,25 @@ class GameInputHandler {
   }
 
   public getControls() {
-    return { ...this.state.actions }
+    return {
+      ...this.state.actions,
+      joystick: this.state.joystick,
+    }
   }
 
   public getState = (): GameInputState => {
     return this.state
+  }
+
+  // Convert joystick input to movement controls
+  public getMovementControls() {
+    const deadzone = 0.1
+    return {
+      up: this.state.joystick.y > deadzone,
+      down: this.state.joystick.y < -deadzone,
+      left: this.state.joystick.x < -deadzone,
+      right: this.state.joystick.x > deadzone,
+    }
   }
 
   destroy() {
