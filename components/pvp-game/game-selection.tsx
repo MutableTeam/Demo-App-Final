@@ -257,17 +257,16 @@ const CyberBadge = styled(Badge)`
 `
 
 interface GameSelectionProps {
-  onGameSelect: (gameId: string, gameMode: string) => void
+  publicKey: string
+  balance: number | null
+  mutbBalance: number
+  onSelectGame: (gameId: string) => void
 }
 
-export default function GameSelection({ onGameSelect }: GameSelectionProps) {
+export default function GameSelection({ publicKey, balance, mutbBalance, onSelectGame }: GameSelectionProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
   const isMobile = useIsMobile()
-
-  // Mock data - replace with actual props when available
-  const balance = 5.0
-  const mutbBalance = 100
 
   // Get all games from registry
   const allGames = gameRegistry.getAllGames().map((game) => ({
@@ -382,8 +381,8 @@ export default function GameSelection({ onGameSelect }: GameSelectionProps) {
       }
     }
 
-    // Call the original onGameSelect handler
-    onGameSelect(gameId, "casual")
+    // Call the original onSelectGame handler
+    onSelectGame(gameId)
   }
 
   const getGameStats = (game) => {
@@ -480,14 +479,14 @@ export default function GameSelection({ onGameSelect }: GameSelectionProps) {
                   className="rounded-full"
                 />
                 <span className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
-                  {(mutbBalance || 0).toFixed(2)} MUTB
+                  {mutbBalance.toFixed(2)} MUTB
                 </span>
               </>
             ) : (
               <>
                 <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
                 <span className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
-                  {(balance || 0).toFixed(4)} SOL
+                  {balance?.toFixed(4) || "0.0000"} SOL
                 </span>
               </>
             )}
@@ -699,8 +698,8 @@ export default function GameSelection({ onGameSelect }: GameSelectionProps) {
                                 <span>
                                   Min Wager:{" "}
                                   {wagerToken === "MUTB"
-                                    ? `${game.minWager || 0} MUTB`
-                                    : `${(((game.minWager || 0) * 0.01) / 150).toFixed(4)} SOL`}
+                                    ? `${game.minWager} MUTB`
+                                    : `${((game.minWager * 0.01) / 150).toFixed(4)} SOL`}
                                 </span>
                               </div>
                             </div>
@@ -796,8 +795,8 @@ export default function GameSelection({ onGameSelect }: GameSelectionProps) {
                                 <span>
                                   Min Wager:{" "}
                                   {wagerToken === "MUTB"
-                                    ? `${game.minWager || 0} MUTB`
-                                    : `${(((game.minWager || 0) * 0.01) / 150).toFixed(4)} SOL`}
+                                    ? `${game.minWager} MUTB`
+                                    : `${((game.minWager * 0.01) / 150).toFixed(4)} SOL`}
                                 </span>
                               </div>
                             </div>
