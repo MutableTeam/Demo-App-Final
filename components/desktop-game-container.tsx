@@ -188,16 +188,27 @@ const CyberpunkLoadingText = styled.p`
   }
 `
 
-interface GameContainerProps {
+interface DesktopGameContainerProps {
   gameId: string
   playerId: string
   playerName: string
   isHost: boolean
   gameMode: string
   onGameEnd: (winner: string | null) => void
+  joystickInput?: { x: number; y: number }
+  actionInput?: { action: string; pressed: boolean } | null
 }
 
-export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
+export function DesktopGameContainer({
+  gameId,
+  playerId,
+  playerName,
+  isHost,
+  gameMode,
+  onGameEnd,
+  joystickInput,
+  actionInput,
+}: DesktopGameContainerProps) {
   const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
   const { toast } = useToast()
   const { platformType } = usePlatform()
@@ -209,8 +220,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
   const game = gameRegistry.getGame(gameId)
 
   useEffect(() => {
-    // Log initialization for debugging
-    debugManager.logInfo("GameContainer", "Initializing game container", {
+    debugManager.logInfo("DesktopGameContainer", "Initializing game container", {
       gameId,
       playerId,
       playerName,
@@ -219,16 +229,15 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       platformType,
     })
 
-    // Set game to playing state after a short delay to ensure proper initialization
     const timer = setTimeout(() => {
       setGameState("playing")
-      debugManager.logInfo("GameContainer", "Game state set to playing")
+      debugManager.logInfo("DesktopGameContainer", "Game state set to playing")
     }, 500)
 
     return () => clearTimeout(timer)
   }, [gameId, playerId, playerName, isHost, gameMode, platformType])
 
-  if (!game) {
+  if (!game && gameId !== "archer-arena") {
     if (isCyberpunk) {
       return (
         <CyberpunkLoadingContainer>
@@ -246,7 +255,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     )
   }
 
-  const GameComponent = game.GameComponent
+  const GameComponent = game?.GameComponent
 
   const handleError = (error: Error) => {
     console.error("Game error:", error)
@@ -257,22 +266,19 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     })
   }
 
-  // Initialize game state
-  const initialGameState = game.initializeGameState({
+  const initialGameState = game?.initializeGameState({
     playerId,
     playerName,
     isHost,
     gameMode,
     players: [
       { id: playerId, name: playerName, isHost },
-      // Mock players for testing
       { id: "ai-1", name: "AI Player 1", isHost: false },
       { id: "ai-2", name: "AI Player 2", isHost: false },
       { id: "ai-3", name: "AI Player 3", isHost: false },
     ],
   })
 
-  // Cyberpunk styled loading state
   if (gameState === "loading") {
     if (isCyberpunk) {
       return (
@@ -293,11 +299,9 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     )
   }
 
-  // Render game container based on style mode
   if (isCyberpunk) {
     return (
       <CyberpunkGameContainer>
-        {/* Development Banner with Platform Info */}
         <CyberpunkDevBanner>
           <span>Demo Game : Does Not Represent Final Product</span>
           <PlatformBadge>
@@ -316,36 +320,24 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
         </CyberpunkDevBanner>
 
         <GameErrorBoundary>
-          {game.id === "archer-arena" || game.id === "last-stand" ? (
-            <GameControllerEnhanced
-              playerId={playerId}
-              playerName={playerName}
-              isHost={isHost}
-              gameMode={gameMode}
-              onGameEnd={onGameEnd}
-              platformType={platformType}
-            />
-          ) : (
-            <GameComponent
-              playerId={playerId}
-              playerName={playerName}
-              isHost={isHost}
-              gameMode={gameMode}
-              initialGameState={initialGameState}
-              onGameEnd={onGameEnd}
-              onError={handleError}
-              platformType={platformType}
-            />
-          )}
+          <GameControllerEnhanced
+            gameId={gameId}
+            playerId={playerId}
+            playerName={playerName}
+            isHost={isHost}
+            gameMode={gameMode}
+            onGameEnd={onGameEnd}
+            platformType={platformType}
+            joystickInput={joystickInput}
+            actionInput={actionInput}
+          />
         </GameErrorBoundary>
       </CyberpunkGameContainer>
     )
   }
 
-  // Light/Dark theme version
   return (
     <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
-      {/* Development Banner with Platform Info */}
       <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
         <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
         <Badge variant="outline" className="flex items-center gap-1">
@@ -364,31 +356,20 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       </div>
 
       <GameErrorBoundary>
-        {game.id === "archer-arena" || game.id === "last-stand" ? (
-          <GameControllerEnhanced
-            playerId={playerId}
-            playerName={playerName}
-            isHost={isHost}
-            gameMode={gameMode}
-            onGameEnd={onGameEnd}
-            platformType={platformType}
-          />
-        ) : (
-          <GameComponent
-            playerId={playerId}
-            playerName={playerName}
-            isHost={isHost}
-            gameMode={gameMode}
-            initialGameState={initialGameState}
-            onGameEnd={onGameEnd}
-            onError={handleError}
-            platformType={platformType}
-          />
-        )}
+        <GameControllerEnhanced
+          gameId={gameId}
+          playerId={playerId}
+          playerName={playerName}
+          isHost={isHost}
+          gameMode={gameMode}
+          onGameEnd={onGameEnd}
+          platformType={platformType}
+          joystickInput={joystickInput}
+          actionInput={actionInput}
+        />
       </GameErrorBoundary>
     </div>
   )
 }
 
-// Export as default
-export default GameContainer
+export default DesktopGameContainer
