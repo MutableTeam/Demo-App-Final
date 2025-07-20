@@ -165,21 +165,29 @@ interface ActionButtonProps {
   onPress: (action: string, pressed: boolean) => void
   className?: string
   variant?: "primary" | "secondary"
+  size?: "small" | "medium" | "large"
 }
 
-function ActionButton({ label, action, onPress, className, variant = "primary" }: ActionButtonProps) {
+function ActionButton({ label, action, onPress, className, variant = "primary", size = "medium" }: ActionButtonProps) {
   const handleStart = () => onPress(action, true)
   const handleEnd = () => onPress(action, false)
+
+  const sizeClasses = {
+    small: "w-12 h-12 text-xs",
+    medium: "w-16 h-16 text-sm",
+    large: "w-20 h-20 text-base",
+  }
 
   return (
     <button
       className={cn(
-        "w-16 h-16 rounded-full border-2 font-bold text-sm transition-all duration-150",
+        "rounded-full border-2 font-bold transition-all duration-150",
         "touch-none select-none active:scale-95",
         "shadow-[0_0_10px_rgba(0,255,255,0.3)]",
         variant === "primary"
           ? "border-cyan-400/70 bg-cyan-500/20 text-cyan-300 active:bg-cyan-500/40"
           : "border-purple-400/70 bg-purple-500/20 text-purple-300 active:bg-purple-500/40",
+        sizeClasses[size],
         className,
       )}
       onTouchStart={handleStart}
@@ -202,6 +210,23 @@ export default function MobileGameContainer({
   onShoot = () => {},
 }: MobileGameContainerProps) {
   const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0 })
+  const [isLandscape, setIsLandscape] = useState(false)
+
+  // Detect orientation changes
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight)
+    }
+
+    checkOrientation()
+    window.addEventListener("resize", checkOrientation)
+    window.addEventListener("orientationchange", checkOrientation)
+
+    return () => {
+      window.removeEventListener("resize", checkOrientation)
+      window.removeEventListener("orientationchange", checkOrientation)
+    }
+  }, [])
 
   const handleJoystickMove = (event: any) => {
     if (event) {
@@ -219,6 +244,99 @@ export default function MobileGameContainer({
     onJoystickMove({ x: 0, y: 0 })
   }
 
+  // Portrait Layout (based on the uploaded image)
+  if (!isLandscape) {
+    return (
+      <div className={cn("w-full h-screen bg-black flex flex-col relative", className)}>
+        {/* Game Area - Takes up most of the screen */}
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full h-full max-w-full max-h-full overflow-hidden rounded-lg border border-cyan-500/30 shadow-[0_0_20px_rgba(0,255,255,0.2)]">
+            {children}
+          </div>
+        </div>
+
+        {/* Bottom Controls Area */}
+        <div className="h-48 relative bg-slate-900/50 backdrop-blur-sm">
+          {/* Movement Controls - Bottom Left */}
+          <div className="absolute bottom-4 left-4 flex flex-col items-center">
+            <div className="relative mb-2">
+              <Joystick
+                size={80}
+                sticky={false}
+                baseColor="#1e293b"
+                stickColor="#00ffff"
+                move={handleJoystickMove}
+                stop={handleJoystickStop}
+                throttle={50}
+                baseShape="circle"
+                stickShape="circle"
+                controlPlaneShape="circle"
+              />
+            </div>
+            {/* Directional Pad */}
+            <div className="grid grid-cols-3 gap-1 w-20 h-20">
+              <div></div>
+              <div className="w-6 h-6 bg-slate-700/50 border border-cyan-500/30 rounded"></div>
+              <div></div>
+              <div className="w-6 h-6 bg-slate-700/50 border border-cyan-500/30 rounded"></div>
+              <div className="w-6 h-6 bg-slate-700/50 border border-cyan-500/30 rounded"></div>
+              <div className="w-6 h-6 bg-slate-700/50 border border-cyan-500/30 rounded"></div>
+              <div></div>
+              <div className="w-6 h-6 bg-slate-700/50 border border-cyan-500/30 rounded"></div>
+              <div></div>
+            </div>
+            <div className="text-xs text-cyan-300 opacity-70 mt-1">MOVE</div>
+          </div>
+
+          {/* Action Controls - Bottom Right */}
+          <div className="absolute bottom-4 right-4 flex flex-col items-center">
+            {/* Action Buttons in Diamond Pattern */}
+            <div className="relative w-32 h-32 mb-2">
+              {/* Top Button - Y */}
+              <ActionButton
+                label="Y"
+                action="special"
+                onPress={onActionPress}
+                variant="secondary"
+                size="medium"
+                className="absolute top-0 left-1/2 transform -translate-x-1/2"
+              />
+              {/* Left Button - X */}
+              <ActionButton
+                label="X"
+                action="dash"
+                onPress={onActionPress}
+                variant="primary"
+                size="medium"
+                className="absolute top-1/2 left-0 transform -translate-y-1/2"
+              />
+              {/* Right Button - A */}
+              <ActionButton
+                label="A"
+                action="shoot"
+                onPress={onActionPress}
+                variant="primary"
+                size="medium"
+                className="absolute top-1/2 right-0 transform -translate-y-1/2"
+              />
+              {/* Bottom Button - B */}
+              <ActionButton
+                label="B"
+                action="aim"
+                onPress={onActionPress}
+                variant="secondary"
+                size="medium"
+                className="absolute bottom-0 left-1/2 transform -translate-x-1/2"
+              />
+            </div>
+            <div className="text-xs text-cyan-300 opacity-70">ACTIONS</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Landscape Layout (existing layout for now - will be updated later)
   return (
     <div className={cn("w-full h-screen bg-black flex landscape:flex-row portrait:flex-col", className)}>
       {/* Left Controls - Joystick */}
@@ -259,20 +377,8 @@ export default function MobileGameContainer({
 
         {/* Action Buttons */}
         <div className="flex landscape:flex-col portrait:flex-row gap-2">
-          <ActionButton
-            label="DASH"
-            action="dash"
-            onPress={onActionPress}
-            variant="secondary"
-            className="w-12 h-12 text-xs"
-          />
-          <ActionButton
-            label="SPEC"
-            action="special"
-            onPress={onActionPress}
-            variant="primary"
-            className="w-12 h-12 text-xs"
-          />
+          <ActionButton label="DASH" action="dash" onPress={onActionPress} variant="secondary" size="small" />
+          <ActionButton label="SPEC" action="special" onPress={onActionPress} variant="primary" size="small" />
         </div>
       </div>
     </div>
