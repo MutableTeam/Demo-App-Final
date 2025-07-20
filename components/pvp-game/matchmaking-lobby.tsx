@@ -16,7 +16,7 @@ import GameErrorBoundary from "@/components/game-error-boundary"
 import { debugManager } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import { gameRegistry, type GameImplementation } from "@/types/game-registry"
-import { GameContainer } from "@/components/game-container"
+import DesktopGameContainer from "@/components/desktop-game-container"
 import GamePopOutContainer from "@/components/game-pop-out-container"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Button } from "@/components/ui/button"
@@ -587,7 +587,7 @@ export default function MatchmakingLobby({
     return (
       <div className="w-full h-full">
         <GameErrorBoundary>
-          <GameContainer
+          <DesktopGameContainer
             gameId={selectedLobby.gameType}
             playerId={publicKey}
             playerName={localPlayerName}
