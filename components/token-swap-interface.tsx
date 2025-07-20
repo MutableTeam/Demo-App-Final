@@ -30,7 +30,7 @@ const mockTokens: Token[] = [
   {
     symbol: "SOL",
     name: "Solana",
-    image: "/images/solana-logo.png",
+    image: "/solana-logo.png",
     balance: 2.5,
     price: 98.45,
   },
@@ -162,7 +162,7 @@ export default function TokenSwapInterface({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <Image
-                  src={fromToken.image || "/placeholder.svg"}
+                  src={fromToken.image || "/placeholder.svg?height=32&width=32"}
                   alt={fromToken.symbol}
                   width={32}
                   height={32}
@@ -225,7 +225,7 @@ export default function TokenSwapInterface({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <Image
-                  src={toToken.image || "/placeholder.svg"}
+                  src={toToken.image || "/placeholder.svg?height=32&width=32"}
                   alt={toToken.symbol}
                   width={32}
                   height={32}
