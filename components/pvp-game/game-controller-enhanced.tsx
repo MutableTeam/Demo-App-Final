@@ -224,7 +224,7 @@ export default function GameControllerEnhanced({
     // Enable debug system with more verbose logging
     debugManager.updateConfig({
       enabled: true,
-      level: DebugLevel.DEBUG,
+      level: DebugLevel.INFO,
       capturePerformance: true,
     })
 
@@ -286,10 +286,7 @@ export default function GameControllerEnhanced({
     // Track component mount
     debugManager.trackComponentMount("GameControllerEnhanced", {
       playerId,
-      playerName,
-      isHost,
       gameMode,
-      useEnhancedPhysics,
       platformType,
     })
 

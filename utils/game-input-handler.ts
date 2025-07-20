@@ -2,6 +2,8 @@ import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
 import { audioManager } from "@/utils/audio-manager"
 import { debugManager } from "./debug-utils"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
+import type { TouchPoint } from "@/utils/touch-point" // Declare TouchPoint variable
 
 export interface InputHandlerOptions {
   playerId: string
@@ -12,15 +14,6 @@ export interface InputHandlerOptions {
   onMouseUp?: (e: MouseEvent, player: any) => void
   onKeyDown?: (e: KeyboardEvent, player: any) => void
   onKeyUp?: (e: KeyboardEvent, player: any) => void
-}
-
-export interface TouchPoint {
-  id: number
-  x: number
-  y: number
-  startX: number
-  startY: number
-  startTime: number
 }
 
 export interface JoystickState {
@@ -43,30 +36,86 @@ export interface GameInputState {
   joystick: JoystickState
   aiming: AimingState
   actions: {
+    shoot: boolean
     dash: boolean
     special: boolean
-    shoot: boolean
+    explosiveArrow: boolean
   }
   touchPoints: Map<number, TouchPoint>
 }
 
-export class GameInputHandler {
+class GameInputHandler {
   private state: GameInputState
-  private callbacks: {
-    onJoystickMove?: (state: JoystickState) => void
-    onAiming?: (state: AimingState) => void
-    onAction?: (action: string, pressed: boolean) => void
-    onShoot?: () => void
-  }
 
   constructor() {
     this.state = {
       joystick: { x: 0, y: 0, active: false },
       aiming: { angle: 0, power: 0, active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
-      actions: { dash: false, special: false, shoot: false },
+      actions: {
+        shoot: false,
+        dash: false,
+        special: false,
+        explosiveArrow: false,
+      },
       touchPoints: new Map(),
     }
-    this.callbacks = {}
+    debugManager.logInfo("INPUT", "Centralized GameInputHandler created.")
+  }
+
+  // Called by the movement Joystick component
+  public handleJoystickMove = (event: IJoystickUpdateEvent) => {
+    const deadzone = 0.2
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+
+    const normalizedX = Math.max(-1, Math.min(1, x / 100))
+    const normalizedY = Math.max(-1, Math.min(1, -y / 100)) // Invert Y for game coords
+
+    const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
+
+    if (distance < deadzone) {
+      if (this.state.joystick.active) {
+        this.state.joystick = { x: 0, y: 0, active: false }
+        debugManager.logDebug("INPUT", "Joystick entered deadzone.")
+      }
+      return
+    }
+
+    this.state.joystick = { x: normalizedX, y: normalizedY, active: true }
+  }
+
+  // Called by the movement Joystick component
+  public handleJoystickStop = () => {
+    if (this.state.joystick.active) {
+      this.state.joystick = { x: 0, y: 0, active: false }
+      debugManager.logDebug("INPUT", "Joystick stopped.")
+    }
+  }
+
+  // Called by ActionButton components
+  public handleActionPress = (action: string, pressed: boolean) => {
+    debugManager.logDebug("INPUT", `Action button: ${action}, pressed: ${pressed}`)
+    switch (action) {
+      case "shoot":
+        this.state.actions.shoot = pressed
+        break
+      case "dash":
+        this.state.actions.dash = pressed
+        break
+      case "special":
+        this.state.actions.special = pressed
+        break
+      case "explosive":
+        this.state.actions.explosiveArrow = pressed
+        break
+    }
+  }
+
+  private callbacks: {
+    onJoystickMove?: (state: JoystickState) => void
+    onAiming?: (state: AimingState) => void
+    onAction?: (action: string, pressed: boolean) => void
+    onShoot?: () => void
   }
 
   setCallbacks(callbacks: {
@@ -76,41 +125,6 @@ export class GameInputHandler {
     onShoot?: () => void
   }) {
     this.callbacks = callbacks
-  }
-
-  // Handle joystick input from react-joystick-component
-  handleJoystickMove(event: any) {
-    if (event) {
-      // Normalize the joystick values (-100 to 100) to (-1 to 1)
-      const normalizedX = event.x ? event.x / 100 : 0
-      const normalizedY = event.y ? event.y / 100 : 0
-
-      this.state.joystick = {
-        x: normalizedX,
-        y: normalizedY,
-        active: Math.abs(normalizedX) > 0.1 || Math.abs(normalizedY) > 0.1,
-      }
-
-      if (this.callbacks.onJoystickMove) {
-        this.callbacks.onJoystickMove(this.state.joystick)
-      }
-
-      debugManager.logDebug("INPUT", "Joystick moved", {
-        x: normalizedX,
-        y: normalizedY,
-        active: this.state.joystick.active,
-      })
-    }
-  }
-
-  handleJoystickStop() {
-    this.state.joystick = { x: 0, y: 0, active: false }
-
-    if (this.callbacks.onJoystickMove) {
-      this.callbacks.onJoystickMove(this.state.joystick)
-    }
-
-    debugManager.logDebug("INPUT", "Joystick stopped")
   }
 
   // Handle touch-based aiming
@@ -225,27 +239,6 @@ export class GameInputHandler {
     }
   }
 
-  // Handle action button presses
-  handleActionPress(action: string, pressed: boolean) {
-    switch (action) {
-      case "dash":
-        this.state.actions.dash = pressed
-        break
-      case "special":
-        this.state.actions.special = pressed
-        break
-      case "shoot":
-        this.state.actions.shoot = pressed
-        break
-    }
-
-    if (this.callbacks.onAction) {
-      this.callbacks.onAction(action, pressed)
-    }
-
-    debugManager.logDebug("INPUT", "Action button", { action, pressed })
-  }
-
   // Get current input state
   getState(): GameInputState {
     return { ...this.state }
@@ -265,6 +258,24 @@ export class GameInputHandler {
       drawPower: this.state.aiming.power,
       isDrawingBow: this.state.aiming.active,
     }
+  }
+
+  // Called by the game loop to get the current controls
+  public getControls() {
+    const joy = this.state.joystick
+    const deadzone = 0.1
+
+    return {
+      up: joy.y < -deadzone,
+      down: joy.y > deadzone,
+      left: joy.x < -deadzone,
+      right: joy.x > deadzone,
+      ...this.state.actions,
+    }
+  }
+
+  public getState = (): GameInputState => {
+    return this.state
   }
 
   // Clean up
