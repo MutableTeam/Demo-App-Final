@@ -103,43 +103,6 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Correctly handle joystick movement for mobile
-  const handleJoystickMove = (direction: { x: number; y: number }) => {
-    if (!gameStateRef.current.players[playerId]) return
-    const player = gameStateRef.current.players[playerId]
-    const deadzone = 0.1
-
-    // The joystick component y-axis is inverted.
-    // Positive y from joystick means "up".
-    // Game engine expects standard coordinates where positive y is "down".
-    // The mobile container already inverts this, so here:
-    // positive y means down, negative y means up.
-    player.controls.up = direction.y < -deadzone
-    player.controls.down = direction.y > deadzone
-    player.controls.left = direction.x < -deadzone
-    player.controls.right = direction.x > deadzone
-  }
-
-  // Map action buttons to game controls
-  const handleActionPress = (action: string, pressed: boolean) => {
-    if (!gameStateRef.current.players[playerId]) return
-    const player = gameStateRef.current.players[playerId]
-    switch (action) {
-      case "actionA": // Main shoot button
-        player.controls.shoot = pressed
-        break
-      case "actionB": // Dash button
-        player.controls.dash = pressed
-        break
-      case "actionX": // Special attack button
-        player.controls.special = pressed
-        break
-      case "actionY": // Explosive arrow button
-        player.controls.explosiveArrow = pressed
-        break
-    }
-  }
-
   // Initialize debug system
   useEffect(() => {
     // Enable debug system with more verbose logging
@@ -375,18 +338,6 @@ export default function GameControllerEnhanced({
             gameStateRef.current.players[aiId].rotation = targetRotation
           }
         })
-
-        // Apply touch controls for mobile platform
-        // if (platformType === "mobile" && gameStateRef.current.players[playerId]) {
-        //   const player = gameStateRef.current.players[playerId]
-        //   player.controls.up = touchControls.up
-        //   player.controls.down = touchControls.down
-        //   player.controls.left = touchControls.left
-        //   player.controls.right = touchControls.right
-        //   player.controls.shoot = touchControls.shoot
-        //   player.controls.special = touchControls.special
-        //   player.controls.dash = touchControls.dash
-        // }
 
         // Update game state with error handling and timeout protection
         let newState = gameStateRef.current
@@ -936,7 +887,7 @@ export default function GameControllerEnhanced({
 
   if (platformType === "mobile") {
     return (
-      <MobileGameContainer onJoystickMove={handleJoystickMove} onActionPress={handleActionPress}>
+      <MobileGameContainer>
         {gameRenderer}
         {gameState.isGameOver && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
