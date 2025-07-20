@@ -543,22 +543,23 @@ export const updateGameState = (
         // Apply movement penalty when drawing bow
         const movementMultiplier = player.isDrawingBow ? 0.4 : 1.0 // 40% speed when drawing bow
 
-        // Reset velocity
-        player.velocity.x = 0
-        player.velocity.y = 0
+        // If using boolean controls (keyboard), update velocity
+        if (player.controls.up || player.controls.down || player.controls.left || player.controls.right) {
+          player.velocity.x = 0
+          player.velocity.y = 0
+          if (player.controls.up) player.velocity.y = -speed * movementMultiplier
+          if (player.controls.down) player.velocity.y = speed * movementMultiplier
+          if (player.controls.left) player.velocity.x = -speed * movementMultiplier
+          if (player.controls.right) player.velocity.x = speed * movementMultiplier
 
-        // Apply controls to velocity
-        if (player.controls.up) player.velocity.y = -speed * movementMultiplier
-        if (player.controls.down) player.velocity.y = speed * movementMultiplier
-        if (player.controls.left) player.velocity.x = -speed * movementMultiplier
-        if (player.controls.right) player.velocity.x = speed * movementMultiplier
-
-        // Normalize diagonal movement
-        if (player.velocity.x !== 0 && player.velocity.y !== 0) {
-          const magnitude = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y)
-          player.velocity.x = (player.velocity.x / magnitude) * speed * movementMultiplier
-          player.velocity.y = (player.velocity.y / magnitude) * speed * movementMultiplier
+          // Normalize diagonal movement
+          if (player.velocity.x !== 0 && player.velocity.y !== 0) {
+            const magnitude = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y)
+            player.velocity.x = (player.velocity.x / magnitude) * speed * movementMultiplier
+            player.velocity.y = (player.velocity.y / magnitude) * speed * movementMultiplier
+          }
         }
+        // Note: For joystick, velocity is set directly in the controller.
 
         // Apply velocity
         player.position.x += player.velocity.x * deltaTime

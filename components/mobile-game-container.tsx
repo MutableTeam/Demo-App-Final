@@ -1,10 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
-import { Joystick } from "react-joystick-component"
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
-import type { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick"
+import nipplejs from "nipplejs"
+import type { JoystickManager } from "nipplejs"
 
 interface MobileGameContainerProps {
   children: React.ReactNode
@@ -56,6 +56,8 @@ export default function MobileGameContainer({
   onActionPress = () => {},
 }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
+  const joystickContainerRef = useRef<HTMLDivElement>(null)
+  const joystickRef = useRef<JoystickManager | null>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -67,26 +69,38 @@ export default function MobileGameContainer({
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  const handleJoystickUpdate = (event: IJoystickUpdateEvent) => {
-    const deadzone = 0.1
-    const x = event.x ?? 0
-    const y = event.y ?? 0
-    const distance = Math.sqrt(x * x + y * y)
+  useEffect(() => {
+    if (joystickContainerRef.current) {
+      if (joystickRef.current) {
+        joystickRef.current.destroy()
+      }
 
-    if (distance < deadzone * 50) {
-      // 50 is the joystick's internal scale
-      onJoystickMove({ x: 0, y: 0 })
-      return
+      const options: nipplejs.JoystickManagerOptions = {
+        zone: joystickContainerRef.current,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        color: "#333333",
+        size: 100,
+      }
+
+      const manager = nipplejs.create(options)
+      joystickRef.current = manager
+
+      manager.on("move", (evt, data) => {
+        if (data.vector) {
+          onJoystickMove({ x: data.vector.x, y: -data.vector.y }) // Invert Y for standard game coords
+        }
+      })
+
+      manager.on("end", () => {
+        onJoystickMove({ x: 0, y: 0 })
+      })
+
+      return () => {
+        manager.destroy()
+      }
     }
-
-    const normalizedX = x / 50
-    const normalizedY = -y / 50 // Invert Y-axis for standard game coordinates
-    onJoystickMove({ x: normalizedX, y: normalizedY })
-  }
-
-  const handleJoystickStop = () => {
-    onJoystickMove({ x: 0, y: 0 })
-  }
+  }, [orientation, onJoystickMove])
 
   const isLandscape = orientation === "landscape"
 
@@ -107,15 +121,7 @@ export default function MobileGameContainer({
         {isLandscape && (
           <div className="flex flex-col items-center justify-center w-1/4 h-full space-y-2">
             <span className="text-xs tracking-widest">MOVEMENT</span>
-            <Joystick
-              size={100}
-              sticky={false}
-              baseColor="#4a4a4a"
-              stickColor="#333333"
-              move={handleJoystickUpdate}
-              stop={handleJoystickStop}
-              throttle={50}
-            />
+            <div ref={joystickContainerRef} className="relative w-[120px] h-[120px]" />
           </div>
         )}
 
@@ -138,15 +144,7 @@ export default function MobileGameContainer({
         >
           {!isLandscape && (
             <div className="flex flex-col items-center justify-center space-y-2">
-              <Joystick
-                size={100}
-                sticky={false}
-                baseColor="#4a4a4a"
-                stickColor="#333333"
-                move={handleJoystickUpdate}
-                stop={handleJoystickStop}
-                throttle={50}
-              />
+              <div ref={joystickContainerRef} className="relative w-[120px] h-[120px]" />
               <span className="text-xs tracking-widest">MOVE</span>
             </div>
           )}

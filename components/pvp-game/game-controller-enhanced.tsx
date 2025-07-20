@@ -103,21 +103,13 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Correctly handle joystick movement for mobile
+  // Directly control player velocity from joystick vector
   const handleJoystickMove = (direction: { x: number; y: number }) => {
     if (!gameStateRef.current.players[playerId]) return
     const player = gameStateRef.current.players[playerId]
-    const deadzone = 0.1
-
-    // The joystick component y-axis is inverted.
-    // Positive y from joystick means "up".
-    // Game engine expects standard coordinates where positive y is "down".
-    // The mobile container already inverts this, so here:
-    // positive y means down, negative y means up.
-    player.controls.up = direction.y < -deadzone
-    player.controls.down = direction.y > deadzone
-    player.controls.left = direction.x < -deadzone
-    player.controls.right = direction.x > deadzone
+    const speed = 200 // pixels per second
+    player.velocity.x = direction.x * speed
+    player.velocity.y = direction.y * speed
   }
 
   // Map action buttons to game controls
