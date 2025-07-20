@@ -72,6 +72,33 @@ export default function EnhancedGameRenderer({
         ctx.stroke()
 
         ctx.restore()
+
+        // Draw player name and health
+        ctx.fillStyle = "#ffffff"
+        ctx.font = "12px Arial"
+        ctx.textAlign = "center"
+        ctx.fillText(player.name, player.position.x, player.position.y - player.size - 15)
+
+        // Health bar
+        const healthBarWidth = 40
+        const healthBarHeight = 5
+        const healthPercentage = player.health / 100
+
+        ctx.fillStyle = "#333"
+        ctx.fillRect(
+          player.position.x - healthBarWidth / 2,
+          player.position.y - player.size - 10,
+          healthBarWidth,
+          healthBarHeight,
+        )
+
+        ctx.fillStyle = healthPercentage > 0.5 ? "#00ff00" : healthPercentage > 0.2 ? "#ffff00" : "#ff0000"
+        ctx.fillRect(
+          player.position.x - healthBarWidth / 2,
+          player.position.y - player.size - 10,
+          healthBarWidth * healthPercentage,
+          healthBarHeight,
+        )
       })
 
       // Draw arrows
@@ -110,6 +137,20 @@ export default function EnhancedGameRenderer({
           ctx.fillRect(-8, -8, 16, 16)
           ctx.restore()
         })
+      }
+
+      // Debug information
+      if (debugMode) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+        ctx.font = "14px monospace"
+        ctx.textAlign = "left"
+        const debugInfo = [
+          `Platform: ${platformType}`,
+          `Players: ${Object.keys(gameState.players).length}`,
+          `Arrows: ${gameState.arrows?.length || 0}`,
+          `Game Time: ${Math.floor(gameState.gameTime)}s`,
+        ]
+        debugInfo.forEach((info, index) => ctx.fillText(info, 10, 20 + index * 20))
       }
 
       animationFrameRef.current = requestAnimationFrame(render)
