@@ -4,30 +4,34 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
-import { gameInputHandler } from "@/utils/game-input-handler"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
+
+interface MobileGameContainerProps {
+  children: React.ReactNode
+  className?: string
+  onJoystickMove: (direction: { x: number; y: number }) => void
+  onActionPress: (action: string, pressed: boolean) => void
+}
 
 interface ActionButtonProps {
   label: string
   action: string
+  onPress: (action: string, pressed: boolean) => void
   className?: string
   title?: string
 }
 
-function ActionButton({ label, action, className, title }: ActionButtonProps) {
-  const handlePress = (pressed: boolean) => {
-    gameInputHandler.handleActionPress(action, pressed)
-  }
-
+function ActionButton({ label, action, onPress, className, title }: ActionButtonProps) {
   const handleInteractionStart = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    handlePress(true)
+    onPress(action, true)
   }
 
   const handleInteractionEnd = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    handlePress(false)
+    onPress(action, false)
   }
 
   return (
@@ -54,10 +58,9 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
 export default function MobileGameContainer({
   children,
   className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
+  onJoystickMove,
+  onActionPress,
+}: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
 
   useEffect(() => {
@@ -70,8 +73,27 @@ export default function MobileGameContainer({
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  const isLandscape = orientation === "landscape"
+  const handleMove = (event: IJoystickUpdateEvent) => {
+    const deadzone = 0.2
+    const x = event.x ?? 0
+    const y = event.y ?? 0
 
+    const normalizedX = Math.max(-1, Math.min(1, x / 100))
+    const normalizedY = Math.max(-1, Math.min(1, -y / 100))
+
+    const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
+    if (distance < deadzone) {
+      onJoystickMove({ x: 0, y: 0 })
+      return
+    }
+    onJoystickMove({ x: normalizedX, y: normalizedY })
+  }
+
+  const handleStop = () => {
+    onJoystickMove({ x: 0, y: 0 })
+  }
+
+  const isLandscape = orientation === "landscape"
   const layoutStyles = {
     portrait: {
       container: "flex-col",
@@ -86,7 +108,6 @@ export default function MobileGameContainer({
       right: "w-1/4 h-full flex-col",
     },
   }
-
   const styles = isLandscape ? layoutStyles.landscape : layoutStyles.portrait
 
   return (
@@ -94,7 +115,6 @@ export default function MobileGameContainer({
       className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
     >
       <div className={cn("w-full h-full flex", styles.container)}>
-        {/* Left Side (Movement) */}
         <div className={cn("flex items-center justify-center p-4", styles.left)}>
           <div className="flex flex-col items-center justify-center gap-2">
             <span className="text-sm tracking-widest font-bold text-zinc-300">MOVEMENT</span>
@@ -103,30 +123,26 @@ export default function MobileGameContainer({
               sticky={false}
               baseColor="rgba(39, 39, 42, 0.7)"
               stickColor="rgba(113, 113, 122, 0.8)"
-              move={gameInputHandler.handleJoystickMove}
-              stop={gameInputHandler.handleJoystickStop}
+              move={handleMove}
+              stop={handleStop}
               throttle={30}
             />
             <span className="text-xs text-zinc-500">Move to walk</span>
           </div>
         </div>
-
-        {/* Game Screen (Middle) */}
         <div className={cn("flex items-center justify-center", styles.game)}>
           <div className="w-full h-full bg-black/70 border-y-2 sm:border-x-2 sm:border-y-0 border-zinc-700 relative overflow-hidden">
             {children}
           </div>
         </div>
-
-        {/* Right Side (Actions) */}
         <div className={cn("flex items-center justify-center p-4", styles.right)}>
           <div className="flex flex-col items-center justify-center gap-2">
             <span className="text-sm tracking-widest font-bold text-zinc-300">ACTIONS</span>
             <div className="grid grid-cols-2 gap-4">
-              <ActionButton label="🏹" action="shoot" title="Shoot Arrow" />
-              <ActionButton label="⚡" action="special" title="Special Attack" />
-              <ActionButton label="💨" action="dash" title="Dash" />
-              <ActionButton label="💥" action="explosive" title="Explosive Arrow" />
+              <ActionButton label="🏹" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
+              <ActionButton label="⚡" action="special" onPress={onActionPress} title="Special Attack" />
+              <ActionButton label="💨" action="dash" onPress={onActionPress} title="Dash" />
+              <ActionButton label="💥" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
             </div>
             <span className="text-xs text-zinc-500">Tap for combat</span>
           </div>
