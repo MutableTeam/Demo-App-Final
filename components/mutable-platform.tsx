@@ -314,16 +314,14 @@ export default function MutablePlatform({
             <Tabs defaultValue="swap" className="w-full">
               <TabsList
                 className={cn(
-                  "grid w-full grid-cols-2 mb-6 max-w-md mx-auto",
-                  isCyberpunk
-                    ? "bg-black/30 border border-cyan-500/30 p-1 h-12"
-                    : "bg-yellow-200 border-2 border-black h-12",
+                  "grid w-full grid-cols-2 mb-6 max-w-md mx-auto p-0 h-auto",
+                  isCyberpunk ? "bg-black/30 border border-cyan-500/30" : "bg-[#FFD54F] border-2 border-black",
                 )}
               >
                 <TabsTrigger
                   value="swap"
                   className={cn(
-                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300",
+                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 py-2 px-1 h-auto flex-col",
                     isCyberpunk
                       ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
                       : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
@@ -336,7 +334,7 @@ export default function MutablePlatform({
                 <TabsTrigger
                   value="marketplace"
                   className={cn(
-                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300",
+                    "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 py-2 px-1 h-auto flex-col",
                     isCyberpunk
                       ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
                       : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",

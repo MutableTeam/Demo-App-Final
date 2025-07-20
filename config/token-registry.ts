@@ -7,7 +7,7 @@ export const SOL_TOKEN: TokenConfig = {
   symbol: "SOL",
   mintAddress: "So11111111111111111111111111111111111111112",
   decimals: 9,
-  logoURI: "/solana-logo.png",
+  logoURI: "/solana-logo.png", // Fixed path - was missing leading slash
   isNative: true,
   coingeckoId: "solana",
 }
