@@ -1,22 +1,206 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { GameEngine, type GameState } from "./game-engine"
 import EnhancedGameRenderer from "./enhanced-game-renderer"
-import { debugManager } from "@/utils/debug-utils"
+import { debugManager, DebugLevel } from "@/utils/debug-utils"
 import type { PlatformType } from "@/contexts/platform-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Play, Pause, Square, RotateCcw, Settings, Users, Zap, Monitor, Smartphone, Gamepad2 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import DebugOverlay from "./debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
-import type { createAIController } from "../../utils/game-ai"
-import { audioManager } from "@/utils/audio-manager"
-import { DebugLevel } from "@/utils/debug-level"
-import { transitionDebugger } from "@/utils/transition-debugger"
+
+// Define game state interfaces
+interface Player {
+  id: string
+  name: string
+  position: { x: number; y: number }
+  rotation: number
+  health: number
+  maxHealth: number
+  size: number
+  color: string
+  isDrawingBow: boolean
+  drawPower: number
+  score?: number
+  level?: number
+  lives?: number
+  multiplier?: number
+  controls: {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+    shoot: boolean
+    dash: boolean
+    special: boolean
+    explosiveArrow?: boolean
+  }
+}
+
+interface Arrow {
+  id: string
+  position: { x: number; y: number }
+  velocity: { x: number; y: number }
+  playerId: string
+  damage: number
+  isExplosive?: boolean
+}
+
+interface Wall {
+  position: { x: number; y: number }
+  width: number
+  height: number
+}
+
+interface Pickup {
+  id: string
+  position: { x: number; y: number }
+  type: string
+  value: number
+}
+
+interface GameState {
+  players: Record<string, Player>
+  arrows: Arrow[]
+  walls: Wall[]
+  pickups: Pickup[]
+  gameTime: number
+  gameStatus: "waiting" | "playing" | "ended"
+  winner: string | null
+}
+
+// Simple game engine class
+class GameEngine {
+  private gameState: GameState
+  private lastUpdate: number = Date.now()
+
+  constructor(initialState: GameState) {
+    this.gameState = { ...initialState }
+  }
+
+  update(): GameState {
+    const now = Date.now()
+    const deltaTime = (now - this.lastUpdate) / 1000
+    this.lastUpdate = now
+
+    // Update game time
+    if (this.gameState.gameStatus === "playing") {
+      this.gameState.gameTime += deltaTime
+    }
+
+    // Update players
+    Object.values(this.gameState.players).forEach((player) => {
+      this.updatePlayer(player, deltaTime)
+    })
+
+    // Update arrows
+    this.gameState.arrows = this.gameState.arrows.filter((arrow) => {
+      return this.updateArrow(arrow, deltaTime)
+    })
+
+    // Check win conditions
+    this.checkWinConditions()
+
+    return { ...this.gameState }
+  }
+
+  private updatePlayer(player: Player, deltaTime: number) {
+    const speed = 200 // pixels per second
+
+    // Update position based on controls
+    if (player.controls.up) player.position.y -= speed * deltaTime
+    if (player.controls.down) player.position.y += speed * deltaTime
+    if (player.controls.left) player.position.x -= speed * deltaTime
+    if (player.controls.right) player.position.x += speed * deltaTime
+
+    // Keep player in bounds (assuming 800x600 game area)
+    player.position.x = Math.max(player.size, Math.min(800 - player.size, player.position.x))
+    player.position.y = Math.max(player.size, Math.min(600 - player.size, player.position.y))
+
+    // Handle shooting
+    if (player.controls.shoot && !player.isDrawingBow) {
+      this.createArrow(player)
+    }
+  }
+
+  private updateArrow(arrow: Arrow, deltaTime: number): boolean {
+    // Update arrow position
+    arrow.position.x += arrow.velocity.x * deltaTime
+    arrow.position.y += arrow.velocity.y * deltaTime
+
+    // Remove arrows that are out of bounds
+    if (arrow.position.x < 0 || arrow.position.x > 800 || arrow.position.y < 0 || arrow.position.y > 600) {
+      return false
+    }
+
+    // Check collision with walls
+    for (const wall of this.gameState.walls) {
+      if (this.checkArrowWallCollision(arrow, wall)) {
+        return false
+      }
+    }
+
+    // Check collision with players
+    for (const player of Object.values(this.gameState.players)) {
+      if (player.id !== arrow.playerId && this.checkArrowPlayerCollision(arrow, player)) {
+        player.health -= arrow.damage
+        if (player.health <= 0) {
+          player.health = 0
+        }
+        return false
+      }
+    }
+
+    return true
+  }
+
+  private createArrow(player: Player) {
+    const arrowSpeed = 400
+    const arrow: Arrow = {
+      id: `arrow-${Date.now()}-${Math.random()}`,
+      position: { ...player.position },
+      velocity: {
+        x: Math.cos(player.rotation) * arrowSpeed,
+        y: Math.sin(player.rotation) * arrowSpeed,
+      },
+      playerId: player.id,
+      damage: 25,
+      isExplosive: player.controls.explosiveArrow || false,
+    }
+
+    this.gameState.arrows.push(arrow)
+  }
+
+  private checkArrowWallCollision(arrow: Arrow, wall: Wall): boolean {
+    return (
+      arrow.position.x >= wall.position.x &&
+      arrow.position.x <= wall.position.x + wall.width &&
+      arrow.position.y >= wall.position.y &&
+      arrow.position.y <= wall.position.y + wall.height
+    )
+  }
+
+  private checkArrowPlayerCollision(arrow: Arrow, player: Player): boolean {
+    const distance = Math.sqrt(
+      Math.pow(arrow.position.x - player.position.x, 2) + Math.pow(arrow.position.y - player.position.y, 2),
+    )
+    return distance < player.size
+  }
+
+  private checkWinConditions() {
+    const alivePlayers = Object.values(this.gameState.players).filter((p) => p.health > 0)
+
+    if (alivePlayers.length <= 1 && this.gameState.gameStatus === "playing") {
+      this.gameState.gameStatus = "ended"
+      this.gameState.winner = alivePlayers.length === 1 ? alivePlayers[0].id : null
+    }
+  }
+
+  getState(): GameState {
+    return { ...this.gameState }
+  }
+}
 
 interface GameStats {
   score: number
@@ -53,25 +237,12 @@ export default function GameControllerEnhanced({
   const [isGameRunning, setIsGameRunning] = useState(false)
   const gameEngineRef = useRef<GameEngine | null>(null)
   const animationFrameRef = useRef<number>()
-  const gameStateRef = useRef<GameState>(gameState)
-  const lastUpdateTimeRef = useRef<number>(Date.now())
-  const requestAnimationFrameIdRef = useRef<number | null>(null)
-  const bowSoundPlayedRef = useRef<boolean>(false)
-  const fullDrawSoundPlayedRef = useRef<boolean>(false)
-  const specialSoundPlayedRef = useRef<boolean>(false)
-  const audioInitializedRef = useRef<boolean>(false)
-  const gameInitializedRef = useRef<boolean>(false)
-  const aiControllersRef = useRef<Record<string, ReturnType<typeof createAIController>>>({})
+  const gameStateRef = useRef<GameState | null>(gameState)
   const [showDebug, setShowDebug] = useState<boolean>(false)
   const [showResourceMonitor, setShowResourceMonitor] = useState<boolean>(false)
-  const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
   const [showTutorial, setShowTutorial] = useState<boolean>(false)
-  const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
-  const memoryTrackingInterval = useRef<NodeJS.Timeout | null>(null)
-  const className = "bg-white" // Declare className variable
 
-  const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
-  const [playersOnline, setPlayersOnline] = useState(0)
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("connected")
 
   // Touch controls state for mobile
   const [touchControls, setTouchControls] = useState({
@@ -91,7 +262,6 @@ export default function GameControllerEnhanced({
 
   // Initialize debug system
   useEffect(() => {
-    // Enable debug system with more verbose logging
     debugManager.updateConfig({
       enabled: true,
       level: DebugLevel.DEBUG,
@@ -100,132 +270,14 @@ export default function GameControllerEnhanced({
 
     debugManager.logInfo("GAME", "Debug system initialized for enhanced game controller")
     debugManager.logInfo("GAME", `Platform type: ${platformType}`)
-    transitionDebugger.trackTransition("none", "initialized", "GameControllerEnhanced")
-
-    // Set up keyboard shortcuts for debug tools
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // F8 to toggle debug overlay
-      if (e.key === "F8") {
-        setShowDebug((prev) => !prev)
-      }
-
-      // F9 to capture state snapshot
-      if (e.key === "F9") {
-        debugManager.captureState(gameStateRef.current, "Manual Snapshot")
-        debugManager.logInfo("GAME", "Manual state snapshot captured")
-      }
-
-      // F11 to toggle resource monitor
-      if (e.key === "F11") {
-        setShowResourceMonitor((prev) => !prev)
-      }
-    }
-
-    transitionDebugger.safeAddEventListener(
-      window,
-      "keydown",
-      handleKeyDown,
-      undefined,
-      `${componentIdRef.current}-keydown`,
-    )
-
-    return () => {
-      transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-keydown`)
-    }
   }, [platformType])
-
-  // Handle joystick input from mobile container
-  useEffect(() => {
-    if (platformType === "mobile" && joystickInput && gameStateRef.current.players[playerId]) {
-      const player = gameStateRef.current.players[playerId]
-
-      // Convert joystick input to movement controls
-      player.controls.up = joystickInput.y < -0.3
-      player.controls.down = joystickInput.y > 0.3
-      player.controls.left = joystickInput.x < -0.3
-      player.controls.right = joystickInput.x > 0.3
-
-      // Calculate rotation based on joystick direction
-      if (Math.abs(joystickInput.x) > 0.1 || Math.abs(joystickInput.y) > 0.1) {
-        player.rotation = Math.atan2(joystickInput.y, joystickInput.x)
-      }
-    }
-  }, [joystickInput, platformType, playerId])
-
-  // Handle action input from mobile container
-  useEffect(() => {
-    if (platformType === "mobile" && actionInput && gameStateRef.current.players[playerId]) {
-      const player = gameStateRef.current.players[playerId]
-
-      switch (actionInput.action) {
-        case "actionA": // Main attack/shoot
-          player.controls.shoot = actionInput.pressed
-          break
-        case "actionB": // Dash
-          player.controls.dash = actionInput.pressed
-          break
-        case "actionX": // Special attack
-          player.controls.special = actionInput.pressed
-          break
-        case "actionY": // Explosive arrow (if available)
-          if (player.controls.explosiveArrow !== undefined) {
-            player.controls.explosiveArrow = actionInput.pressed
-          }
-          break
-      }
-    }
-  }, [actionInput, platformType, playerId])
 
   // Initialize game
   useEffect(() => {
-    // Prevent multiple initializations
-    if (gameInitializedRef.current) return
-
-    // Initialize audio directly
-    audioManager
-      .init()
-      .then(() => {
-        audioInitializedRef.current = true
-        debugManager.logInfo("AUDIO", "Audio system initialized")
-      })
-      .catch((err) => {
-        debugManager.logError("AUDIO", "Failed to initialize audio", err)
-      })
-
-    // Enable global error tracking
-    debugManager.setupGlobalErrorTracking()
-
-    // Track component mount
-    debugManager.trackComponentMount("GameControllerEnhanced", {
-      playerId,
-      playerName,
-      isHost,
-      gameMode,
-      platformType,
-    })
-
-    transitionDebugger.trackTransition("initialized", "mounting", "GameControllerEnhanced")
-
-    // Make game state available globally for debugging
-    if (typeof window !== "undefined") {
-      ;(window as any).__gameStateRef = gameStateRef
-    }
-
-    gameInitializedRef.current = true
-
     debugManager.logInfo("GAME", `Initializing enhanced game with mode: ${gameMode}, platform: ${platformType}`)
 
-    // Create local player
-    const playerColors = ["#FF5252", "#4CAF50", "#2196F3", "#FFC107"]
-    const playerPositions = [
-      { x: 100, y: 100 },
-      { x: 700, y: 500 },
-      { x: 700, y: 100 },
-      { x: 100, y: 500 },
-    ]
-
-    // Use the current game state
-    const currentState: GameState = {
+    // Create initial game state
+    const initialState: GameState = {
       players: {
         [playerId]: {
           id: playerId,
@@ -238,6 +290,10 @@ export default function GameControllerEnhanced({
           color: "#00ffff",
           isDrawingBow: false,
           drawPower: 0,
+          score: 0,
+          level: 1,
+          lives: 3,
+          multiplier: 1,
           controls: {
             up: false,
             down: false,
@@ -259,27 +315,10 @@ export default function GameControllerEnhanced({
           color: "#ff00ff",
           isDrawingBow: false,
           drawPower: 0,
-          controls: {
-            up: false,
-            down: false,
-            left: false,
-            right: false,
-            shoot: false,
-            dash: false,
-            special: false,
-          },
-        },
-        "ai-2": {
-          id: "ai-2",
-          name: "AI Player 2",
-          position: { x: 500, y: 300 },
-          rotation: 0,
-          health: 100,
-          maxHealth: 100,
-          size: 20,
-          color: "#ffff00",
-          isDrawingBow: false,
-          drawPower: 0,
+          score: 0,
+          level: 1,
+          lives: 3,
+          multiplier: 1,
           controls: {
             up: false,
             down: false,
@@ -303,10 +342,8 @@ export default function GameControllerEnhanced({
       winner: null,
     }
 
-    setGameState(currentState)
-
-    // Initialize game engine
-    gameEngineRef.current = new GameEngine(currentState)
+    setGameState(initialState)
+    gameEngineRef.current = new GameEngine(initialState)
     setIsGameRunning(true)
 
     debugManager.logInfo("GameController", "Game initialized successfully")
@@ -332,6 +369,11 @@ export default function GameControllerEnhanced({
     player.controls.left = joystickInput.x < -0.3
     player.controls.right = joystickInput.x > 0.3
 
+    // Calculate rotation based on joystick direction
+    if (Math.abs(joystickInput.x) > 0.1 || Math.abs(joystickInput.y) > 0.1) {
+      player.rotation = Math.atan2(joystickInput.y, joystickInput.x)
+    }
+
     debugManager.logDebug("GameController", "Joystick input processed", joystickInput)
   }, [joystickInput, gameState, playerId])
 
@@ -343,14 +385,19 @@ export default function GameControllerEnhanced({
     if (!player) return
 
     switch (actionInput.action) {
-      case "dash":
+      case "actionA":
+        player.controls.shoot = actionInput.pressed
+        break
+      case "actionB":
         player.controls.dash = actionInput.pressed
         break
-      case "special":
+      case "actionX":
         player.controls.special = actionInput.pressed
         break
-      case "shoot":
-        player.controls.shoot = actionInput.pressed
+      case "actionY":
+        if (player.controls.explosiveArrow !== undefined) {
+          player.controls.explosiveArrow = actionInput.pressed
+        }
         break
     }
 
@@ -457,12 +504,31 @@ export default function GameControllerEnhanced({
       }
     }
 
+    const handleMouseMove = (event: MouseEvent) => {
+      const player = gameState.players[playerId]
+      if (!player) return
+
+      const canvas = document.querySelector("canvas")
+      if (!canvas) return
+
+      const rect = canvas.getBoundingClientRect()
+      const mouseX = event.clientX - rect.left
+      const mouseY = event.clientY - rect.top
+
+      // Calculate angle between player and mouse
+      const dx = mouseX - player.position.x
+      const dy = mouseY - player.position.y
+      player.rotation = Math.atan2(dy, dx)
+    }
+
     window.addEventListener("keydown", handleKeyDown)
     window.addEventListener("keyup", handleKeyUp)
+    window.addEventListener("mousemove", handleMouseMove)
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
+      window.removeEventListener("mousemove", handleMouseMove)
     }
   }, [platformType, gameState, playerId])
 
@@ -475,7 +541,7 @@ export default function GameControllerEnhanced({
 
   if (!gameState) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full min-h-[600px]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-cyan-400 font-mono">Initializing Game...</p>
@@ -490,161 +556,8 @@ export default function GameControllerEnhanced({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  const getConnectionColor = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "text-green-500"
-      case "connecting":
-        return "text-yellow-500"
-      default:
-        return "text-red-500"
-    }
-  }
-
-  const getPlatformControls = () => {
-    if (platformType === "desktop") {
-      return {
-        primary: "WASD + Mouse",
-        secondary: "Space/Enter",
-        special: "Shift/Ctrl",
-        hint: "Use keyboard and mouse for precise control",
-      }
-    } else {
-      return {
-        primary: "Touch & Drag",
-        secondary: "Tap",
-        special: "Long Press",
-        hint: "Touch controls optimized for mobile",
-      }
-    }
-  }
-
-  const controls = getPlatformControls()
-
   return (
-    <div className={cn("relative w-full h-full", className)}>
-      {/* Game Stats Header - Only show on desktop */}
-      {platformType === "desktop" && (
-        <Card className="mb-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Gamepad2 className="w-5 h-5" />
-                Archer Arena - {gameMode.toUpperCase()}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant={connectionStatus === "connected" ? "default" : "destructive"}>{connectionStatus}</Badge>
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {Object.keys(gameState.players).length}
-                </Badge>
-                {platformType === "mobile" && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <Smartphone className="w-3 h-3" />
-                    Mobile
-                  </Badge>
-                )}
-                {platformType === "desktop" && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <Monitor className="w-3 h-3" />
-                    Desktop
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-              <div className="text-center">
-                <div className="font-semibold text-lg">{gameState.players[playerId].score}</div>
-                <div className="text-muted-foreground">Score</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-lg">{gameState.players[playerId].level}</div>
-                <div className="text-muted-foreground">Level</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-lg">{gameState.players[playerId].lives}</div>
-                <div className="text-muted-foreground">Lives</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-lg">{formatTime(gameState.gameTime)}</div>
-                <div className="text-muted-foreground">Time</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-lg flex items-center justify-center gap-1">
-                  <Zap className="w-4 h-4" />
-                  {gameState.players[playerId].multiplier}x
-                </div>
-                <div className="text-muted-foreground">Multiplier</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Game Controls - Only show on desktop */}
-      {platformType === "desktop" && (
-        <Card className="mb-4">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={isGameRunning ? () => setIsGameRunning(false) : () => setIsGameRunning(true)}
-                  variant={isGameRunning ? "secondary" : "default"}
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  {isGameRunning ? (
-                    <>
-                      <Pause className="w-4 h-4" />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4" />
-                      Start
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setIsGameRunning(false)}
-                  variant="destructive"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <Square className="w-4 h-4" />
-                  Stop
-                </Button>
-                <Button
-                  onClick={() => {
-                    setGameState(null)
-                    setIsGameRunning(false)
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 bg-transparent"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setShowDebug(!showDebug)}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <Settings className="w-4 h-4" />
-                  Debug
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
+    <div className="relative w-full h-full">
       {/* Game Renderer */}
       <div className="relative">
         <EnhancedGameRenderer

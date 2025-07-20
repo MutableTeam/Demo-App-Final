@@ -1,17 +1,34 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { X, Maximize2, Minimize2, Volume2, VolumeX, Monitor, Smartphone } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import { useIsMobile } from "@/components/ui/use-mobile"
-import { usePlatform } from "@/contexts/platform-context"
-import GameErrorBoundary from "@/components/game-error-boundary"
+import {
+  Play,
+  Pause,
+  Square,
+  RotateCcw,
+  Settings,
+  Users,
+  Zap,
+  Monitor,
+  Smartphone,
+  Gamepad2,
+  Volume2,
+  VolumeX,
+} from "lucide-react"
 import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
+import type { PlatformType } from "@/contexts/platform-context"
+import { cn } from "@/lib/utils"
+
+interface GameStats {
+  score: number
+  level: number
+  lives: number
+  time: number
+  multiplier: number
+}
 
 interface DesktopGameContainerProps {
   gameId: string
@@ -20,9 +37,8 @@ interface DesktopGameContainerProps {
   isHost: boolean
   gameMode: string
   onGameEnd: (winner?: string | null) => void
-  joystickInput?: { x: number; y: number }
-  actionInput?: { action: string; pressed: boolean } | null
-  children?: React.ReactNode
+  platformType?: PlatformType
+  className?: string
 }
 
 export default function DesktopGameContainer({
@@ -32,163 +48,252 @@ export default function DesktopGameContainer({
   isHost,
   gameMode,
   onGameEnd,
-  joystickInput,
-  actionInput,
-  children,
+  platformType = "desktop",
+  className,
 }: DesktopGameContainerProps) {
-  const { styleMode } = useCyberpunkTheme()
-  const { platformType } = usePlatform()
-  const isCyberpunk = styleMode === "cyberpunk"
-  const isMobile = useIsMobile()
-
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [gameStats, setGameStats] = useState<GameStats>({
+    score: 0,
+    level: 1,
+    lives: 3,
+    time: 0,
+    multiplier: 1,
+  })
 
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
-    }
+  const handleGameStart = useCallback(() => {
+    setIsPlaying(true)
+    setIsPaused(false)
   }, [])
+
+  const handleGamePause = useCallback(() => {
+    setIsPaused(!isPaused)
+  }, [isPaused])
+
+  const handleGameStop = useCallback(() => {
+    setIsPlaying(false)
+    setIsPaused(false)
+    onGameEnd()
+  }, [onGameEnd])
+
+  const handleGameReset = useCallback(() => {
+    setIsPlaying(false)
+    setIsPaused(false)
+    setGameStats({
+      score: 0,
+      level: 1,
+      lives: 3,
+      time: 0,
+      multiplier: 1,
+    })
+  }, [])
+
+  const handleGameEnd = useCallback(
+    (winner?: string | null) => {
+      setIsPlaying(false)
+      setIsPaused(false)
+      onGameEnd(winner)
+    },
+    [onGameEnd],
+  )
 
   const toggleMute = useCallback(() => {
     setIsMuted(!isMuted)
   }, [isMuted])
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange)
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
-  }, [])
-
-  const containerClass = cn(
-    "relative w-full h-screen overflow-hidden",
-    isCyberpunk
-      ? "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900"
-      : "bg-gradient-to-br from-blue-50 to-indigo-100",
-  )
-
-  const headerClass = cn(
-    "absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4",
-    isCyberpunk
-      ? "bg-black/80 border-b border-cyan-500/30 backdrop-blur-sm"
-      : "bg-white/90 border-b border-gray-200 backdrop-blur-sm",
-  )
-
-  const titleClass = cn("text-xl font-bold font-mono", isCyberpunk ? "text-cyan-400" : "text-gray-900")
-
-  const buttonClass = cn(
-    "p-2 rounded-lg transition-all duration-200",
-    isCyberpunk
-      ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
-      : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300",
-  )
-
-  const badgeClass = cn(
-    "flex items-center gap-1",
-    isCyberpunk ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50" : "bg-blue-100 text-blue-800 border-blue-300",
-  )
-
-  const getGameTitle = (gameId: string) => {
-    switch (gameId) {
-      case "archer-arena":
-        return "Archer Arena"
-      case "last-stand":
-        return "Last Stand"
-      case "pixel-pool":
-        return "Pixel Pool"
-      case "top-down-shooter":
-        return "Top Down Shooter"
-      default:
-        return gameId.charAt(0).toUpperCase() + gameId.slice(1)
-    }
-  }
-
   return (
-    <div ref={containerRef} className={containerClass}>
+    <div
+      className={cn(
+        "w-full h-full min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900",
+        className,
+      )}
+    >
       {/* Header */}
-      <div className={headerClass}>
-        <div className="flex items-center gap-4">
-          <h1 className={titleClass}>{getGameTitle(gameId)}</h1>
-          <Badge variant="outline" className={badgeClass}>
-            {platformType === "desktop" ? (
-              <>
-                <Monitor className="h-3 w-3" />
-                Desktop Mode
-              </>
-            ) : (
-              <>
-                <Smartphone className="h-3 w-3" />
-                Mobile Mode
-              </>
-            )}
-          </Badge>
-        </div>
+      <Card className="m-4 bg-black/20 border-cyan-500/30">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl flex items-center gap-3 text-cyan-400">
+              <Gamepad2 className="w-6 h-6" />
+              Archer Arena - {gameMode.toUpperCase()}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="border-cyan-500/50 text-cyan-400">
+                <Users className="w-3 h-3 mr-1" />
+                Online
+              </Badge>
+              {platformType === "mobile" && (
+                <Badge variant="secondary" className="bg-purple-500/20 text-purple-300">
+                  <Smartphone className="w-3 h-3 mr-1" />
+                  Mobile
+                </Badge>
+              )}
+              {platformType === "desktop" && (
+                <Badge variant="secondary" className="bg-blue-500/20 text-blue-300">
+                  <Monitor className="w-3 h-3 mr-1" />
+                  Desktop
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
 
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={toggleMute} className={buttonClass}>
-            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </Button>
+        {/* Game Stats */}
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            <div className="text-center">
+              <div className="font-bold text-2xl text-cyan-400">{gameStats.score}</div>
+              <div className="text-gray-400">Score</div>
+            </div>
+            <div className="text-center">
+              <div className="font-bold text-2xl text-green-400">{gameStats.level}</div>
+              <div className="text-gray-400">Level</div>
+            </div>
+            <div className="text-center">
+              <div className="font-bold text-2xl text-red-400">{gameStats.lives}</div>
+              <div className="text-gray-400">Lives</div>
+            </div>
+            <div className="text-center">
+              <div className="font-bold text-2xl text-yellow-400">
+                {Math.floor(gameStats.time / 60)}:{(gameStats.time % 60).toString().padStart(2, "0")}
+              </div>
+              <div className="text-gray-400">Time</div>
+            </div>
+            <div className="text-center">
+              <div className="font-bold text-2xl text-purple-400 flex items-center justify-center gap-1">
+                <Zap className="w-5 h-5" />
+                {gameStats.multiplier}x
+              </div>
+              <div className="text-gray-400">Multiplier</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-          {!isMobile && (
-            <Button variant="ghost" size="sm" onClick={toggleFullscreen} className={buttonClass}>
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </Button>
-          )}
+      {/* Game Controls */}
+      <Card className="mx-4 mb-4 bg-black/20 border-cyan-500/30">
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={isPlaying ? handleGamePause : handleGameStart}
+                variant={isPlaying ? "secondary" : "default"}
+                size="sm"
+                className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    {isPaused ? "Resume" : "Pause"}
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Game
+                  </>
+                )}
+              </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onGameEnd(null)}
-            className={cn(buttonClass, "hover:bg-red-500/20 hover:text-red-400")}
-          >
-            <X size={16} />
-          </Button>
-        </div>
-      </div>
+              <Button onClick={handleGameStop} variant="destructive" size="sm" className="bg-red-600 hover:bg-red-700">
+                <Square className="w-4 h-4 mr-2" />
+                Stop
+              </Button>
 
-      {/* Demo Banner */}
-      <div className="absolute top-16 left-0 right-0 z-40">
-        <div
-          className={cn(
-            "w-full text-center py-2 text-sm font-mono font-bold",
-            isCyberpunk
-              ? "bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-400 border-b border-cyan-500/30"
-              : "bg-yellow-100 text-yellow-800 border-b border-yellow-300",
-          )}
-        >
-          DEMO GAME : DOES NOT REPRESENT FINAL PRODUCT
-        </div>
-      </div>
+              <Button
+                onClick={handleGameReset}
+                variant="outline"
+                size="sm"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800 bg-transparent"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset
+              </Button>
+            </div>
 
-      {/* Game Content */}
-      <div className="absolute inset-0 pt-24">
-        <GameErrorBoundary>
-          {children || (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={toggleMute}
+                variant="outline"
+                size="sm"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800 bg-transparent"
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800 bg-transparent"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Game Area */}
+      <div className="mx-4 mb-4">
+        <Card className="bg-black/40 border-cyan-500/30 overflow-hidden">
+          <CardContent className="p-0">
             <GameControllerEnhanced
               gameId={gameId}
               playerId={playerId}
               playerName={playerName}
               isHost={isHost}
               gameMode={gameMode}
-              onGameEnd={onGameEnd}
+              onGameEnd={handleGameEnd}
               platformType={platformType}
-              joystickInput={joystickInput}
-              actionInput={actionInput}
             />
-          )}
-        </GameErrorBoundary>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Instructions */}
+      {platformType === "desktop" && (
+        <Card className="mx-4 bg-black/20 border-cyan-500/30">
+          <CardHeader>
+            <CardTitle className="text-lg text-cyan-400">Controls</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300">
+              <div>
+                <h4 className="font-semibold text-cyan-400 mb-2">Movement</h4>
+                <ul className="space-y-1">
+                  <li>• WASD or Arrow Keys - Move</li>
+                  <li>• Mouse - Aim</li>
+                  <li>• Shift - Dash</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-cyan-400 mb-2">Combat</h4>
+                <ul className="space-y-1">
+                  <li>• Left Click - Shoot Arrow</li>
+                  <li>• Right Click - Special Attack</li>
+                  <li>• E - Explosive Arrow</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {platformType === "mobile" && (
+        <Card className="mx-4 bg-black/20 border-cyan-500/30">
+          <CardHeader>
+            <CardTitle className="text-lg text-cyan-400">Mobile Controls</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-gray-300 space-y-2">
+              <p>• Use the left joystick to move your archer</p>
+              <p>• Touch and drag on the right side to aim</p>
+              <p>• Use action buttons for special abilities</p>
+              <p>• Controls are optimized for touch input</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
-
-// Export as named export for compatibility
-export { DesktopGameContainer }
