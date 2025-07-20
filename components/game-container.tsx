@@ -13,7 +13,6 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Badge } from "@/components/ui/badge"
 import { Monitor, Smartphone } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { debugManager } from "@/lib/debug-manager" // Declare the debugManager variable
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -272,20 +271,9 @@ export function GameContainer({
   const game = gameRegistry.getGame(gameId)
 
   useEffect(() => {
-    // Log initialization for debugging
-    debugManager.logInfo("GameContainer", "Initializing game container", {
-      gameId,
-      playerId,
-      playerName,
-      isHost,
-      gameMode,
-      platformType,
-    })
-
     // Set game to playing state after a short delay to ensure proper initialization
     const timer = setTimeout(() => {
       setGameState("playing")
-      debugManager.logInfo("GameContainer", "Game state set to playing")
     }, 500)
 
     return () => clearTimeout(timer)
