@@ -2,7 +2,6 @@ import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
 import { audioManager } from "@/utils/audio-manager"
 import { debugManager } from "./debug-utils"
-import type { TouchPoint } from "@/utils/touch-point"
 
 export interface InputHandlerOptions {
   playerId: string
@@ -13,6 +12,21 @@ export interface InputHandlerOptions {
   onMouseUp?: (e: MouseEvent, player: any) => void
   onKeyDown?: (e: KeyboardEvent, player: any) => void
   onKeyUp?: (e: KeyboardEvent, player: any) => void
+}
+
+export interface TouchPoint {
+  id: number
+  x: number
+  y: number
+  startX: number
+  startY: number
+  startTime: number
+}
+
+export interface JoystickState {
+  x: number // -1 to 1
+  y: number // -1 to 1
+  active: boolean
 }
 
 export interface AimingState {
@@ -28,17 +42,17 @@ export interface AimingState {
 export interface GameInputState {
   aiming: AimingState
   actions: {
-    shoot: boolean
     dash: boolean
     special: boolean
-    explosiveArrow: boolean
+    shoot: boolean
   }
   touchPoints: Map<number, TouchPoint>
 }
 
-class GameInputHandler {
+export class GameInputHandler {
   private state: GameInputState
   private callbacks: {
+    onJoystickMove?: (state: JoystickState) => void
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
     onShoot?: () => void
@@ -47,40 +61,14 @@ class GameInputHandler {
   constructor() {
     this.state = {
       aiming: { angle: 0, power: 0, active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
-      actions: {
-        shoot: false,
-        dash: false,
-        special: false,
-        explosiveArrow: false,
-      },
+      actions: { dash: false, special: false, shoot: false },
       touchPoints: new Map(),
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "Centralized GameInputHandler (Actions Only) created.")
-  }
-
-  public handleActionPress = (action: string, pressed: boolean) => {
-    debugManager.logDebug("INPUT", `Action button: ${action}, pressed: ${pressed}`)
-    switch (action) {
-      case "shoot":
-        this.state.actions.shoot = pressed
-        break
-      case "dash":
-        this.state.actions.dash = pressed
-        break
-      case "special":
-        this.state.actions.special = pressed
-        break
-      case "explosive":
-        this.state.actions.explosiveArrow = pressed
-        break
-    }
-    if (this.callbacks.onAction) {
-      this.callbacks.onAction(action, pressed)
-    }
   }
 
   setCallbacks(callbacks: {
+    onJoystickMove?: (state: JoystickState) => void
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
     onShoot?: () => void
@@ -88,17 +76,39 @@ class GameInputHandler {
     this.callbacks = callbacks
   }
 
+  // Handle touch-based aiming
   handleTouchStart(e: TouchEvent, element: HTMLElement) {
     e.preventDefault()
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i]
       const rect = element.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
-      const touchPoint: TouchPoint = { id: touch.identifier, x, y, startX: x, startY: y, startTime: Date.now() }
+
+      const touchPoint: TouchPoint = {
+        id: touch.identifier,
+        x,
+        y,
+        startX: x,
+        startY: y,
+        startTime: Date.now(),
+      }
+
       this.state.touchPoints.set(touch.identifier, touchPoint)
+
+      // Start aiming if this is the first touch
       if (this.state.touchPoints.size === 1) {
-        this.state.aiming = { angle: 0, power: 0, active: true, startX: x, startY: y, currentX: x, currentY: y }
+        this.state.aiming = {
+          angle: 0,
+          power: 0,
+          active: true,
+          startX: x,
+          startY: y,
+          currentX: x,
+          currentY: y,
+        }
+
         debugManager.logDebug("INPUT", "Aiming started", { x, y })
       }
     }
@@ -106,58 +116,121 @@ class GameInputHandler {
 
   handleTouchMove(e: TouchEvent, element: HTMLElement) {
     e.preventDefault()
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i]
       const touchPoint = this.state.touchPoints.get(touch.identifier)
+
       if (!touchPoint) continue
+
       const rect = element.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
+
+      // Update touch point
       touchPoint.x = x
       touchPoint.y = y
+
+      // Update aiming if this is the active touch
       if (this.state.aiming.active && this.state.touchPoints.size === 1) {
         this.state.aiming.currentX = x
         this.state.aiming.currentY = y
+
+        // Calculate angle and power
         const deltaX = x - this.state.aiming.startX
         const deltaY = y - this.state.aiming.startY
         const angle = Math.atan2(deltaY, deltaX)
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-        const maxDistance = 100
+        const maxDistance = 100 // Maximum aiming distance
         const power = Math.min(distance / maxDistance, 1)
+
         this.state.aiming.angle = angle
         this.state.aiming.power = power
+
         if (this.callbacks.onAiming) {
           this.callbacks.onAiming(this.state.aiming)
         }
+
+        debugManager.logDebug("INPUT", "Aiming updated", {
+          angle: angle * (180 / Math.PI), // Convert to degrees for logging
+          power,
+          distance,
+        })
       }
     }
   }
 
   handleTouchEnd(e: TouchEvent) {
     e.preventDefault()
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i]
       const touchPoint = this.state.touchPoints.get(touch.identifier)
+
       if (!touchPoint) continue
+
+      // Check if this was an aiming touch
       if (this.state.aiming.active && this.state.touchPoints.size === 1) {
+        // Fire the shot
         if (this.callbacks.onShoot) {
           this.callbacks.onShoot()
         }
+
         this.state.aiming.active = false
-        debugManager.logDebug("INPUT", "Shot fired")
+        debugManager.logDebug("INPUT", "Shot fired", {
+          angle: this.state.aiming.angle * (180 / Math.PI),
+          power: this.state.aiming.power,
+        })
       }
+
+      // Remove touch point
       this.state.touchPoints.delete(touch.identifier)
     }
   }
 
-  public getControls() {
-    return { ...this.state.actions }
+  // Handle action button presses
+  handleActionPress(action: string, pressed: boolean) {
+    switch (action) {
+      case "dash":
+        this.state.actions.dash = pressed
+        break
+      case "special":
+        this.state.actions.special = pressed
+        break
+      case "shoot":
+        this.state.actions.shoot = pressed
+        break
+    }
+
+    if (this.callbacks.onAction) {
+      this.callbacks.onAction(action, pressed)
+    }
+
+    debugManager.logDebug("INPUT", "Action button", { action, pressed })
   }
 
-  public getState = (): GameInputState => {
-    return this.state
+  // Get current input state
+  getState(): GameInputState {
+    return { ...this.state }
   }
 
+  // Convert input state to game controls
+  toGameControls() {
+    return {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      shoot: this.state.actions.shoot,
+      special: this.state.actions.special,
+      dash: this.state.actions.dash,
+      rotation: this.state.aiming.angle,
+      drawPower: this.state.aiming.power,
+      isDrawingBow: this.state.aiming.active,
+    }
+  }
+
+  // Clean up
   destroy() {
     this.state.touchPoints.clear()
     this.callbacks = {}
@@ -165,8 +238,10 @@ class GameInputHandler {
   }
 }
 
+// Export a singleton instance
 export const gameInputHandler = new GameInputHandler()
 
+// Legacy function for backward compatibility
 export function setupGameInputHandlers({
   playerId,
   gameStateRef,
@@ -177,39 +252,74 @@ export function setupGameInputHandlers({
   onKeyDown,
   onKeyUp,
 }: InputHandlerOptions) {
+  // Default handlers
   const defaultMouseMove = (e: MouseEvent) => {
     if (!gameStateRef.current?.players?.[playerId]) return
+
     const player = gameStateRef.current.players[playerId]
     const canvas = document.querySelector("canvas")
     if (!canvas) return
+
     const rect = canvas.getBoundingClientRect()
+
+    // Calculate mouse position relative to canvas
     const mouseX = e.clientX - rect.left
     const mouseY = e.clientY - rect.top
+
+    // Calculate angle between player and mouse
     const dx = mouseX - player.position.x
     const dy = mouseY - player.position.y
     player.rotation = Math.atan2(dy, dx)
-    if (onMouseMove) onMouseMove(e, player)
+
+    // Call custom handler if provided
+    if (onMouseMove) {
+      onMouseMove(e, player)
+    }
   }
 
   const defaultMouseDown = (e: MouseEvent) => {
     if (!gameStateRef.current?.players?.[playerId]) return
+
     const player = gameStateRef.current.players[playerId]
-    if (e.button === 0) player.controls.shoot = true
-    else if (e.button === 2) player.controls.special = true
-    if (onMouseDown) onMouseDown(e, player)
+
+    if (e.button === 0) {
+      // Left click - start drawing bow
+      player.controls.shoot = true
+    } else if (e.button === 2) {
+      // Right click - start charging special attack
+      player.controls.special = true
+    }
+
+    // Call custom handler if provided
+    if (onMouseDown) {
+      onMouseDown(e, player)
+    }
   }
 
   const defaultMouseUp = (e: MouseEvent) => {
     if (!gameStateRef.current?.players?.[playerId]) return
+
     const player = gameStateRef.current.players[playerId]
-    if (e.button === 0) player.controls.shoot = false
-    else if (e.button === 2) player.controls.special = false
-    if (onMouseUp) onMouseUp(e, player)
+
+    if (e.button === 0) {
+      // Left click release - fire arrow
+      player.controls.shoot = false
+    } else if (e.button === 2) {
+      // Right click release - fire special attack
+      player.controls.special = false
+    }
+
+    // Call custom handler if provided
+    if (onMouseUp) {
+      onMouseUp(e, player)
+    }
   }
 
   const defaultKeyDown = (e: KeyboardEvent) => {
     if (!gameStateRef.current?.players?.[playerId]) return
+
     const player = gameStateRef.current.players[playerId]
+
     switch (e.key.toLowerCase()) {
       case "w":
       case "arrowup":
@@ -231,12 +341,18 @@ export function setupGameInputHandlers({
         player.controls.dash = true
         break
     }
-    if (onKeyDown) onKeyDown(e, player)
+
+    // Call custom handler if provided
+    if (onKeyDown) {
+      onKeyDown(e, player)
+    }
   }
 
   const defaultKeyUp = (e: KeyboardEvent) => {
     if (!gameStateRef.current?.players?.[playerId]) return
+
     const player = gameStateRef.current.players[playerId]
+
     switch (e.key.toLowerCase()) {
       case "w":
       case "arrowup":
@@ -258,11 +374,18 @@ export function setupGameInputHandlers({
         player.controls.dash = false
         break
     }
-    if (onKeyUp) onKeyUp(e, player)
+
+    // Call custom handler if provided
+    if (onKeyUp) {
+      onKeyUp(e, player)
+    }
   }
 
-  const handleContextMenu = (e: MouseEvent) => e.preventDefault()
+  const handleContextMenu = (e: MouseEvent) => {
+    e.preventDefault() // Prevent context menu on right click
+  }
 
+  // Add event listeners using our safe methods
   transitionDebugger.safeAddEventListener(
     window,
     "keydown",
@@ -306,7 +429,10 @@ export function setupGameInputHandlers({
     `${componentIdRef.current}-contextmenu`,
   )
 
-  const resumeAudio = () => audioManager.resumeAudioContext()
+  // Resume audio context on user interaction
+  const resumeAudio = () => {
+    audioManager.resumeAudioContext()
+  }
   transitionDebugger.safeAddEventListener(
     document,
     "click",
@@ -315,6 +441,7 @@ export function setupGameInputHandlers({
     `${componentIdRef.current}-resume-audio`,
   )
 
+  // Return cleanup function
   return () => {
     transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keydown`)
     transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keyup`)
