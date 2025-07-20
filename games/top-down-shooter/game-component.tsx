@@ -6,7 +6,7 @@ import { setupGameInputHandlers } from "@/utils/game-input-handler"
 import { debugManager } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import { audioManager } from "@/utils/audio-manager"
-import GameRendererFinal from "@/components/pvp-game/game-renderer-final"
+import GameRenderer from "@/components/pvp-game/game-renderer"
 import DebugOverlay from "@/components/pvp-game/debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
 import { updateGameState } from "@/components/pvp-game/game-engine"
@@ -640,7 +640,7 @@ export default function GameComponent({ playerId, playerName, isHost, gameMode, 
 
   return (
     <div className="relative">
-      <GameRendererFinal gameState={gameState} localPlayerId={playerId} />
+      <GameRenderer gameState={gameState} localPlayerId={playerId} />
       <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
 
       {/* Resource Monitor */}
