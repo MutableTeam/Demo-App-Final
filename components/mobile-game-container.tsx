@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
 import type { IJoystickUpdateEvent } from "react-joystick-component"
@@ -22,10 +22,13 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ label, action, onPress, className, title }: ActionButtonProps) {
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
   const handleInteractionStart = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      console.log(`Action button ${action} pressed`)
       onPress(action, true)
     },
     [action, onPress],
@@ -35,6 +38,7 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
     (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      console.log(`Action button ${action} released`)
       onPress(action, false)
     },
     [action, onPress],
@@ -42,6 +46,7 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
 
   return (
     <button
+      ref={buttonRef}
       className={cn(
         "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-100",
         "touch-none select-none active:scale-95",
@@ -75,6 +80,8 @@ export default function MobileGameContainer({
   onActionPress = () => {},
 }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
+  const containerRef = useRef<HTMLDivElement>(null)
+  const joystickRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -89,26 +96,31 @@ export default function MobileGameContainer({
   // Handle joystick movement - ONLY for player movement, NOT shooting
   const handleJoystickMove = useCallback(
     (event: IJoystickUpdateEvent) => {
+      console.log("Joystick move event:", event)
+
       if (!onMovementChange) {
         console.warn("onMovementChange not provided to MobileGameContainer")
         return
       }
 
-      const deadzone = 0.2
+      const deadzone = 0.15 // Reduced deadzone for better responsiveness
       const x = event.x ?? 0
       const y = event.y ?? 0
 
+      // Normalize joystick values (react-joystick-component returns values roughly -50 to 50)
       const normalizedX = Math.max(-1, Math.min(1, x / 50))
-      const normalizedY = Math.max(-1, Math.min(1, -y / 50))
+      const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Invert Y for standard game coordinates
 
       const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
 
       if (distance < deadzone) {
+        console.log("Joystick in deadzone - stopping movement")
         onMovementChange({ up: false, down: false, left: false, right: false })
         return
       }
 
-      const threshold = 0.3
+      // Convert analog input to digital movement controls
+      const threshold = 0.25 // Lower threshold for better responsiveness
       const movement = {
         up: normalizedY > threshold,
         down: normalizedY < -threshold,
@@ -116,10 +128,10 @@ export default function MobileGameContainer({
         right: normalizedX > threshold,
       }
 
-      console.log("Joystick movement:", {
+      console.log("Joystick movement applied:", {
         raw: { x, y },
         normalized: { x: normalizedX, y: normalizedY },
-        distance,
+        distance: distance.toFixed(3),
         movement,
       })
 
@@ -130,14 +142,24 @@ export default function MobileGameContainer({
 
   // Handle joystick stop - ensure movement stops
   const handleJoystickStop = useCallback(() => {
+    console.log("Joystick stopped - clearing all movement")
+
     if (!onMovementChange) {
       console.warn("onMovementChange not provided to MobileGameContainer")
       return
     }
 
-    console.log("Joystick stopped - clearing all movement")
     onMovementChange({ up: false, down: false, left: false, right: false })
   }, [onMovementChange])
+
+  // Prevent touch events from bubbling up to the game canvas
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Only prevent default for joystick and action button areas
+    const target = e.target as HTMLElement
+    if (target.closest(".joystick-container") || target.closest(".action-button")) {
+      e.stopPropagation()
+    }
+  }, [])
 
   const isLandscape = orientation === "landscape"
 
@@ -145,14 +167,16 @@ export default function MobileGameContainer({
     // Landscape Layout: Movement | Game Screen | Actions
     return (
       <div
+        ref={containerRef}
         className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
+        onTouchStart={handleTouchStart}
       >
         <div className="w-full h-full flex flex-row items-center p-4 gap-4">
           {/* Movement Controls - Left Side */}
           <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
             <div className="flex flex-col items-center justify-center space-y-2">
               <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-              <div className="relative">
+              <div ref={joystickRef} className="joystick-container relative">
                 <Joystick
                   size={120}
                   sticky={false}
@@ -180,10 +204,18 @@ export default function MobileGameContainer({
             <div className="flex flex-col items-center justify-center space-y-2">
               <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
               <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
-                <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
-                <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
-                <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
-                <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
+                <div className="action-button">
+                  <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
+                </div>
+                <div className="action-button">
+                  <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
+                </div>
+                <div className="action-button">
+                  <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+                </div>
+                <div className="action-button">
+                  <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
+                </div>
               </div>
               <span className="text-xs text-zinc-500">Combat Actions</span>
             </div>
@@ -196,7 +228,9 @@ export default function MobileGameContainer({
   // Portrait Layout: Game Screen on top, Controls on bottom
   return (
     <div
+      ref={containerRef}
       className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
+      onTouchStart={handleTouchStart}
     >
       <div className="w-full h-full flex flex-col items-center p-4 gap-4">
         {/* Game Screen - Top */}
@@ -211,7 +245,7 @@ export default function MobileGameContainer({
           {/* Movement Controls - Bottom Left */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-            <div className="relative">
+            <div ref={joystickRef} className="joystick-container relative">
               <Joystick
                 size={100}
                 sticky={false}
@@ -230,10 +264,18 @@ export default function MobileGameContainer({
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
             <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
-              <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
-              <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
-              <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
-              <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
+              <div className="action-button">
+                <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
+              </div>
+              <div className="action-button">
+                <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
+              </div>
+              <div className="action-button">
+                <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+              </div>
+              <div className="action-button">
+                <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
+              </div>
             </div>
             <span className="text-xs text-zinc-500">Combat Actions</span>
           </div>
