@@ -1,469 +1,1192 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
+import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
+import EnhancedGameRenderer from "./enhanced-game-renderer"
+import DebugOverlay from "./debug-overlay"
+import {
+  playBowDrawSound,
+  playBowReleaseSound,
+  playBowFullDrawSound,
+  playSpecialAttackSound,
+  playHitSound,
+  playDeathSound,
+  playDashSound,
+  playGameOverSound,
+  playVictorySound,
+  startBackgroundMusic,
+  stopBackgroundMusic,
+  audioManager,
+  playExplosionSound,
+} from "@/utils/audio-manager"
+import { debugManager, DebugLevel } from "@/utils/debug-utils"
+import transitionDebugger from "@/utils/transition-debug"
+import ResourceMonitor from "@/components/resource-monitor"
+import { createAIController, AIDifficulty } from "../../utils/game-ai"
+import type { PlatformType } from "@/contexts/platform-context"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Pause, Play, RotateCcw, Volume2, VolumeX, Maximize2, Minimize2 } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Play, Pause, Square, RotateCcw, Settings, Users, Zap, Monitor, Smartphone, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import { updateLastStandGameState } from "@/games/last-stand/game-engine"
-import { createInitialLastStandGameState, type LastStandGameState, type Player } from "@/games/last-stand/game-state"
-import { audioManager } from "@/utils/audio-manager"
+
+interface GameStats {
+  score: number
+  level: number
+  lives: number
+  time: number
+  multiplier: number
+}
 
 interface GameControllerEnhancedProps {
-  gameId: string
   playerId: string
   playerName: string
   isHost: boolean
-  gameMode: string
-  onGameEnd: (winner: string | null) => void
-  platformType?: "desktop" | "mobile"
+  gameMode?: string
+  onGameEnd?: (winner: string | null) => void
+  useEnhancedPhysics?: boolean
+  platformType?: PlatformType
+  gameId: string
+  onGameStart: () => void
+  onGamePause: () => void
+  onGameStop: () => void
+  onGameReset: () => void
+  gameStats?: GameStats
+  isPlaying?: boolean
+  isPaused?: boolean
+  className?: string
   joystickInput?: { x: number; y: number }
   actionInput?: { action: string; pressed: boolean } | null
 }
 
 export default function GameControllerEnhanced({
-  gameId,
   playerId,
   playerName,
   isHost,
-  gameMode,
+  gameMode = "duel",
   onGameEnd,
+  useEnhancedPhysics = true,
   platformType = "desktop",
+  gameId,
+  onGameStart,
+  onGamePause,
+  onGameStop,
+  onGameReset,
+  gameStats = { score: 0, level: 1, lives: 3, time: 0, multiplier: 1 },
+  isPlaying = false,
+  isPaused = false,
+  className,
   joystickInput = { x: 0, y: 0 },
   actionInput = null,
 }: GameControllerEnhancedProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const gameLoopRef = useRef<number>()
-  const lastTimeRef = useRef<number>(0)
-  const keysRef = useRef<Set<string>>(new Set())
-  const mouseRef = useRef({ x: 0, y: 0, isDown: false })
+  // Use a function to initialize state to ensure it's only created once
+  const [gameState, setGameState] = useState<GameState>(() => {
+    const initialState = createInitialGameState()
+    // Add arena size for mobile compatibility
+    initialState.arenaSize = { width: 800, height: 600 }
+    initialState.arrows = []
+    initialState.walls = []
+    initialState.pickups = []
+    return initialState
+  })
 
-  const [gameState, setGameState] = useState<LastStandGameState | null>(null)
-  const [isPaused, setIsPaused] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [audioEnabled, setAudioEnabled] = useState(true)
-  const [fps, setFps] = useState(0)
+  const gameStateRef = useRef<GameState>(gameState)
+  const lastUpdateTimeRef = useRef<number>(Date.now())
+  const requestAnimationFrameIdRef = useRef<number | null>(null)
+  const bowSoundPlayedRef = useRef<boolean>(false)
+  const fullDrawSoundPlayedRef = useRef<boolean>(false)
+  const specialSoundPlayedRef = useRef<boolean>(false)
+  const audioInitializedRef = useRef<boolean>(false)
+  const gameInitializedRef = useRef<boolean>(false)
+  const aiControllersRef = useRef<Record<string, ReturnType<typeof createAIController>>>({})
+  const [showDebug, setShowDebug] = useState<boolean>(false)
+  const [showResourceMonitor, setShowResourceMonitor] = useState<boolean>(false)
+  const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
+  const [showTutorial, setShowTutorial] = useState<boolean>(false)
+  const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
+  const memoryTrackingInterval = useRef<NodeJS.Timeout | null>(null)
 
-  const { styleMode } = useCyberpunkTheme()
-  const isCyberpunk = styleMode === "cyberpunk"
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
+  const [playersOnline, setPlayersOnline] = useState(0)
 
-  // Initialize game state
+  // Touch controls state for mobile
+  const [touchControls, setTouchControls] = useState({
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    shoot: false,
+    special: false,
+    dash: false,
+  })
+
+  // Update game state ref when state changes
   useEffect(() => {
-    const initialState = createInitialLastStandGameState(playerId, playerName)
-    setGameState(initialState)
-  }, [playerId, playerName])
+    gameStateRef.current = gameState
+  }, [gameState])
 
-  // Handle keyboard input for desktop
+  // Initialize debug system
   useEffect(() => {
-    if (platformType !== "desktop") return
+    // Enable debug system with more verbose logging
+    debugManager.updateConfig({
+      enabled: true,
+      level: DebugLevel.DEBUG,
+      capturePerformance: true,
+    })
 
+    debugManager.logInfo("GAME", "Debug system initialized for enhanced game controller")
+    debugManager.logInfo("GAME", `Platform type: ${platformType}`)
+    transitionDebugger.trackTransition("none", "initialized", "GameControllerEnhanced")
+
+    // Set up keyboard shortcuts for debug tools
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysRef.current.add(e.code)
+      // F8 to toggle debug overlay
+      if (e.key === "F8") {
+        setShowDebug((prev) => !prev)
+      }
 
-      // Prevent default for game keys
-      if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft"].includes(e.code)) {
-        e.preventDefault()
+      // F9 to capture state snapshot
+      if (e.key === "F9") {
+        debugManager.captureState(gameStateRef.current, "Manual Snapshot")
+        debugManager.logInfo("GAME", "Manual state snapshot captured")
+      }
+
+      // F11 to toggle resource monitor
+      if (e.key === "F11") {
+        setShowResourceMonitor((prev) => !prev)
       }
     }
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current.delete(e.code)
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("keyup", handleKeyUp)
+    transitionDebugger.safeAddEventListener(
+      window,
+      "keydown",
+      handleKeyDown,
+      undefined,
+      `${componentIdRef.current}-keydown`,
+    )
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
+      transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-keydown`)
     }
   }, [platformType])
 
-  // Handle mouse input for desktop
+  // Handle joystick input from mobile container
   useEffect(() => {
-    if (platformType !== "desktop") return
+    if (platformType === "mobile" && joystickInput && gameStateRef.current.players[playerId]) {
+      const player = gameStateRef.current.players[playerId]
 
-    const canvas = canvasRef.current
-    if (!canvas) return
+      // Convert joystick input to movement controls
+      player.controls.up = joystickInput.y < -0.3
+      player.controls.down = joystickInput.y > 0.3
+      player.controls.left = joystickInput.x < -0.3
+      player.controls.right = joystickInput.x > 0.3
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect()
-      mouseRef.current.x = e.clientX - rect.left
-      mouseRef.current.y = e.clientY - rect.top
-    }
-
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.button === 0) {
-        // Left click
-        mouseRef.current.isDown = true
+      // Calculate rotation based on joystick direction
+      if (Math.abs(joystickInput.x) > 0.1 || Math.abs(joystickInput.y) > 0.1) {
+        player.rotation = Math.atan2(joystickInput.y, joystickInput.x)
       }
     }
+  }, [joystickInput, platformType, playerId])
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) {
-        // Left click
-        mouseRef.current.isDown = false
+  // Handle action input from mobile container
+  useEffect(() => {
+    if (platformType === "mobile" && actionInput && gameStateRef.current.players[playerId]) {
+      const player = gameStateRef.current.players[playerId]
+
+      switch (actionInput.action) {
+        case "actionA": // Main attack/shoot
+          player.controls.shoot = actionInput.pressed
+          break
+        case "actionB": // Dash
+          player.controls.dash = actionInput.pressed
+          break
+        case "actionX": // Special attack
+          player.controls.special = actionInput.pressed
+          break
+        case "actionY": // Explosive arrow (if available)
+          if (player.controls.explosiveArrow !== undefined) {
+            player.controls.explosiveArrow = actionInput.pressed
+          }
+          break
       }
     }
+  }, [actionInput, platformType, playerId])
 
-    canvas.addEventListener("mousemove", handleMouseMove)
-    canvas.addEventListener("mousedown", handleMouseDown)
-    canvas.addEventListener("mouseup", handleMouseUp)
+  // Initialize game
+  useEffect(() => {
+    // Prevent multiple initializations
+    if (gameInitializedRef.current) return
 
-    return () => {
-      canvas.removeEventListener("mousemove", handleMouseMove)
-      canvas.removeEventListener("mousedown", handleMouseDown)
-      canvas.removeEventListener("mouseup", handleMouseUp)
+    // Initialize audio directly
+    audioManager
+      .init()
+      .then(() => {
+        audioInitializedRef.current = true
+        debugManager.logInfo("AUDIO", "Audio system initialized")
+      })
+      .catch((err) => {
+        debugManager.logError("AUDIO", "Failed to initialize audio", err)
+      })
+
+    // Enable global error tracking
+    debugManager.setupGlobalErrorTracking()
+
+    // Track component mount
+    debugManager.trackComponentMount("GameControllerEnhanced", {
+      playerId,
+      playerName,
+      isHost,
+      gameMode,
+      useEnhancedPhysics,
+      platformType,
+    })
+
+    transitionDebugger.trackTransition("initialized", "mounting", "GameControllerEnhanced")
+
+    // Make game state available globally for debugging
+    if (typeof window !== "undefined") {
+      ;(window as any).__gameStateRef = gameStateRef
     }
-  }, [platformType])
 
-  // Update player controls based on input method
-  const updatePlayerControls = useCallback(
-    (player: Player) => {
-      if (platformType === "mobile") {
-        // Use joystick and action inputs for mobile
-        player.controls.up = joystickInput.y < -0.5
-        player.controls.down = joystickInput.y > 0.5
-        player.controls.left = joystickInput.x < -0.5
-        player.controls.right = joystickInput.x > 0.5
+    gameInitializedRef.current = true
 
-        if (actionInput) {
-          switch (actionInput.action) {
-            case "shoot":
-              player.controls.shoot = actionInput.pressed
-              break
-            case "dash":
-              player.controls.dash = actionInput.pressed
-              break
-            case "special":
-              player.controls.special = actionInput.pressed
-              break
+    debugManager.logInfo("GAME", `Initializing enhanced game with mode: ${gameMode}, platform: ${platformType}`)
+
+    // Create local player
+    const playerColors = ["#FF5252", "#4CAF50", "#2196F3", "#FFC107"]
+    const playerPositions = [
+      { x: 100, y: 100 },
+      { x: 700, y: 500 },
+      { x: 700, y: 100 },
+      { x: 100, y: 500 },
+    ]
+
+    // Use the current game state
+    const currentState = { ...gameStateRef.current }
+
+    // Add local player with enhanced properties for mobile
+    const localPlayer = createPlayer(playerId, playerName, playerPositions[0], playerColors[0])
+    localPlayer.controls = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      shoot: false,
+      special: false,
+      dash: false,
+    }
+    localPlayer.rotation = 0
+    localPlayer.size = 20
+    localPlayer.animationState = "idle"
+    localPlayer.isDrawingBow = false
+    localPlayer.isDashing = false
+    localPlayer.isChargingSpecial = false
+    localPlayer.drawPower = 0
+
+    currentState.players[playerId] = localPlayer
+    debugManager.logInfo("GAME", `Created player with ID: ${playerId}, name: ${playerName}`)
+
+    // Determine number of AI opponents based on game mode
+    let aiCount = 1 // Default for duel
+    if (gameMode === "ffa" || gameMode === "timed") {
+      aiCount = 3 // For FFA or timed match
+    }
+
+    debugManager.logInfo("GAME", `Adding ${aiCount} AI opponents for game mode: ${gameMode}`)
+
+    // Add AI players with varying difficulty
+    const difficulties = [AIDifficulty.EASY, AIDifficulty.MEDIUM, AIDifficulty.HARD, AIDifficulty.EXPERT]
+
+    for (let i = 1; i <= aiCount; i++) {
+      const aiId = `ai-${i}`
+      const aiPlayer = createPlayer(
+        aiId,
+        `AI ${i}`,
+        playerPositions[i % playerPositions.length],
+        playerColors[i % playerColors.length],
+      )
+
+      // Add AI-specific properties
+      aiPlayer.controls = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        shoot: false,
+        special: false,
+        dash: false,
+      }
+      aiPlayer.rotation = 0
+      aiPlayer.size = 20
+      aiPlayer.animationState = "idle"
+      aiPlayer.isDrawingBow = false
+      aiPlayer.isDashing = false
+      aiPlayer.isChargingSpecial = false
+
+      currentState.players[aiId] = aiPlayer
+
+      // Assign random difficulty to each AI
+      const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)]
+      aiControllersRef.current[aiId] = createAIController(randomDifficulty)
+
+      // Log the AI creation with its difficulty
+      debugManager.logInfo("GAME", `Created AI player ${aiId} with difficulty: ${randomDifficulty}`)
+    }
+
+    // Update state
+    setGameState(currentState)
+    gameStateRef.current = currentState
+
+    // Capture initial state
+    debugManager.captureState(currentState, "Initial State")
+
+    transitionDebugger.trackTransition("mounting", "mounted", "GameControllerEnhanced")
+
+    // Set up crash detection timer
+    const crashDetectionTimer = transitionDebugger.safeSetInterval(
+      () => {
+        // Check if game has been running for at least 5 seconds
+        const gameTime = gameStateRef.current.gameTime
+
+        if (gameTime > 0 && gameTime < 5) {
+          debugManager.logInfo("CRASH_DETECTION", "Game is in early stage, monitoring for crashes")
+
+          // Capture state more frequently during this critical period
+          debugManager.captureState(gameStateRef.current, "Early Game State")
+        }
+      },
+      1000,
+      `${componentIdRef.current}-crash-detection`,
+    )
+
+    // Start game loop
+    const gameLoop = (timestamp: number) => {
+      try {
+        debugManager.startFrame()
+
+        const now = Date.now()
+        const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1) // Cap delta time to prevent large jumps
+        lastUpdateTimeRef.current = now
+
+        // Track entity counts
+        const entityCounts = {
+          players: Object.keys(gameStateRef.current.players).length,
+          arrows: gameStateRef.current.arrows?.length || 0,
+          walls: gameStateRef.current.walls?.length || 0,
+          pickups: gameStateRef.current.pickups?.length || 0,
+        }
+
+        debugManager.trackEntities(entityCounts)
+
+        // Check for potential memory leaks
+        if ((gameStateRef.current.arrows?.length || 0) > 100) {
+          debugManager.logWarning("GAME_LOOP", "Possible memory leak: Too many arrows", {
+            arrowCount: gameStateRef.current.arrows?.length || 0,
+          })
+
+          // Safety cleanup - remove oldest arrows if too many
+          if ((gameStateRef.current.arrows?.length || 0) > 200) {
+            gameStateRef.current.arrows = gameStateRef.current.arrows?.slice(-100) || []
+            debugManager.logInfo("GAME_LOOP", "Performed safety cleanup of arrows")
           }
         }
-      } else {
-        // Use keyboard and mouse for desktop
-        player.controls.up = keysRef.current.has("KeyW")
-        player.controls.down = keysRef.current.has("KeyS")
-        player.controls.left = keysRef.current.has("KeyA")
-        player.controls.right = keysRef.current.has("KeyD")
-        player.controls.shoot = mouseRef.current.isDown
-        player.controls.dash = keysRef.current.has("ShiftLeft")
-        player.controls.special = keysRef.current.has("Space")
 
-        // Update player rotation based on mouse position
-        if (canvasRef.current) {
-          const centerX = canvasRef.current.width / 2
-          const centerY = canvasRef.current.height / 2
-          const dx = mouseRef.current.x - centerX
-          const dy = mouseRef.current.y - centerY
-          player.rotation = Math.atan2(dy, dx)
+        // Update AI controls
+        Object.keys(aiControllersRef.current).forEach((aiId) => {
+          if (gameStateRef.current.players[aiId]) {
+            const aiController = aiControllersRef.current[aiId]
+            const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
+
+            // Apply AI controls
+            gameStateRef.current.players[aiId].controls = controls
+            gameStateRef.current.players[aiId].rotation = targetRotation
+          }
+        })
+
+        // Apply touch controls for mobile platform
+        if (platformType === "mobile" && gameStateRef.current.players[playerId]) {
+          const player = gameStateRef.current.players[playerId]
+          player.controls.up = touchControls.up
+          player.controls.down = touchControls.down
+          player.controls.left = touchControls.left
+          player.controls.right = touchControls.right
+          player.controls.shoot = touchControls.shoot
+          player.controls.special = touchControls.special
+          player.controls.dash = touchControls.dash
+        }
+
+        // Update game state with error handling and timeout protection
+        let newState = gameStateRef.current
+
+        // Use a promise with timeout to prevent infinite loops in updateGameState
+        const updateWithTimeout = () => {
+          return new Promise((resolve, reject) => {
+            // Set timeout to catch infinite loops
+            const timeoutId = setTimeout(() => {
+              reject(new Error("Game update timed out - possible infinite loop"))
+            }, 500) // 500ms should be more than enough for a single frame
+
+            try {
+              const result = updateGameState(gameStateRef.current, deltaTime)
+              clearTimeout(timeoutId)
+              resolve(result)
+            } catch (error) {
+              clearTimeout(timeoutId)
+              reject(error)
+            }
+          })
+        }
+
+        // Try to update with timeout protection
+        updateWithTimeout()
+          .then((result) => {
+            newState = result as GameState
+            continueGameLoop(newState)
+          })
+          .catch((error) => {
+            debugManager.logError("GAME_LOOP", "Error in game update", error)
+            debugManager.captureState(gameStateRef.current, "Update Error State")
+            // Continue with old state
+            continueGameLoop(gameStateRef.current)
+          })
+
+        function continueGameLoop(state: GameState) {
+          // Check for sound effects for the local player
+          const localPlayer = state.players[playerId]
+          if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
+            // Only try to play sounds if audio is initialized and not muted
+            try {
+              // Bow drawing sound
+              if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
+                playBowDrawSound()
+                bowSoundPlayedRef.current = true
+              }
+
+              // Full draw sound (when bow is fully drawn)
+              if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
+                const currentTime = Date.now() / 1000
+                const drawTime = currentTime - localPlayer.drawStartTime
+
+                if (drawTime >= (localPlayer.maxDrawTime || 2) && !fullDrawSoundPlayedRef.current) {
+                  playBowFullDrawSound()
+                  fullDrawSoundPlayedRef.current = true
+                }
+              }
+
+              // Bow release sound
+              if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
+                playBowReleaseSound()
+                bowSoundPlayedRef.current = false
+                fullDrawSoundPlayedRef.current = false
+              }
+
+              // Special attack sound
+              if (localPlayer.isChargingSpecial && !specialSoundPlayedRef.current) {
+                specialSoundPlayedRef.current = true
+              }
+
+              // Special attack release sound
+              if (!localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
+                playSpecialAttackSound()
+                specialSoundPlayedRef.current = false
+              }
+
+              // Dash sound
+              if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
+                playDashSound()
+              }
+
+              // Hit sound
+              if (
+                localPlayer.animationState === "hit" &&
+                gameStateRef.current.players[playerId]?.animationState !== "hit"
+              ) {
+                playHitSound()
+              }
+
+              // Death sound
+              if (
+                localPlayer.animationState === "death" &&
+                gameStateRef.current.players[playerId]?.animationState !== "death"
+              ) {
+                playDeathSound()
+              }
+
+              // Explosive arrow sound
+              if (localPlayer.controls?.explosiveArrow && (localPlayer.explosiveArrowCooldown || 0) <= 0) {
+                playExplosionSound()
+              }
+            } catch (error) {
+              debugManager.logError("AUDIO", "Error playing game sounds", error)
+              // Continue game even if sound playback fails
+            }
+          }
+
+          gameStateRef.current = state
+          setGameState(state)
+
+          // Check for game over
+          if (state.isGameOver && onGameEnd) {
+            // Play appropriate game over sound
+            if (!audioManager.isSoundMuted()) {
+              if (state.winner === playerId) {
+                playVictorySound()
+              } else {
+                playGameOverSound()
+              }
+            }
+
+            // Stop background music
+            stopBackgroundMusic()
+
+            transitionDebugger.trackTransition("playing", "game-over", "GameControllerEnhanced")
+
+            onGameEnd(state.winner)
+
+            // Log game end
+            debugManager.logInfo("GAME", "Game ended", {
+              winner: state.winner,
+              gameTime: state.gameTime,
+              playerCount: Object.keys(state.players).length,
+            })
+          } else {
+            // Continue game loop
+            requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+              gameLoop,
+              `${componentIdRef.current}-game-loop`,
+            )
+          }
+
+          debugManager.endFrame()
+        }
+      } catch (error) {
+        debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
+
+        // Capture state for debugging
+        debugManager.captureState(gameStateRef.current, "Critical Error State")
+
+        // Try to continue the game loop after a short delay
+        setTimeout(() => {
+          requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+            gameLoop,
+            `${componentIdRef.current}-game-loop`,
+          )
+        }, 1000) // 1 second delay to prevent rapid error loops
+      }
+    }
+
+    // Start game loop
+    requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+      gameLoop,
+      `${componentIdRef.current}-game-loop`,
+    )
+
+    // Start background music if not muted
+    if (!audioManager.isSoundMuted()) {
+      try {
+        const musicPromise = startBackgroundMusic()
+        if (musicPromise && typeof musicPromise.catch === "function") {
+          musicPromise.catch((err) => {
+            debugManager.logWarning("AUDIO", "Failed to start background music", err)
+          })
+        }
+      } catch (err) {
+        debugManager.logWarning("AUDIO", "Error starting background music", err)
+      }
+    }
+
+    // Set up controls based on platform type
+    if (platformType === "desktop") {
+      // Desktop keyboard controls
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (!gameStateRef.current.players[playerId]) return
+
+        const player = gameStateRef.current.players[playerId]
+
+        switch (e.key.toLowerCase()) {
+          case "w":
+          case "arrowup":
+            player.controls.up = true
+            break
+          case "s":
+          case "arrowdown":
+            player.controls.down = true
+            break
+          case "a":
+          case "arrowleft":
+            player.controls.left = true
+            break
+          case "d":
+          case "arrowright":
+            player.controls.right = true
+            break
+          case "shift":
+            // Only trigger dash if not already dashing and cooldown is complete
+            if (!player.isDashing && (player.dashCooldown || 0) <= 0) {
+              player.controls.dash = true
+            }
+            break
+          // Toggle debug mode with F3
+          case "f3":
+            setShowDebug((prev) => !prev)
+            break
+          // Toggle mute with M
+          case "m":
+            audioManager.toggleMute()
+            break
+          case "f10":
+            setShowDiagnostics((prev) => !prev)
+            break
+          case "f11":
+            setShowResourceMonitor((prev) => !prev)
+            break
+          case "e":
+            if (gameStateRef.current.players[playerId]) {
+              gameStateRef.current.players[playerId].controls.explosiveArrow = true
+            }
+            break
         }
       }
-    },
-    [platformType, joystickInput, actionInput],
-  )
 
-  // Game loop
-  useEffect(() => {
-    if (!gameState || isPaused) return
+      const handleKeyUp = (e: KeyboardEvent) => {
+        if (!gameStateRef.current.players[playerId]) return
 
-    let frameCount = 0
-    let lastFpsTime = performance.now()
+        const player = gameStateRef.current.players[playerId]
 
-    const gameLoop = (currentTime: number) => {
-      const deltaTime = (currentTime - lastTimeRef.current) / 1000
-      lastTimeRef.current = currentTime
+        switch (e.key.toLowerCase()) {
+          case "w":
+          case "arrowup":
+            player.controls.up = false
+            break
+          case "s":
+          case "arrowdown":
+            player.controls.down = false
+            break
+          case "a":
+          case "arrowleft":
+            player.controls.left = false
+            break
+          case "d":
+          case "arrowright":
+            player.controls.right = false
+            break
+          case "shift":
+            player.controls.dash = false
+            break
+          case "e":
+            if (gameStateRef.current.players[playerId]) {
+              gameStateRef.current.players[playerId].controls.explosiveArrow = false
+            }
+            break
+        }
 
-      // Update FPS counter
-      frameCount++
-      if (currentTime - lastFpsTime >= 1000) {
-        setFps(frameCount)
-        frameCount = 0
-        lastFpsTime = currentTime
+        // Check if player should return to run animation after key release
+        if (
+          !player.isDrawingBow &&
+          !player.isDashing &&
+          !player.isChargingSpecial &&
+          player.health > 0 &&
+          (player.hitAnimationTimer || 0) <= 0 &&
+          (player.animationState === "fire" || player.animationState === "special" || player.animationState === "hit")
+        ) {
+          // Check if any movement keys are still pressed
+          const isMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
+
+          // Set appropriate animation state
+          if (isMoving) {
+            player.animationState = "run"
+          } else {
+            player.animationState = "idle"
+          }
+          player.lastAnimationChange = Date.now()
+        }
       }
 
-      // Update player controls
-      updatePlayerControls(gameState.player)
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!gameStateRef.current.players[playerId]) return
 
-      // Update game state
-      const newGameState = updateLastStandGameState(gameState, deltaTime)
-      setGameState(newGameState)
+        const player = gameStateRef.current.players[playerId]
+        const canvas = document.querySelector("canvas")
+        if (!canvas) return
 
-      // Check for game over
-      if (newGameState.isGameOver && !gameState.isGameOver) {
-        onGameEnd(null) // No winner in PvE mode
-        return
+        const rect = canvas.getBoundingClientRect()
+
+        // Calculate mouse position relative to canvas
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+
+        // Calculate angle between player and mouse
+        const dx = mouseX - player.position.x
+        const dy = mouseY - player.position.y
+        player.rotation = Math.atan2(dy, dx)
       }
 
-      // Render game
-      renderGame(newGameState)
+      const handleMouseDown = (e: MouseEvent) => {
+        if (!gameStateRef.current.players[playerId]) return
 
-      gameLoopRef.current = requestAnimationFrame(gameLoop)
-    }
-
-    gameLoopRef.current = requestAnimationFrame(gameLoop)
-
-    return () => {
-      if (gameLoopRef.current) {
-        cancelAnimationFrame(gameLoopRef.current)
+        if (e.button === 0) {
+          // Left click - start drawing bow
+          gameStateRef.current.players[playerId].controls.shoot = true
+        } else if (e.button === 2) {
+          // Right click - start charging special attack
+          gameStateRef.current.players[playerId].controls.special = true
+        }
       }
-    }
-  }, [gameState, isPaused, updatePlayerControls, onGameEnd])
 
-  // Render game function
-  const renderGame = (state: LastStandGameState) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+      const handleMouseUp = (e: MouseEvent) => {
+        if (!gameStateRef.current.players[playerId]) return
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
+        const player = gameStateRef.current.players[playerId]
 
-    // Clear canvas
-    ctx.fillStyle = "#2d5a27"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+        if (e.button === 0) {
+          // Left click release - fire arrow
+          player.controls.shoot = false
 
-    // Draw grid pattern
-    ctx.strokeStyle = "#1a3d1a"
-    ctx.lineWidth = 1
-    const gridSize = 50
-    for (let x = 0; x < canvas.width; x += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, canvas.height)
-      ctx.stroke()
-    }
-    for (let y = 0; y < canvas.height; y += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(canvas.width, y)
-      ctx.stroke()
-    }
+          // Schedule transition back to run/idle after firing animation completes
+          if (player.animationState === "fire") {
+            // Clear any existing timeout for this player
+            if (animationTimeoutsRef.current[playerId]) {
+              clearTimeout(animationTimeoutsRef.current[playerId])
+            }
 
-    // Draw enemies
-    state.enemies.forEach((enemy) => {
-      ctx.fillStyle = "#8B0000"
-      ctx.beginPath()
-      ctx.arc(enemy.position.x, enemy.position.y, enemy.size, 0, Math.PI * 2)
-      ctx.fill()
+            // Set a timeout to change animation state after a short delay
+            animationTimeoutsRef.current[playerId] = setTimeout(() => {
+              if (
+                gameStateRef.current.players[playerId] &&
+                gameStateRef.current.players[playerId].animationState === "fire" &&
+                !gameStateRef.current.players[playerId].isDrawingBow
+              ) {
+                // Check if player is moving
+                const isMoving =
+                  player.controls.up || player.controls.down || player.controls.left || player.controls.right
 
-      // Health bar
-      const barWidth = enemy.size * 2
-      const barHeight = 4
-      const healthPercent = enemy.health / enemy.maxHealth
+                // Set appropriate animation
+                gameStateRef.current.players[playerId].animationState = isMoving ? "run" : "idle"
+                gameStateRef.current.players[playerId].lastAnimationChange = Date.now()
+              }
+            }, 300) // Short delay to allow fire animation to complete
+          }
+        } else if (e.button === 2) {
+          // Right click release - fire special attack
+          player.controls.special = false
 
-      ctx.fillStyle = "#333"
-      ctx.fillRect(enemy.position.x - barWidth / 2, enemy.position.y - enemy.size - 10, barWidth, barHeight)
+          // Similar logic for special attack animation
+          if (player.animationState === "special" || player.animationState === "fire") {
+            // Clear any existing timeout for this player
+            if (animationTimeoutsRef.current[playerId]) {
+              clearTimeout(animationTimeoutsRef.current[playerId])
+            }
 
-      ctx.fillStyle = healthPercent > 0.5 ? "#4CAF50" : healthPercent > 0.25 ? "#FFC107" : "#F44336"
-      ctx.fillRect(
-        enemy.position.x - barWidth / 2,
-        enemy.position.y - enemy.size - 10,
-        barWidth * healthPercent,
-        barHeight,
+            // Set a timeout to change animation state after a short delay
+            animationTimeoutsRef.current[playerId] = setTimeout(() => {
+              if (
+                gameStateRef.current.players[playerId] &&
+                (gameStateRef.current.players[playerId].animationState === "special" ||
+                  gameStateRef.current.players[playerId].animationState === "fire") &&
+                !gameStateRef.current.players[playerId].isChargingSpecial
+              ) {
+                // Check if player is moving
+                const isMoving =
+                  player.controls.up || player.controls.down || player.controls.left || player.controls.right
+
+                // Set appropriate animation
+                gameStateRef.current.players[playerId].animationState = isMoving ? "run" : "idle"
+                gameStateRef.current.players[playerId].lastAnimationChange = Date.now()
+              }
+            }, 300) // Short delay to allow special animation to complete
+          }
+        }
+      }
+
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault() // Prevent context menu on right click
+      }
+
+      // Add desktop event listeners
+      transitionDebugger.safeAddEventListener(
+        window,
+        "keydown",
+        handleKeyDown,
+        undefined,
+        `${componentIdRef.current}-game-keydown`,
       )
-    })
-
-    // Draw arrows
-    state.arrows.forEach((arrow) => {
-      ctx.save()
-      ctx.translate(arrow.position.x, arrow.position.y)
-      ctx.rotate(arrow.rotation)
-
-      ctx.fillStyle = arrow.isWeakShot ? "#8B4513" : "#D2691E"
-      ctx.fillRect(-arrow.size, -1, arrow.size * 2, 2)
-
-      // Arrow tip
-      ctx.beginPath()
-      ctx.moveTo(arrow.size, 0)
-      ctx.lineTo(arrow.size - 3, -2)
-      ctx.lineTo(arrow.size - 3, 2)
-      ctx.closePath()
-      ctx.fill()
-
-      ctx.restore()
-    })
-
-    // Draw player
-    const player = state.player
-    ctx.save()
-    ctx.translate(player.position.x, player.position.y)
-
-    // Player body
-    ctx.fillStyle = player.isInvulnerable ? "#FFB6C1" : "#4169E1"
-    ctx.beginPath()
-    ctx.arc(0, 0, player.size, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Player direction indicator
-    ctx.strokeStyle = "#000"
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(0, 0)
-    ctx.lineTo(Math.cos(player.rotation) * player.size, Math.sin(player.rotation) * player.size)
-    ctx.stroke()
-
-    // Bow drawing indicator
-    if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = Date.now() / 1000
-      const drawTime = currentTime - player.drawStartTime
-      const drawPercent = Math.min(drawTime / player.maxDrawTime, 1)
-
-      ctx.strokeStyle = drawPercent < 0.3 ? "#FF4444" : drawPercent < 0.7 ? "#FFAA44" : "#44FF44"
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.arc(0, 0, player.size + 5, 0, Math.PI * 2 * drawPercent)
-      ctx.stroke()
+      transitionDebugger.safeAddEventListener(
+        window,
+        "keyup",
+        handleKeyUp,
+        undefined,
+        `${componentIdRef.current}-game-keyup`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "mousemove",
+        handleMouseMove,
+        undefined,
+        `${componentIdRef.current}-mousemove`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "mousedown",
+        handleMouseDown,
+        undefined,
+        `${componentIdRef.current}-mousedown`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "mouseup",
+        handleMouseUp,
+        undefined,
+        `${componentIdRef.current}-mouseup`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "contextmenu",
+        handleContextMenu,
+        undefined,
+        `${componentIdRef.current}-contextmenu`,
+      )
     }
 
-    ctx.restore()
-
-    // Draw UI
-    drawUI(ctx, state, canvas.width, canvas.height)
-  }
-
-  // Draw UI function
-  const drawUI = (ctx: CanvasRenderingContext2D, state: LastStandGameState, width: number, height: number) => {
-    // Health bar
-    const healthBarWidth = 200
-    const healthBarHeight = 20
-    const healthPercent = state.player.health / state.player.maxHealth
-
-    ctx.fillStyle = "#333"
-    ctx.fillRect(10, 10, healthBarWidth, healthBarHeight)
-
-    ctx.fillStyle = healthPercent > 0.5 ? "#4CAF50" : healthPercent > 0.25 ? "#FFC107" : "#F44336"
-    ctx.fillRect(10, 10, healthBarWidth * healthPercent, healthBarHeight)
-
-    ctx.fillStyle = "#FFF"
-    ctx.font = "14px monospace"
-    ctx.textAlign = "center"
-    ctx.fillText(`${state.player.health}/${state.player.maxHealth}`, 10 + healthBarWidth / 2, 25)
-
-    // Score and wave info
-    ctx.fillStyle = "#FFF"
-    ctx.font = "16px monospace"
-    ctx.textAlign = "left"
-    ctx.fillText(`Score: ${state.playerStats.score}`, 10, 50)
-    ctx.fillText(`Wave: ${state.currentWave.number}`, 10, 70)
-    ctx.fillText(`Enemies: ${state.enemies.length}`, 10, 90)
-
-    // Cooldown indicators
-    if (state.player.dashCooldown > 0) {
-      ctx.fillStyle = "#FFD700"
-      ctx.fillText(`Dash: ${state.player.dashCooldown.toFixed(1)}s`, width - 150, 30)
+    // Resume audio context on user interaction
+    const resumeAudio = () => {
+      if (!audioManager.isSoundMuted()) {
+        audioManager.resumeAudioContext()
+      }
     }
+    transitionDebugger.safeAddEventListener(
+      document,
+      "click",
+      resumeAudio,
+      undefined,
+      `${componentIdRef.current}-resume-audio`,
+    )
 
-    if (state.player.specialAttackCooldown > 0) {
-      ctx.fillStyle = "#FF69B4"
-      ctx.fillText(`Special: ${state.player.specialAttackCooldown.toFixed(1)}s`, width - 150, 50)
+    // Track component unmount
+    debugManager.trackComponentUnmount("GameControllerEnhanced", "useEffect cleanup")
+
+    // Clean up
+    return () => {
+      transitionDebugger.trackTransition("any", "unmounting", "GameControllerEnhanced")
+
+      // Cancel animation frame
+      if (requestAnimationFrameIdRef.current !== null) {
+        transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
+        requestAnimationFrameIdRef.current = null
+        transitionDebugger.trackCleanup("GameControllerEnhanced", "Animation Frame", true)
+      }
+
+      // Clear all animation timeouts
+      Object.keys(animationTimeoutsRef.current).forEach((key) => {
+        clearTimeout(animationTimeoutsRef.current[key])
+      })
+      animationTimeoutsRef.current = {}
+
+      // Remove all event listeners
+      if (platformType === "desktop") {
+        transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keydown`)
+        transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keyup`)
+        transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-mousemove`)
+        transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-mousedown`)
+        transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-mouseup`)
+        transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-contextmenu`)
+      }
+      transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
+
+      // Clear intervals
+      transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
+
+      // Stop background music
+      try {
+        stopBackgroundMusic()
+        transitionDebugger.trackCleanup("GameControllerEnhanced", "Background Music", true)
+      } catch (err) {
+        debugManager.logWarning("AUDIO", "Error stopping background music", err)
+        transitionDebugger.trackCleanup("GameControllerEnhanced", "Background Music", false, err)
+      }
+
+      debugManager.logInfo("GAME", "Enhanced game cleanup completed")
+      transitionDebugger.trackTransition("unmounting", "unmounted", "GameControllerEnhanced")
+      debugManager.trackComponentUnmount("GameControllerEnhanced")
     }
+  }, [playerId, playerName, isHost, gameMode, onGameEnd, useEnhancedPhysics, platformType])
 
-    // Game over screen
-    if (state.isGameOver) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-      ctx.fillRect(0, 0, width, height)
+  // Track renders
+  useEffect(() => {
+    debugManager.trackComponentRender("GameControllerEnhanced")
+  })
 
-      ctx.fillStyle = "#FFF"
-      ctx.font = "48px monospace"
-      ctx.textAlign = "center"
-      ctx.fillText("GAME OVER", width / 2, height / 2 - 50)
+  const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-      ctx.font = "24px monospace"
-      ctx.fillText(`Final Score: ${state.playerStats.score}`, width / 2, height / 2)
-      ctx.fillText(`Waves Completed: ${state.playerStats.wavesCompleted}`, width / 2, height / 2 + 30)
-      ctx.fillText(`Time Alive: ${state.playerStats.timeAlive.toFixed(1)}s`, width / 2, height / 2 + 60)
-    }
+  // Touch control handlers for mobile
+  const handleTouchControl = (control: keyof typeof touchControls, active: boolean) => {
+    setTouchControls((prev) => ({
+      ...prev,
+      [control]: active,
+    }))
   }
 
-  const handlePause = () => {
-    setIsPaused(!isPaused)
-  }
-
-  const handleRestart = () => {
-    const newState = createInitialLastStandGameState(playerId, playerName)
-    setGameState(newState)
-    setIsPaused(false)
-  }
-
-  const handleAudioToggle = () => {
-    setAudioEnabled(!audioEnabled)
-    if (audioEnabled) {
-      audioManager.setMasterVolume(0)
-    } else {
-      audioManager.setMasterVolume(1)
-    }
-  }
-
-  const handleFullscreen = () => {
-    if (!isFullscreen) {
-      canvasRef.current?.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
-    }
-  }
-
+  // Show loading state while game initializes
   if (!gameState) {
-    return <div className="flex items-center justify-center h-64">Loading game...</div>
+    return (
+      <div className="flex items-center justify-center h-[600px] bg-gray-800 rounded-lg">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl font-bold">Loading Enhanced Game...</p>
+        </div>
+      </div>
+    )
   }
 
-  const containerClass = isCyberpunk ? "bg-black/90 border-cyan-500/50 text-cyan-200" : "bg-white border-gray-300"
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
 
-  const buttonClass = isCyberpunk
-    ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 hover:bg-cyan-500/40"
-    : "bg-gray-100 border-gray-300 hover:bg-gray-200"
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case "connected":
+        return "text-green-500"
+      case "connecting":
+        return "text-yellow-500"
+      default:
+        return "text-red-500"
+    }
+  }
+
+  const getPlatformControls = () => {
+    if (platformType === "desktop") {
+      return {
+        primary: "WASD + Mouse",
+        secondary: "Space/Enter",
+        special: "Shift/Ctrl",
+        hint: "Use keyboard and mouse for precise control",
+      }
+    } else {
+      return {
+        primary: "Touch & Drag",
+        secondary: "Tap",
+        special: "Long Press",
+        hint: "Touch controls optimized for mobile",
+      }
+    }
+  }
+
+  const controls = getPlatformControls()
 
   return (
-    <div className={cn("w-full h-full flex flex-col", containerClass)}>
+    <div className={cn("relative w-full h-full", className)}>
+      {/* Game Stats Header - Only show on desktop */}
+      {platformType === "desktop" && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Gamepad2 className="w-5 h-5" />
+                Archer Arena - {gameMode.toUpperCase()}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant={connectionStatus === "connected" ? "default" : "destructive"}>{connectionStatus}</Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {Object.keys(gameState.players).length}
+                </Badge>
+                {platformType === "mobile" && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Smartphone className="w-3 h-3" />
+                    Mobile
+                  </Badge>
+                )}
+                {platformType === "desktop" && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Monitor className="w-3 h-3" />
+                    Desktop
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <div className="text-center">
+                <div className="font-semibold text-lg">{gameStats.score}</div>
+                <div className="text-muted-foreground">Score</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg">{gameStats.level}</div>
+                <div className="text-muted-foreground">Level</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg">{gameStats.lives}</div>
+                <div className="text-muted-foreground">Lives</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg">{formatTime(gameState.gameTime)}</div>
+                <div className="text-muted-foreground">Time</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg flex items-center justify-center gap-1">
+                  <Zap className="w-4 h-4" />
+                  {gameStats.multiplier}x
+                </div>
+                <div className="text-muted-foreground">Multiplier</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Game Controls - Only show on desktop */}
       {platformType === "desktop" && (
-        <div className="flex items-center justify-between p-2 border-b">
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={handlePause} className={buttonClass}>
-              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleRestart} className={buttonClass}>
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleAudioToggle} className={buttonClass}>
-              {audioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleFullscreen} className={buttonClass}>
-              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={isCyberpunk ? "border-cyan-500 text-cyan-300" : ""}>
-              FPS: {fps}
-            </Badge>
-            <Badge variant="outline" className={isCyberpunk ? "border-cyan-500 text-cyan-300" : ""}>
-              {gameState.enemies.length} Enemies
-            </Badge>
-          </div>
-        </div>
+        <Card className="mb-4">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={isPlaying ? onGamePause : onGameStart}
+                  variant={isPlaying ? "secondary" : "default"}
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className="w-4 h-4" />
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4" />
+                      {isPaused ? "Resume" : "Start"}
+                    </>
+                  )}
+                </Button>
+                <Button onClick={onGameStop} variant="destructive" size="sm" className="flex items-center gap-2">
+                  <Square className="w-4 h-4" />
+                  Stop
+                </Button>
+                <Button
+                  onClick={onGameReset}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 bg-transparent"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowDebug(!showDebug)}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  Debug
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Game Canvas */}
-      <div className="flex-1 flex items-center justify-center bg-gray-900">
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={600}
-          className="border-2 border-gray-600 max-w-full max-h-full"
-          style={{
-            imageRendering: "pixelated",
-            width: platformType === "mobile" ? "100%" : "auto",
-            height: platformType === "mobile" ? "100%" : "auto",
-          }}
+      {/* Game Renderer */}
+      <div className="relative">
+        <EnhancedGameRenderer
+          gameState={gameState}
+          localPlayerId={playerId}
+          debugMode={showDebug}
+          platformType={platformType}
+          onTouchControl={handleTouchControl}
         />
-      </div>
 
-      {/* Mobile Instructions */}
-      {platformType === "mobile" && (
-        <div className="p-2 text-center text-sm opacity-75">Use joystick to move, buttons to attack</div>
-      )}
+        {/* Debug Overlay */}
+        {showDebug && (
+          <div className="absolute top-4 right-4 z-50">
+            <DebugOverlay
+              gameState={gameState}
+              playerId={playerId}
+              showFps={true}
+              showEntityCount={true}
+              showPlayerInfo={true}
+              showPerformanceMetrics={true}
+            />
+          </div>
+        )}
+
+        {/* Resource Monitor */}
+        {showResourceMonitor && (
+          <div className="absolute bottom-4 right-4 z-50">
+            <ResourceMonitor />
+          </div>
+        )}
+
+        {/* Mobile Tutorial Overlay */}
+        {platformType === "mobile" && showTutorial && (
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <CardHeader>
+                <CardTitle>Mobile Controls</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Movement</h4>
+                  <p className="text-sm text-muted-foreground">Use the joystick on the left to move your archer</p>
+                </div>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold mb-2">Aiming & Shooting</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Touch and drag on the right side to aim. Release to shoot arrows
+                  </p>
+                </div>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold mb-2">Special Actions</h4>
+                  <p className="text-sm text-muted-foreground">Use DASH and SPEC buttons for special abilities</p>
+                </div>
+                <Button onClick={() => setShowTutorial(false)} className="w-full">
+                  Got it!
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Game Over Overlay */}
+        {gameState.isGameOver && (
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <CardHeader>
+                <CardTitle className="text-center">
+                  {gameState.winner === playerId ? "Victory!" : "Game Over"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <div>
+                  <p className="text-lg font-semibold">
+                    {gameState.winner === playerId
+                      ? "Congratulations! You won!"
+                      : gameState.winner
+                        ? `${gameState.players[gameState.winner]?.name || "Unknown"} wins!`
+                        : "It's a draw!"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Game Time: {formatTime(gameState.gameTime)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={onGameReset} className="flex-1">
+                    Play Again
+                  </Button>
+                  <Button onClick={onGameStop} variant="outline" className="flex-1 bg-transparent">
+                    Exit
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
