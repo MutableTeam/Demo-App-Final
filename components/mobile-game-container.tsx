@@ -122,15 +122,11 @@ export default function MobileGameContainer({
         {/* Game Screen */}
         <div
           className={cn(
-            "bg-black/70 border border-dashed border-zinc-600 rounded-lg flex flex-col items-center justify-center text-center text-green-400",
+            "bg-black/70 border border-dashed border-zinc-600 rounded-lg flex items-center justify-center relative",
             isLandscape ? "w-1/2 h-full" : "w-full h-3/5",
           )}
         >
-          <div className="relative w-full h-full">{children}</div>
-          <div className="absolute pointer-events-none">
-            <p>GAME SCREEN</p>
-            <p className="text-sm">{isLandscape ? "[Wide Display Area] ~600x200px" : "[Portrait Display] 400x400px"}</p>
-          </div>
+          {children}
         </div>
 
         {/* Bottom/Right Controls */}
