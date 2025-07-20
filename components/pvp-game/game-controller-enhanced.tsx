@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
 import EnhancedGameRenderer from "./enhanced-game-renderer"
 import {
@@ -90,120 +90,133 @@ export default function GameControllerEnhanced({
 
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
   const [playersOnline, setPlayersOnline] = useState(0)
-
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Handle joystick movement for mobile - MOVEMENT ONLY
-  const handleJoystickMove = (direction: { x: number; y: number }) => {
-    if (!gameStateRef.current.players[playerId]) {
-      console.log("No player found for joystick movement")
-      return
-    }
-
-    const player = gameStateRef.current.players[playerId]
-    const deadzone = 0.1
-
-    // Store previous movement state for animation handling
-    const wasMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
-
-    // Update movement controls based on joystick direction
-    player.controls.up = direction.y > deadzone
-    player.controls.down = direction.y < -deadzone
-    player.controls.left = direction.x < -deadzone
-    player.controls.right = direction.x > deadzone
-
-    const isMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
-
-    console.log("Joystick movement:", {
-      direction,
-      controls: {
-        up: player.controls.up,
-        down: player.controls.down,
-        left: player.controls.left,
-        right: player.controls.right,
-      },
-      isMoving,
-      wasMoving,
-    })
-
-    // Handle animation state changes based on movement
-    if (isMoving && !wasMoving) {
-      if (player.animationState === "idle" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
-        player.animationState = "run"
-        player.lastAnimationChange = Date.now()
-        console.log("Animation changed to run")
+  // Handle movement from joystick - ONLY movement, no shooting
+  const handleMovementChange = useCallback(
+    (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => {
+      if (!gameStateRef.current.players[playerId]) {
+        console.log("No player found for movement change")
+        return
       }
-    } else if (!isMoving && wasMoving) {
-      if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
-        player.animationState = "idle"
-        player.lastAnimationChange = Date.now()
-        console.log("Animation changed to idle")
-      }
-    }
-  }
 
-  // Handle action button presses - ACTIONS ONLY
-  const handleActionPress = (action: string, pressed: boolean) => {
-    console.log("Action press:", { action, pressed })
+      const player = gameStateRef.current.players[playerId]
 
-    if (!gameStateRef.current.players[playerId]) {
-      console.log("No player found for action press")
-      return
-    }
+      // Store previous movement state for animation handling
+      const wasMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
 
-    const player = gameStateRef.current.players[playerId]
+      // Update ONLY movement controls - do NOT touch shooting controls
+      player.controls.up = movement.up
+      player.controls.down = movement.down
+      player.controls.left = movement.left
+      player.controls.right = movement.right
 
-    switch (action) {
-      case "shoot": // A button - Shoot Arrow
-        player.controls.shoot = pressed
-        if (pressed) {
-          player.isDrawingBow = true
-          player.drawStartTime = Date.now() / 1000
-          player.animationState = "draw"
+      const isMoving = movement.up || movement.down || movement.left || movement.right
+
+      console.log("Movement change:", {
+        movement,
+        isMoving,
+        wasMoving,
+        currentAnimation: player.animationState,
+        otherStates: {
+          isDrawingBow: player.isDrawingBow,
+          isDashing: player.isDashing,
+          isChargingSpecial: player.isChargingSpecial,
+        },
+      })
+
+      // Handle animation state changes based on movement
+      // Only change animation if not in a higher priority state
+      if (isMoving && !wasMoving) {
+        if (
+          player.animationState === "idle" &&
+          !player.isDrawingBow &&
+          !player.isDashing &&
+          !player.isChargingSpecial
+        ) {
+          player.animationState = "run"
           player.lastAnimationChange = Date.now()
-          console.log("Started drawing bow")
-        } else {
-          if (player.isDrawingBow) {
-            player.isDrawingBow = false
+          console.log("Animation changed to run")
+        }
+      } else if (!isMoving && wasMoving) {
+        if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
+          player.animationState = "idle"
+          player.lastAnimationChange = Date.now()
+          console.log("Animation changed to idle")
+        }
+      }
+    },
+    [playerId],
+  )
+
+  // Handle action button presses - ONLY actions, no movement
+  const handleActionPress = useCallback(
+    (action: string, pressed: boolean) => {
+      console.log("Action press:", { action, pressed })
+
+      if (!gameStateRef.current.players[playerId]) {
+        console.log("No player found for action press")
+        return
+      }
+
+      const player = gameStateRef.current.players[playerId]
+
+      switch (action) {
+        case "shoot": // A button - Shoot Arrow
+          console.log("Handling shoot action:", pressed)
+          player.controls.shoot = pressed
+          if (pressed) {
+            player.isDrawingBow = true
+            player.drawStartTime = Date.now() / 1000
             player.animationState = "fire"
             player.lastAnimationChange = Date.now()
-            console.log("Released bow - firing arrow")
+            console.log("Started drawing bow")
+          } else {
+            if (player.isDrawingBow) {
+              player.isDrawingBow = false
+              // Don't immediately change animation - let the game engine handle it
+              console.log("Released bow - firing arrow")
+            }
           }
-        }
-        break
-      case "dash": // X button - Dash
-        if (pressed && !player.isDashing && (player.dashCooldown || 0) <= 0) {
-          player.controls.dash = true
-          console.log("Dash activated")
-        } else {
-          player.controls.dash = false
-        }
-        break
-      case "special": // Y button - Special Attack
-        player.controls.special = pressed
-        if (pressed) {
-          player.isChargingSpecial = true
-          player.specialStartTime = Date.now() / 1000
-          player.animationState = "special"
-          player.lastAnimationChange = Date.now()
-          console.log("Started charging special")
-        } else {
-          if (player.isChargingSpecial) {
-            player.isChargingSpecial = false
-            console.log("Released special attack")
+          break
+        case "dash": // X button - Dash
+          console.log("Handling dash action:", pressed)
+          if (pressed && !player.isDashing && (player.dashCooldown || 0) <= 0) {
+            player.controls.dash = true
+            console.log("Dash activated")
+          } else {
+            player.controls.dash = false
           }
-        }
-        break
-      case "explosive": // B button - Explosive Arrow
-        if (pressed && (player.explosiveArrowCooldown || 0) <= 0) {
-          player.controls.explosiveArrow = true
-          console.log("Explosive arrow activated")
-        } else {
-          player.controls.explosiveArrow = false
-        }
-        break
-    }
-  }
+          break
+        case "special": // Y button - Special Attack
+          console.log("Handling special action:", pressed)
+          player.controls.special = pressed
+          if (pressed) {
+            player.isChargingSpecial = true
+            player.specialChargeStartTime = Date.now() / 1000
+            player.animationState = "special"
+            player.lastAnimationChange = Date.now()
+            console.log("Started charging special")
+          } else {
+            if (player.isChargingSpecial) {
+              player.isChargingSpecial = false
+              console.log("Released special attack")
+            }
+          }
+          break
+        case "explosive": // B button - Explosive Arrow
+          console.log("Handling explosive action:", pressed)
+          if (pressed && (player.explosiveArrowCooldown || 0) <= 0) {
+            player.controls.explosiveArrow = true
+            console.log("Explosive arrow activated")
+          } else {
+            player.controls.explosiveArrow = false
+          }
+          break
+      }
+    },
+    [playerId],
+  )
 
   useEffect(() => {
     debugManager.updateConfig({
@@ -286,6 +299,7 @@ export default function GameControllerEnhanced({
         shoot: false,
         special: false,
         dash: false,
+        explosiveArrow: false,
       }
       aiPlayer.rotation = 0
       aiPlayer.size = 20
@@ -316,7 +330,6 @@ export default function GameControllerEnhanced({
 
         if (gameTime > 0 && gameTime < 5) {
           debugManager.logInfo("CRASH_DETECTION", "Game is in early stage, monitoring for crashes")
-
           debugManager.captureState(gameStateRef.current, "Early Game State")
         }
       },
@@ -608,7 +621,7 @@ export default function GameControllerEnhanced({
 
   if (platformType === "mobile") {
     return (
-      <MobileGameContainer onJoystickMove={handleJoystickMove} onActionPress={handleActionPress}>
+      <MobileGameContainer onMovementChange={handleMovementChange} onActionPress={handleActionPress}>
         {gameRenderer}
         {gameState.isGameOver && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">

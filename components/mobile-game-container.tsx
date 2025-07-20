@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
 import type { IJoystickUpdateEvent } from "react-joystick-component"
@@ -9,7 +9,7 @@ import type { IJoystickUpdateEvent } from "react-joystick-component"
 interface MobileGameContainerProps {
   children: React.ReactNode
   className?: string
-  onJoystickMove: (direction: { x: number; y: number }) => void
+  onMovementChange: (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => void
   onActionPress: (action: string, pressed: boolean) => void
 }
 
@@ -22,33 +22,46 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ label, action, onPress, className, title }: ActionButtonProps) {
-  const handleInteractionStart = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onPress(action, true)
-  }
+  const handleInteractionStart = useCallback(
+    (e: React.TouchEvent | React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      onPress(action, true)
+    },
+    [action, onPress],
+  )
 
-  const handleInteractionEnd = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onPress(action, false)
-  }
+  const handleInteractionEnd = useCallback(
+    (e: React.TouchEvent | React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      onPress(action, false)
+    },
+    [action, onPress],
+  )
 
   return (
     <button
       className={cn(
-        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-150",
+        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-100",
         "touch-none select-none active:scale-95",
         "bg-zinc-700/90 border-zinc-500/70 text-zinc-200 active:bg-zinc-600/90 shadow-lg backdrop-blur-sm",
+        "hover:bg-zinc-600/80 focus:outline-none focus:ring-2 focus:ring-zinc-400/50",
         className,
       )}
       onTouchStart={handleInteractionStart}
       onTouchEnd={handleInteractionEnd}
+      onTouchCancel={handleInteractionEnd}
       onMouseDown={handleInteractionStart}
       onMouseUp={handleInteractionEnd}
       onMouseLeave={handleInteractionEnd}
       title={title}
-      style={{ WebkitUserSelect: "none", userSelect: "none" }}
+      style={{
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        WebkitTouchCallout: "none",
+        WebkitTapHighlightColor: "transparent",
+      }}
     >
       {label}
     </button>
@@ -58,7 +71,7 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
 export default function MobileGameContainer({
   children,
   className,
-  onJoystickMove,
+  onMovementChange,
   onActionPress,
 }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
@@ -73,27 +86,53 @@ export default function MobileGameContainer({
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  const handleMove = (event: IJoystickUpdateEvent) => {
-    const deadzone = 0.15
-    const x = event.x ?? 0
-    const y = event.y ?? 0
+  // Handle joystick movement - ONLY for player movement, NOT shooting
+  const handleJoystickMove = useCallback(
+    (event: IJoystickUpdateEvent) => {
+      const deadzone = 0.2 // Increased deadzone for better control
+      const x = event.x ?? 0
+      const y = event.y ?? 0
 
-    // Normalize values from joystick range to -1 to 1
-    const normalizedX = Math.max(-1, Math.min(1, x / 50))
-    const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Invert Y-axis for standard game coordinates
+      // Normalize joystick values (joystick returns values roughly -50 to 50)
+      const normalizedX = Math.max(-1, Math.min(1, x / 50))
+      const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Invert Y for standard game coordinates
 
-    const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
-    if (distance < deadzone) {
-      onJoystickMove({ x: 0, y: 0 })
-      return
-    }
+      // Apply deadzone
+      const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
 
-    onJoystickMove({ x: normalizedX, y: normalizedY })
-  }
+      if (distance < deadzone) {
+        // Stop all movement when in deadzone
+        onMovementChange({ up: false, down: false, left: false, right: false })
+        return
+      }
 
-  const handleStop = () => {
-    onJoystickMove({ x: 0, y: 0 })
-  }
+      // Convert analog input to digital movement controls
+      // Use threshold to determine direction
+      const threshold = 0.3
+      const movement = {
+        up: normalizedY > threshold,
+        down: normalizedY < -threshold,
+        left: normalizedX < -threshold,
+        right: normalizedX > threshold,
+      }
+
+      console.log("Joystick movement:", {
+        raw: { x, y },
+        normalized: { x: normalizedX, y: normalizedY },
+        distance,
+        movement,
+      })
+
+      onMovementChange(movement)
+    },
+    [onMovementChange],
+  )
+
+  // Handle joystick stop - ensure movement stops
+  const handleJoystickStop = useCallback(() => {
+    console.log("Joystick stopped - clearing all movement")
+    onMovementChange({ up: false, down: false, left: false, right: false })
+  }, [onMovementChange])
 
   const isLandscape = orientation === "landscape"
 
@@ -108,16 +147,19 @@ export default function MobileGameContainer({
           <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
             <div className="flex flex-col items-center justify-center space-y-2">
               <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-              <Joystick
-                size={120}
-                sticky={false}
-                baseColor="rgba(63, 63, 70, 0.8)"
-                stickColor="rgba(113, 113, 122, 0.9)"
-                move={handleMove}
-                stop={handleStop}
-                throttle={16}
-              />
-              <span className="text-xs text-zinc-500">Move</span>
+              <div className="relative">
+                <Joystick
+                  size={120}
+                  sticky={false}
+                  baseColor="rgba(63, 63, 70, 0.8)"
+                  stickColor="rgba(113, 113, 122, 0.9)"
+                  move={handleJoystickMove}
+                  stop={handleJoystickStop}
+                  throttle={16} // ~60fps updates
+                  disabled={false}
+                />
+              </div>
+              <span className="text-xs text-zinc-500">Move Player</span>
             </div>
           </div>
 
@@ -138,6 +180,7 @@ export default function MobileGameContainer({
                 <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
                 <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
               </div>
+              <span className="text-xs text-zinc-500">Combat Actions</span>
             </div>
           </div>
         </div>
@@ -163,16 +206,19 @@ export default function MobileGameContainer({
           {/* Movement Controls - Bottom Left */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-            <Joystick
-              size={100}
-              sticky={false}
-              baseColor="rgba(63, 63, 70, 0.8)"
-              stickColor="rgba(113, 113, 122, 0.9)"
-              move={handleMove}
-              stop={handleStop}
-              throttle={16}
-            />
-            <span className="text-xs text-zinc-500">Move</span>
+            <div className="relative">
+              <Joystick
+                size={100}
+                sticky={false}
+                baseColor="rgba(63, 63, 70, 0.8)"
+                stickColor="rgba(113, 113, 122, 0.9)"
+                move={handleJoystickMove}
+                stop={handleJoystickStop}
+                throttle={16} // ~60fps updates
+                disabled={false}
+              />
+            </div>
+            <span className="text-xs text-zinc-500">Move Player</span>
           </div>
 
           {/* Action Controls - Bottom Right */}
@@ -184,7 +230,7 @@ export default function MobileGameContainer({
               <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
               <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
             </div>
-            <span className="text-xs text-zinc-500">Actions</span>
+            <span className="text-xs text-zinc-500">Combat Actions</span>
           </div>
         </div>
       </div>
