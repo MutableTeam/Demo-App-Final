@@ -4,7 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
-import type { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
 
 interface MobileGameContainerProps {
   children: React.ReactNode
@@ -23,19 +23,22 @@ interface ActionButtonProps {
 function ActionButton({ label, action, onPress, className }: ActionButtonProps) {
   const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     onPress(action, true)
   }
+
   const handleEnd = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     onPress(action, false)
   }
 
   return (
     <button
       className={cn(
-        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-150",
-        "touch-none select-none active:scale-95",
-        "bg-zinc-700/80 border-zinc-500/70 text-zinc-300 active:bg-zinc-600/90",
+        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-sm font-bold transition-all duration-150",
+        "touch-none select-none active:scale-95 user-select-none",
+        "bg-zinc-700/90 border-zinc-500/70 text-zinc-200 active:bg-zinc-600/90 shadow-lg",
         className,
       )}
       onTouchStart={handleStart}
@@ -43,6 +46,7 @@ function ActionButton({ label, action, onPress, className }: ActionButtonProps) 
       onMouseDown={handleStart}
       onMouseUp={handleEnd}
       onMouseLeave={handleEnd}
+      style={{ WebkitUserSelect: "none", userSelect: "none" }}
     >
       {label}
     </button>
@@ -68,19 +72,21 @@ export default function MobileGameContainer({
   }, [])
 
   const handleJoystickUpdate = (event: IJoystickUpdateEvent) => {
-    const deadzone = 0.1
+    const deadzone = 0.15
     const x = event.x ?? 0
     const y = event.y ?? 0
-    const distance = Math.sqrt(x * x + y * y)
 
-    if (distance < deadzone * 50) {
-      // 50 is the joystick's internal scale
+    // Normalize values from -100 to 100 range to -1 to 1
+    const normalizedX = x / 100
+    const normalizedY = -y / 100 // Invert Y-axis for standard game coordinates
+
+    // Apply deadzone
+    const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
+    if (distance < deadzone) {
       onJoystickMove({ x: 0, y: 0 })
       return
     }
 
-    const normalizedX = x / 50
-    const normalizedY = -y / 50 // Invert Y-axis for standard game coordinates
     onJoystickMove({ x: normalizedX, y: normalizedY })
   }
 
@@ -108,13 +114,13 @@ export default function MobileGameContainer({
           <div className="flex flex-col items-center justify-center w-1/4 h-full space-y-2">
             <span className="text-xs tracking-widest">MOVEMENT</span>
             <Joystick
-              size={100}
+              size={120}
               sticky={false}
-              baseColor="#4a4a4a"
-              stickColor="#333333"
+              baseColor="rgba(75, 85, 99, 0.8)"
+              stickColor="rgba(156, 163, 175, 0.9)"
               move={handleJoystickUpdate}
               stop={handleJoystickStop}
-              throttle={50}
+              throttle={16}
             />
           </div>
         )}
@@ -139,24 +145,24 @@ export default function MobileGameContainer({
           {!isLandscape && (
             <div className="flex flex-col items-center justify-center space-y-2">
               <Joystick
-                size={100}
+                size={120}
                 sticky={false}
-                baseColor="#4a4a4a"
-                stickColor="#333333"
+                baseColor="rgba(75, 85, 99, 0.8)"
+                stickColor="rgba(156, 163, 175, 0.9)"
                 move={handleJoystickUpdate}
                 stop={handleJoystickStop}
-                throttle={50}
+                throttle={16}
               />
               <span className="text-xs tracking-widest">MOVE</span>
             </div>
           )}
 
           <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="grid grid-cols-2 gap-4 w-[160px] h-[160px] place-items-center">
-              <ActionButton label="Y" action="actionY" onPress={onActionPress} className="col-start-1" />
-              <ActionButton label="X" action="actionX" onPress={onActionPress} className="col-start-2" />
-              <ActionButton label="B" action="actionB" onPress={onActionPress} className="col-start-1" />
-              <ActionButton label="A" action="actionA" onPress={onActionPress} className="col-start-2" />
+            <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
+              <ActionButton label="🏹" action="shoot" onPress={onActionPress} className="col-start-1 row-start-1" />
+              <ActionButton label="⚡" action="special" onPress={onActionPress} className="col-start-2 row-start-1" />
+              <ActionButton label="💨" action="dash" onPress={onActionPress} className="col-start-1 row-start-2" />
+              <ActionButton label="💥" action="explosive" onPress={onActionPress} className="col-start-2 row-start-2" />
             </div>
             <span className="text-xs tracking-widest">ACTIONS</span>
           </div>

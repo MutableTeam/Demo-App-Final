@@ -109,33 +109,64 @@ export default function GameControllerEnhanced({
     const player = gameStateRef.current.players[playerId]
     const deadzone = 0.1
 
-    // The joystick component y-axis is inverted.
-    // Positive y from joystick means "up".
-    // Game engine expects standard coordinates where positive y is "down".
-    // The mobile container already inverts this, so here:
-    // positive y means down, negative y means up.
+    // Apply movement controls based on joystick direction
     player.controls.up = direction.y < -deadzone
     player.controls.down = direction.y > deadzone
     player.controls.left = direction.x < -deadzone
     player.controls.right = direction.x > deadzone
+
+    // Update player animation state based on movement
+    if (Math.abs(direction.x) > deadzone || Math.abs(direction.y) > deadzone) {
+      if (player.animationState === "idle" && !player.isDrawingBow && !player.isDashing) {
+        player.animationState = "run"
+        player.lastAnimationChange = Date.now()
+      }
+    } else {
+      if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing) {
+        player.animationState = "idle"
+        player.lastAnimationChange = Date.now()
+      }
+    }
   }
 
   // Map action buttons to game controls
   const handleActionPress = (action: string, pressed: boolean) => {
     if (!gameStateRef.current.players[playerId]) return
     const player = gameStateRef.current.players[playerId]
+
     switch (action) {
-      case "actionA": // Main shoot button
+      case "shoot": // Main shoot button (bow)
         player.controls.shoot = pressed
+        if (pressed) {
+          // Start drawing bow
+          player.isDrawingBow = true
+          player.drawStartTime = Date.now() / 1000
+          player.animationState = "draw"
+          player.lastAnimationChange = Date.now()
+        }
         break
-      case "actionB": // Dash button
-        player.controls.dash = pressed
+      case "dash": // Dash button
+        if (pressed && !player.isDashing && (player.dashCooldown || 0) <= 0) {
+          player.controls.dash = true
+        } else {
+          player.controls.dash = false
+        }
         break
-      case "actionX": // Special attack button
+      case "special": // Special attack button
         player.controls.special = pressed
+        if (pressed) {
+          player.isChargingSpecial = true
+          player.specialStartTime = Date.now() / 1000
+          player.animationState = "special"
+          player.lastAnimationChange = Date.now()
+        }
         break
-      case "actionY": // Explosive arrow button
-        player.controls.explosiveArrow = pressed
+      case "explosive": // Explosive arrow button
+        if (pressed && (player.explosiveArrowCooldown || 0) <= 0) {
+          player.controls.explosiveArrow = true
+        } else {
+          player.controls.explosiveArrow = false
+        }
         break
     }
   }
