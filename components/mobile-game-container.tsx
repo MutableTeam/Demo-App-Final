@@ -18,10 +18,9 @@ interface ActionButtonProps {
   action: string
   onPress: (action: string, pressed: boolean) => void
   className?: string
-  size?: "small" | "medium" | "large"
 }
 
-function ActionButton({ label, action, onPress, className, size = "medium" }: ActionButtonProps) {
+function ActionButton({ label, action, onPress, className }: ActionButtonProps) {
   const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault()
     onPress(action, true)
@@ -31,20 +30,13 @@ function ActionButton({ label, action, onPress, className, size = "medium" }: Ac
     onPress(action, false)
   }
 
-  const sizeClasses = {
-    small: "w-12 h-12 text-xs",
-    medium: "w-14 h-14 text-sm",
-    large: "w-16 h-16 text-base",
-  }
-
   return (
     <button
       className={cn(
-        "rounded-full border-2 font-bold transition-all duration-150",
+        "w-16 h-16 rounded-full border-2 font-bold text-sm transition-all duration-150",
         "touch-none select-none active:scale-95",
-        "bg-gray-600/80 border-gray-400/70 text-white active:bg-gray-500/90",
-        "shadow-[2px_2px_0px_rgba(0,0,0,0.5)] active:shadow-none",
-        sizeClasses[size],
+        "bg-gray-700/80 border-gray-500/70 text-white active:bg-gray-600/90",
+        "shadow-[3px_3px_0px_rgba(0,0,0,0.4)] active:shadow-none active:translate-x-0.5 active:translate-y-0.5",
         className,
       )}
       onTouchStart={handleStart}
@@ -60,15 +52,15 @@ function ActionButton({ label, action, onPress, className, size = "medium" }: Ac
 
 function DirectionalPad({ className }: { className?: string }) {
   return (
-    <div className={cn("grid grid-cols-3 gap-1 w-[72px]", className)}>
+    <div className={cn("grid grid-cols-3 gap-1 w-[78px]", className)}>
       <div />
-      <div className="w-6 h-6 bg-gray-600/60 border border-gray-400/50 rounded-sm" />
+      <div className="w-6 h-6 bg-gray-600/70 border border-gray-500/60 rounded-sm" />
       <div />
-      <div className="w-6 h-6 bg-gray-600/60 border border-gray-400/50 rounded-sm" />
-      <div className="w-6 h-6 bg-gray-600/60 border border-gray-400/50 rounded-sm" />
-      <div className="w-6 h-6 bg-gray-600/60 border border-gray-400/50 rounded-sm" />
+      <div className="w-6 h-6 bg-gray-600/70 border border-gray-500/60 rounded-sm" />
+      <div className="w-6 h-6 bg-gray-600/70 border border-gray-500/60 rounded-sm" />
+      <div className="w-6 h-6 bg-gray-600/70 border border-gray-500/60 rounded-sm" />
       <div />
-      <div className="w-6 h-6 bg-gray-600/60 border border-gray-400/50 rounded-sm" />
+      <div className="w-6 h-6 bg-gray-600/70 border border-gray-500/60 rounded-sm" />
       <div />
     </div>
   )
@@ -93,7 +85,7 @@ export default function MobileGameContainer({
 
   const handleJoystickMove = (event: IJoystickUpdateEvent) => {
     const normalizedX = event.x ? event.x / 50 : 0
-    const normalizedY = event.y ? -event.y / 50 : 0 // Invert Y-axis
+    const normalizedY = event.y ? -event.y / 50 : 0 // Y-axis is often inverted in game engines
     onJoystickMove({ x: normalizedX, y: normalizedY })
   }
 
@@ -101,25 +93,25 @@ export default function MobileGameContainer({
     onJoystickMove({ x: 0, y: 0 })
   }
 
-  // Portrait Layout - Accurately matching the desired design
+  // Portrait Layout - Accurately matching the desired handheld console design
   if (!isLandscape) {
     return (
-      <div className={cn("w-full h-screen bg-[#2d2d2d] flex flex-col p-2", className)}>
-        <div className="w-full h-full bg-[#424242] rounded-2xl p-2 flex flex-col">
+      <div className={cn("w-full h-screen bg-[#202020] flex flex-col p-2", className)}>
+        <div className="w-full h-full bg-[#333333] rounded-2xl p-2 flex flex-col shadow-2xl">
           {/* Game Screen Area */}
-          <div className="flex-1 flex items-center justify-center bg-black rounded-lg border-2 border-gray-800/50 overflow-hidden">
+          <div className="flex-1 flex items-center justify-center bg-black rounded-lg border-2 border-black/50 overflow-hidden mb-2">
             {children}
           </div>
 
           {/* Control Panel Area */}
-          <div className="h-[180px] flex items-center justify-between px-4 pt-4">
+          <div className="h-[200px] flex items-center justify-between px-4">
             {/* Left Controls */}
-            <div className="flex flex-col items-center space-y-2">
+            <div className="flex flex-col items-center space-y-3">
               <Joystick
-                size={80}
+                size={90}
                 sticky={false}
-                baseColor="#5a5a5a"
-                stickColor="#424242"
+                baseColor="#4a4a4a"
+                stickColor="#2d2d2d"
                 move={handleJoystickMove}
                 stop={handleJoystickStop}
                 throttle={50}
@@ -129,8 +121,8 @@ export default function MobileGameContainer({
             </div>
 
             {/* Right Controls */}
-            <div className="flex flex-col items-center space-y-2">
-              <div className="relative w-28 h-28">
+            <div className="flex flex-col items-center space-y-3">
+              <div className="relative w-32 h-32">
                 <ActionButton
                   label="Y"
                   action="actionY"
@@ -166,15 +158,15 @@ export default function MobileGameContainer({
 
   // Landscape Layout
   return (
-    <div className={cn("w-full h-screen bg-[#2d2d2d] flex items-center p-2", className)}>
-      <div className="w-full h-full bg-[#424242] rounded-2xl p-2 flex">
+    <div className={cn("w-full h-screen bg-[#202020] flex items-center p-2", className)}>
+      <div className="w-full h-full bg-[#333333] rounded-2xl p-2 flex shadow-2xl">
         {/* Left Controls */}
-        <div className="w-[150px] flex flex-col items-center justify-center space-y-4">
+        <div className="w-[180px] flex flex-col items-center justify-center space-y-6">
           <Joystick
             size={100}
             sticky={false}
-            baseColor="#5a5a5a"
-            stickColor="#424242"
+            baseColor="#4a4a4a"
+            stickColor="#2d2d2d"
             move={handleJoystickMove}
             stop={handleJoystickStop}
             throttle={50}
@@ -183,11 +175,11 @@ export default function MobileGameContainer({
         </div>
 
         {/* Game Screen Area */}
-        <div className="flex-1 h-full bg-black rounded-lg border-2 border-gray-800/50 overflow-hidden">{children}</div>
+        <div className="flex-1 h-full bg-black rounded-lg border-2 border-black/50 overflow-hidden">{children}</div>
 
         {/* Right Controls */}
-        <div className="w-[150px] flex items-center justify-center">
-          <div className="relative w-28 h-28">
+        <div className="w-[180px] flex items-center justify-center">
+          <div className="relative w-32 h-32">
             <ActionButton
               label="Y"
               action="actionY"

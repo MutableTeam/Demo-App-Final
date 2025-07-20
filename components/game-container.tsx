@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactNode } from "react"
 import { gameRegistry } from "@/types/game-registry"
 import { useToast } from "@/hooks/use-toast"
 import GameErrorBoundary from "@/components/game-error-boundary"
-import { debugManager } from "@/utils/debug-utils"
 import { cyberpunkColors } from "@/styles/cyberpunk-theme"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
@@ -14,6 +13,7 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Badge } from "@/components/ui/badge"
 import { Monitor, Smartphone } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { debugManager } from "@/lib/debug-manager" // Declare the debugManager variable
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -188,6 +188,60 @@ const CyberpunkLoadingText = styled.p`
   }
 `
 
+// Redesigned Cyberpunk Container for a consistent, polished desktop experience
+const CyberpunkGameWrapper = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #0a0a14;
+  border: 2px solid ${cyberpunkColors.border.cyan};
+  box-shadow: 0 0 25px ${cyberpunkColors.shadow.cyan}, inset 0 0 15px ${cyberpunkColors.shadow.cyan + "40"};
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, ${cyberpunkColors.primary.cyan}, transparent);
+    animation: ${keyframes`0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; }`} 4s linear infinite;
+  }
+  
+  &::before { top: -2px; }
+  &::after { bottom: -2px; }
+`
+
+const CyberpunkHeaderBar = styled.div`
+  width: 100%;
+  background: linear-gradient(90deg, ${cyberpunkColors.primary.magenta}30, ${cyberpunkColors.primary.cyan}30);
+  color: ${cyberpunkColors.text.primary};
+  font-family: 'Orbitron', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.75rem;
+  border-bottom: 2px solid ${cyberpunkColors.border.cyanBright};
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px ${cyberpunkColors.primary.cyan};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`
+
+const GameScreen = styled.div`
+  flex-grow: 1;
+  background-color: #000;
+  border: 1px solid ${cyberpunkColors.border.cyan + "80"};
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+`
+
 interface GameContainerProps {
   gameId: string
   playerId: string
@@ -195,9 +249,18 @@ interface GameContainerProps {
   isHost: boolean
   gameMode: string
   onGameEnd: (winner: string | null) => void
+  children: ReactNode
 }
 
-export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, onGameEnd }: GameContainerProps) {
+export function GameContainer({
+  gameId,
+  playerId,
+  playerName,
+  isHost,
+  gameMode,
+  onGameEnd,
+  children,
+}: GameContainerProps) {
   const [gameState, setGameState] = useState<"loading" | "playing" | "ended">("loading")
   const { toast } = useToast()
   const { platformType } = usePlatform()
@@ -296,7 +359,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
   // Render game container based on style mode
   if (isCyberpunk) {
     return (
-      <CyberpunkGameContainer>
+      <CyberpunkGameWrapper>
         {/* Development Banner with Platform Info */}
         <CyberpunkDevBanner>
           <span>Demo Game : Does Not Represent Final Product</span>
@@ -338,7 +401,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
             />
           )}
         </GameErrorBoundary>
-      </CyberpunkGameContainer>
+      </CyberpunkGameWrapper>
     )
   }
 
