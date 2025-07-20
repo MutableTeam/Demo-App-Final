@@ -19,6 +19,7 @@ import {
 import CountdownTimer from "@/components/pvp-game/countdown-timer"
 import { formatTime } from "./utils"
 import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
+import MobileGameContainer from "@/components/mobile-game-container"
 
 interface LastStandGameProps {
   playerId: string
@@ -26,6 +27,7 @@ interface LastStandGameProps {
   gameMode?: string
   onGameEnd: (stats: any) => void
   onCancel: () => void
+  platformType?: "desktop" | "mobile"
 }
 
 export default function LastStandGame({
@@ -34,6 +36,7 @@ export default function LastStandGame({
   gameMode = "practice",
   onGameEnd,
   onCancel,
+  platformType = "desktop",
 }: LastStandGameProps) {
   // Game state
   const [gameState, setGameState] = useState(() => createInitialLastStandState(playerId, playerName, gameMode))
@@ -55,6 +58,12 @@ export default function LastStandGame({
   const animatorRef = useRef<SpriteAnimator | null>(null)
   const specialCooldownRef = useRef<number>(0)
 
+  // Mobile-specific refs and state
+  const mobileControlsRef = useRef({
+    movement: { up: false, down: false, left: false, right: false },
+    actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+  })
+
   // Update game state ref when state changes
   useEffect(() => {
     gameStateRef.current = gameState
@@ -70,7 +79,7 @@ export default function LastStandGame({
 
   // Auto-start countdown when component mounts
   useEffect(() => {
-    setShowCountdown(true)
+    setShowConfirmation(true)
   }, [])
 
   // Handle confirmation
@@ -87,6 +96,8 @@ export default function LastStandGame({
 
   // Start game
   const startGame = () => {
+    console.log("🎮 Starting Last Stand game with platform:", platformType)
+
     // Initialize game state with proper structure
     const initialState = createInitialLastStandState(playerId, playerName, gameMode)
     setGameState(initialState)
@@ -96,6 +107,12 @@ export default function LastStandGame({
     frameCountRef.current = 0
     specialCooldownRef.current = 0
     setSpecialCooldown(0)
+
+    // Reset mobile controls
+    mobileControlsRef.current = {
+      movement: { up: false, down: false, left: false, right: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+    }
 
     // Start game loop
     lastUpdateTimeRef.current = Date.now()
@@ -109,6 +126,97 @@ export default function LastStandGame({
         console.error("Failed to start background music:", error)
       }
     }
+  }
+
+  // Mobile movement handler - ONLY handles movement, never shooting
+  const handleMobileMovement = (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => {
+    console.log("🕹️ Last Stand - Mobile movement received:", movement)
+
+    if (!gameStateRef.current?.player) {
+      console.warn("❌ No player found in game state for movement")
+      return
+    }
+
+    // Store movement in mobile controls ref
+    mobileControlsRef.current.movement = { ...movement }
+
+    console.log("🕹️ Last Stand - Movement controls updated:", {
+      movement: mobileControlsRef.current.movement,
+      actions: mobileControlsRef.current.actions,
+    })
+  }
+
+  // Mobile action handler - ONLY handles actions, never movement
+  const handleMobileAction = (action: string, pressed: boolean) => {
+    console.log("🎯 Last Stand - Mobile action received:", { action, pressed })
+
+    if (!gameStateRef.current?.player) {
+      console.warn("❌ No player found in game state for action")
+      return
+    }
+
+    const player = gameStateRef.current.player
+
+    // Store action in mobile controls ref
+    switch (action) {
+      case "shoot":
+        mobileControlsRef.current.actions.shoot = pressed
+        console.log("🏹 Last Stand - Shoot action:", pressed)
+
+        if (pressed) {
+          player.isDrawingBow = true
+          player.drawStartTime = Date.now() / 1000
+          console.log("🏹 Started drawing bow")
+
+          // Play bow draw sound
+          try {
+            playBowDrawSound()
+          } catch (error) {
+            console.error("Failed to play bow draw sound:", error)
+          }
+        } else {
+          if (player.isDrawingBow) {
+            player.isDrawingBow = false
+            console.log("🏹 Released bow - firing arrow")
+
+            // Play bow release sound
+            try {
+              playBowReleaseSound()
+            } catch (error) {
+              console.error("Failed to play bow release sound:", error)
+            }
+          }
+        }
+        break
+
+      case "dash":
+        mobileControlsRef.current.actions.dash = pressed
+        console.log("💨 Last Stand - Dash action:", pressed)
+        break
+
+      case "special":
+        mobileControlsRef.current.actions.special = pressed
+        console.log("⚡ Last Stand - Special action:", pressed)
+
+        if (pressed) {
+          try {
+            playBowFullDrawSound()
+          } catch (error) {
+            console.error("Failed to play special sound:", error)
+          }
+        }
+        break
+
+      case "explosive":
+        mobileControlsRef.current.actions.explosiveArrow = pressed
+        console.log("💥 Last Stand - Explosive action:", pressed)
+        break
+    }
+
+    console.log("🎯 Last Stand - All mobile controls after action:", {
+      movement: mobileControlsRef.current.movement,
+      actions: mobileControlsRef.current.actions,
+    })
   }
 
   // Game loop
@@ -129,8 +237,12 @@ export default function LastStandGame({
       setSpecialCooldown(specialCooldownRef.current)
     }
 
-    // Update player controls based on input
-    updatePlayerControls()
+    // Update player controls based on platform
+    if (platformType === "mobile") {
+      updateMobilePlayerControls()
+    } else {
+      updateDesktopPlayerControls()
+    }
 
     // Update game state
     const newState = updateLastStandGameState(gameStateRef.current, deltaTime)
@@ -150,8 +262,77 @@ export default function LastStandGame({
     }
   }
 
-  // Update player controls based on input
-  const updatePlayerControls = () => {
+  // Update player controls for mobile - uses mobile controls ref
+  const updateMobilePlayerControls = () => {
+    if (!gameStateRef.current?.player) return
+
+    const newState = { ...gameStateRef.current }
+    const player = newState.player
+
+    console.log("🎮 Updating mobile player controls:", {
+      movement: mobileControlsRef.current.movement,
+      actions: mobileControlsRef.current.actions,
+    })
+
+    // Apply movement controls from joystick
+    player.controls.up = mobileControlsRef.current.movement.up
+    player.controls.down = mobileControlsRef.current.movement.down
+    player.controls.left = mobileControlsRef.current.movement.left
+    player.controls.right = mobileControlsRef.current.movement.right
+
+    // Apply action controls from buttons
+    player.controls.shoot = mobileControlsRef.current.actions.shoot
+    player.controls.special = mobileControlsRef.current.actions.special
+    player.controls.dash = mobileControlsRef.current.actions.dash
+
+    // Handle explosive arrow with cooldown
+    if (mobileControlsRef.current.actions.explosiveArrow && specialCooldownRef.current === 0) {
+      player.controls.explosiveArrow = true
+      specialCooldownRef.current = 30 // 30 second cooldown
+      setSpecialCooldown(30)
+      mobileControlsRef.current.actions.explosiveArrow = false // Reset after triggering
+    } else {
+      player.controls.explosiveArrow = false
+    }
+
+    // Calculate player rotation for aiming (mobile uses center-screen aiming)
+    if (platformType === "mobile") {
+      // For mobile, we'll use a simple forward-facing rotation
+      // In a real implementation, you might want touch-based aiming
+      const canvas = document.querySelector("canvas")
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect()
+        const centerX = rect.width / 2
+        const centerY = rect.height / 2
+
+        // Simple forward aiming - could be enhanced with touch aiming later
+        player.rotation = 0 // Face right by default
+      }
+    }
+
+    gameStateRef.current = newState
+
+    console.log("🎮 Mobile player controls applied:", {
+      movement: {
+        up: player.controls.up,
+        down: player.controls.down,
+        left: player.controls.left,
+        right: player.controls.right,
+      },
+      actions: {
+        shoot: player.controls.shoot,
+        special: player.controls.special,
+        dash: player.controls.dash,
+        explosiveArrow: player.controls.explosiveArrow,
+      },
+      rotation: player.rotation,
+    })
+  }
+
+  // Update player controls for desktop - uses keyboard/mouse input
+  const updateDesktopPlayerControls = () => {
+    if (!gameStateRef.current?.player) return
+
     const newState = { ...gameStateRef.current }
 
     // Update movement controls
@@ -241,9 +422,16 @@ export default function LastStandGame({
     })
   }
 
-  // Set up keyboard and mouse controls
+  // Set up desktop keyboard and mouse controls - ONLY for desktop platform
   useEffect(() => {
+    if (platformType !== "desktop") {
+      console.log("🎮 Skipping desktop input setup for platform:", platformType)
+      return
+    }
+
     if (showConfirmation || showCountdown || showGameOver) return
+
+    console.log("🎮 Setting up desktop input handlers")
 
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current.add(e.key)
@@ -323,8 +511,11 @@ export default function LastStandGame({
     window.addEventListener("mouseup", handleMouseUp)
     window.addEventListener("contextmenu", handleContextMenu)
 
+    console.log("🎮 Desktop input handlers added")
+
     // Clean up
     return () => {
+      console.log("🎮 Cleaning up desktop input handlers")
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
       window.removeEventListener("mousemove", handleMouseMove)
@@ -343,7 +534,7 @@ export default function LastStandGame({
         console.error("Failed to stop background music:", error)
       }
     }
-  }, [showConfirmation, showCountdown, showGameOver])
+  }, [showConfirmation, showCountdown, showGameOver, platformType])
 
   // Initialize audio
   useEffect(() => {
@@ -425,27 +616,42 @@ export default function LastStandGame({
                 <h3 className="font-bold mb-2 flex items-center gap-2">
                   <Zap className="h-4 w-4" /> Controls
                 </h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>WASD / Arrows</div>
-                  <div>Move</div>
-                  <div>Mouse</div>
-                  <div>Aim</div>
-                  <div>Left Click / Space</div>
-                  <div>Shoot Arrow</div>
-                  <div>Right Click / Q</div>
-                  <div>Special Attack</div>
-                  <div>E Key</div>
-                  <div>Explosive Arrow (30s cooldown)</div>
-                  <div>Shift</div>
-                  <div>Dash</div>
-                  <div>ESC</div>
-                  <div>Pause</div>
-                </div>
+                {platformType === "mobile" ? (
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>Joystick</div>
+                    <div>Move Player</div>
+                    <div>A Button</div>
+                    <div>Shoot Arrow</div>
+                    <div>Y Button</div>
+                    <div>Special Attack</div>
+                    <div>B Button</div>
+                    <div>Explosive Arrow</div>
+                    <div>X Button</div>
+                    <div>Dash</div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>WASD / Arrows</div>
+                    <div>Move</div>
+                    <div>Mouse</div>
+                    <div>Aim</div>
+                    <div>Left Click / Space</div>
+                    <div>Shoot Arrow</div>
+                    <div>Right Click / Q</div>
+                    <div>Special Attack</div>
+                    <div>E Key</div>
+                    <div>Explosive Arrow (30s cooldown)</div>
+                    <div>Shift</div>
+                    <div>Dash</div>
+                    <div>ESC</div>
+                    <div>Pause</div>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" className="border-2 border-black" onClick={onCancel}>
+            <Button variant="outline" className="border-2 border-black bg-transparent" onClick={onCancel}>
               Cancel
             </Button>
             <Button
@@ -530,13 +736,24 @@ export default function LastStandGame({
               </div>
             </div>
           </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" className="border-2 border-black bg-transparent" onClick={handleExit}>
+              Exit
+            </Button>
+            <Button
+              className="bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+              onClick={handleRestart}
+            >
+              Play Again
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     )
   }
 
-  // Render game
-  return (
+  // Render game based on platform
+  const gameRenderer = (
     <div className="relative h-[600px] bg-gray-900 rounded-lg">
       {/* Game renderer */}
       <LastStandRenderer gameState={gameState} />
@@ -606,7 +823,7 @@ export default function LastStandGame({
               >
                 Resume
               </Button>
-              <Button variant="outline" className="w-full border-2 border-black" onClick={handleExit}>
+              <Button variant="outline" className="w-full border-2 border-black bg-transparent" onClick={handleExit}>
                 Exit Game
               </Button>
             </CardContent>
@@ -614,11 +831,24 @@ export default function LastStandGame({
         </div>
       )}
 
-      {/* Controls hint */}
-      <div className="absolute bottom-4 left-4 right-4 text-center text-white/70 text-sm bg-black/30 py-1 px-2 rounded-md">
-        WASD/Arrows to move | Mouse to aim | Left Click/Space to shoot | E for explosive arrow | Right Click/Q for
-        special | Shift to dash | ESC to pause
-      </div>
+      {/* Controls hint - only show for desktop */}
+      {platformType === "desktop" && (
+        <div className="absolute bottom-4 left-4 right-4 text-center text-white/70 text-sm bg-black/30 py-1 px-2 rounded-md">
+          WASD/Arrows to move | Mouse to aim | Left Click/Space to shoot | E for explosive arrow | Right Click/Q for
+          special | Shift to dash | ESC to pause
+        </div>
+      )}
     </div>
   )
+
+  // Return mobile or desktop version
+  if (platformType === "mobile") {
+    return (
+      <MobileGameContainer onMovementChange={handleMobileMovement} onActionPress={handleMobileAction}>
+        {gameRenderer}
+      </MobileGameContainer>
+    )
+  }
+
+  return gameRenderer
 }

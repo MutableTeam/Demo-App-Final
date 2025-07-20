@@ -12,6 +12,7 @@ export interface InputHandlerOptions {
   onMouseUp?: (e: MouseEvent, player: any) => void
   onKeyDown?: (e: KeyboardEvent, player: any) => void
   onKeyUp?: (e: KeyboardEvent, player: any) => void
+  platformType?: "desktop" | "mobile"
 }
 
 export interface TouchPoint {
@@ -41,6 +42,12 @@ export interface GameInputState {
     special: boolean
     explosiveArrow: boolean
   }
+  movement: {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+  }
   touchPoints: Map<number, TouchPoint>
 }
 
@@ -49,10 +56,13 @@ class GameInputHandler {
   private callbacks: {
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
+    onMovement?: (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => void
     onShoot?: () => void
   }
+  private platformType: "desktop" | "mobile"
 
-  constructor() {
+  constructor(platformType: "desktop" | "mobile" = "desktop") {
+    this.platformType = platformType
     this.state = {
       aiming: { angle: 0, power: 0, active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
       actions: {
@@ -61,14 +71,33 @@ class GameInputHandler {
         special: false,
         explosiveArrow: false,
       },
+      movement: {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+      },
       touchPoints: new Map(),
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "GameInputHandler created (no joystick support)")
+    debugManager.logInfo("INPUT", `GameInputHandler created for platform: ${platformType}`)
+  }
+
+  public handleMovementChange = (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => {
+    debugManager.logDebug("INPUT", `Movement change: ${JSON.stringify(movement)}`)
+
+    // Update internal state
+    this.state.movement = { ...movement }
+
+    // Notify callback
+    if (this.callbacks.onMovement) {
+      this.callbacks.onMovement(movement)
+    }
   }
 
   public handleActionPress = (action: string, pressed: boolean) => {
     debugManager.logDebug("INPUT", `Action button: ${action}, pressed: ${pressed}`)
+
     switch (action) {
       case "shoot":
         this.state.actions.shoot = pressed
@@ -83,6 +112,7 @@ class GameInputHandler {
         this.state.actions.explosiveArrow = pressed
         break
     }
+
     if (this.callbacks.onAction) {
       this.callbacks.onAction(action, pressed)
     }
@@ -91,49 +121,83 @@ class GameInputHandler {
   setCallbacks(callbacks: {
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
+    onMovement?: (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => void
     onShoot?: () => void
   }) {
     this.callbacks = callbacks
   }
 
+  // Touch handling for mobile platforms
   handleTouchStart(e: TouchEvent, element: HTMLElement) {
+    if (this.platformType !== "mobile") return
+
     e.preventDefault()
+    debugManager.logDebug("INPUT", `Touch start: ${e.changedTouches.length} touches`)
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i]
       const rect = element.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
-      const touchPoint: TouchPoint = { id: touch.identifier, x, y, startX: x, startY: y, startTime: Date.now() }
+      const touchPoint: TouchPoint = {
+        id: touch.identifier,
+        x,
+        y,
+        startX: x,
+        startY: y,
+        startTime: Date.now(),
+      }
+
       this.state.touchPoints.set(touch.identifier, touchPoint)
+
+      // Only handle aiming if we have exactly one touch point
       if (this.state.touchPoints.size === 1) {
-        this.state.aiming = { angle: 0, power: 0, active: true, startX: x, startY: y, currentX: x, currentY: y }
+        this.state.aiming = {
+          angle: 0,
+          power: 0,
+          active: true,
+          startX: x,
+          startY: y,
+          currentX: x,
+          currentY: y,
+        }
         debugManager.logDebug("INPUT", "Aiming started", { x, y })
       }
     }
   }
 
   handleTouchMove(e: TouchEvent, element: HTMLElement) {
+    if (this.platformType !== "mobile") return
+
     e.preventDefault()
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i]
       const touchPoint = this.state.touchPoints.get(touch.identifier)
       if (!touchPoint) continue
+
       const rect = element.getBoundingClientRect()
       const x = touch.clientX - rect.left
       const y = touch.clientY - rect.top
+
       touchPoint.x = x
       touchPoint.y = y
+
+      // Handle aiming for single touch
       if (this.state.aiming.active && this.state.touchPoints.size === 1) {
         this.state.aiming.currentX = x
         this.state.aiming.currentY = y
+
         const deltaX = x - this.state.aiming.startX
         const deltaY = y - this.state.aiming.startY
         const angle = Math.atan2(deltaY, deltaX)
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
         const maxDistance = 100
         const power = Math.min(distance / maxDistance, 1)
+
         this.state.aiming.angle = angle
         this.state.aiming.power = power
+
         if (this.callbacks.onAiming) {
           this.callbacks.onAiming(this.state.aiming)
         }
@@ -142,23 +206,41 @@ class GameInputHandler {
   }
 
   handleTouchEnd(e: TouchEvent) {
+    if (this.platformType !== "mobile") return
+
     e.preventDefault()
+    debugManager.logDebug("INPUT", `Touch end: ${e.changedTouches.length} touches`)
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i]
       const touchPoint = this.state.touchPoints.get(touch.identifier)
       if (!touchPoint) continue
+
+      // Handle shooting for single touch aiming
       if (this.state.aiming.active && this.state.touchPoints.size === 1) {
         if (this.callbacks.onShoot) {
           this.callbacks.onShoot()
         }
         this.state.aiming.active = false
-        debugManager.logDebug("INPUT", "Shot fired")
+        debugManager.logDebug("INPUT", "Shot fired from touch")
       }
+
       this.state.touchPoints.delete(touch.identifier)
     }
   }
 
   public getControls() {
+    return {
+      ...this.state.actions,
+      ...this.state.movement,
+    }
+  }
+
+  public getMovement() {
+    return { ...this.state.movement }
+  }
+
+  public getActions() {
     return { ...this.state.actions }
   }
 
@@ -184,7 +266,16 @@ export function setupGameInputHandlers({
   onMouseUp,
   onKeyDown,
   onKeyUp,
+  platformType = "desktop",
 }: InputHandlerOptions) {
+  // Skip setup for mobile platforms - they use their own input system
+  if (platformType === "mobile") {
+    debugManager.logInfo("INPUT", "Skipping desktop input setup for mobile platform")
+    return () => {} // Return empty cleanup function
+  }
+
+  debugManager.logInfo("INPUT", "Setting up desktop input handlers")
+
   const defaultMouseMove = (e: MouseEvent) => {
     if (!gameStateRef.current?.players?.[playerId]) return
     const player = gameStateRef.current.players[playerId]
@@ -323,7 +414,10 @@ export function setupGameInputHandlers({
     `${componentIdRef.current}-resume-audio`,
   )
 
+  debugManager.logInfo("INPUT", "Desktop input handlers registered")
+
   return () => {
+    debugManager.logInfo("INPUT", "Cleaning up desktop input handlers")
     transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keydown`)
     transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keyup`)
     transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-mousemove`)

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 
 // Import the rc-joystick component
@@ -18,7 +18,7 @@ interface JoystickProps {
   start?: () => void
 }
 
-// Temporary joystick component that mimics rc-joystick behavior
+// Enhanced joystick component that mimics rc-joystick behavior
 function RCJoystick({
   size = 100,
   baseColor = "#ddd",
@@ -31,12 +31,15 @@ function RCJoystick({
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const lastMoveTime = useRef<number>(0)
 
   const radius = size / 2
   const stickRadius = size / 6
 
   const handleStart = useCallback(
     (clientX: number, clientY: number, rect: DOMRect) => {
+      console.log("🕹️ RC Joystick - Start interaction")
       const centerX = rect.left + radius
       const centerY = rect.top + radius
       setStartPos({ x: centerX, y: centerY })
@@ -49,6 +52,11 @@ function RCJoystick({
   const handleMove = useCallback(
     (clientX: number, clientY: number) => {
       if (!isDragging) return
+
+      // Throttle move events
+      const now = Date.now()
+      if (now - lastMoveTime.current < throttle) return
+      lastMoveTime.current = now
 
       const deltaX = clientX - startPos.x
       const deltaY = clientY - startPos.y
@@ -85,6 +93,12 @@ function RCJoystick({
         else if (angle >= -67.5 && angle < -22.5) direction = "SE"
       }
 
+      console.log("🕹️ RC Joystick - Move data:", {
+        raw: { deltaX, deltaY, distance },
+        normalized: { x: normalizedX, y: -normalizedY, distance: normalizedDistance },
+        direction,
+      })
+
       if (move) {
         move({
           x: normalizedX,
@@ -94,46 +108,78 @@ function RCJoystick({
         })
       }
     },
-    [isDragging, startPos, radius, stickRadius, move],
+    [isDragging, startPos, radius, stickRadius, move, throttle],
   )
 
   const handleEnd = useCallback(() => {
+    console.log("🕹️ RC Joystick - End interaction")
     setIsDragging(false)
     setPosition({ x: 0, y: 0 })
     if (stop) stop()
   }, [stop])
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    handleStart(e.clientX, e.clientY, rect)
-  }
+  // Mouse event handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const rect = e.currentTarget.getBoundingClientRect()
+      handleStart(e.clientX, e.clientY, rect)
+    },
+    [handleStart],
+  )
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    handleMove(e.clientX, e.clientY)
-  }
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      handleMove(e.clientX, e.clientY)
+    },
+    [handleMove],
+  )
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault()
-    const touch = e.touches[0]
-    const rect = e.currentTarget.getBoundingClientRect()
-    handleStart(touch.clientX, touch.clientY, rect)
-  }
+  // Touch event handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const touch = e.touches[0]
+      const rect = e.currentTarget.getBoundingClientRect()
+      handleStart(touch.clientX, touch.clientY, rect)
+    },
+    [handleStart],
+  )
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault()
-    const touch = e.touches[0]
-    handleMove(touch.clientX, touch.clientY)
-  }
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const touch = e.touches[0]
+      if (touch) handleMove(touch.clientX, touch.clientY)
+    },
+    [handleMove],
+  )
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault()
-    handleEnd()
-  }
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      handleEnd()
+    },
+    [handleEnd],
+  )
 
+  // Global event handlers for drag continuation
   useEffect(() => {
     if (isDragging) {
-      const handleGlobalMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
-      const handleGlobalMouseUp = () => handleEnd()
+      const handleGlobalMouseMove = (e: MouseEvent) => {
+        e.preventDefault()
+        handleMove(e.clientX, e.clientY)
+      }
+      const handleGlobalMouseUp = (e: MouseEvent) => {
+        e.preventDefault()
+        handleEnd()
+      }
       const handleGlobalTouchMove = (e: TouchEvent) => {
         e.preventDefault()
         const touch = e.touches[0]
@@ -144,8 +190,8 @@ function RCJoystick({
         handleEnd()
       }
 
-      document.addEventListener("mousemove", handleGlobalMouseMove)
-      document.addEventListener("mouseup", handleGlobalMouseUp)
+      document.addEventListener("mousemove", handleGlobalMouseMove, { passive: false })
+      document.addEventListener("mouseup", handleGlobalMouseUp, { passive: false })
       document.addEventListener("touchmove", handleGlobalTouchMove, { passive: false })
       document.addEventListener("touchend", handleGlobalTouchEnd, { passive: false })
 
@@ -160,6 +206,7 @@ function RCJoystick({
 
   return (
     <div
+      ref={containerRef}
       className="relative select-none touch-none"
       style={{
         width: size,
@@ -205,12 +252,23 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ label, action, onPress, className, title }: ActionButtonProps) {
+  const [isPressed, setIsPressed] = useState(false)
+  const pressTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const handleInteractionStart = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      console.log(`Action button ${action} pressed`)
+
+      console.log(`🎯 Action button ${action} - START interaction`)
+      setIsPressed(true)
       onPress(action, true)
+
+      // Clear any existing timeout
+      if (pressTimeoutRef.current) {
+        clearTimeout(pressTimeoutRef.current)
+        pressTimeoutRef.current = null
+      }
     },
     [action, onPress],
   )
@@ -219,18 +277,36 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
     (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      console.log(`Action button ${action} released`)
+
+      console.log(`🎯 Action button ${action} - END interaction`)
+      setIsPressed(false)
       onPress(action, false)
+
+      // Clear any existing timeout
+      if (pressTimeoutRef.current) {
+        clearTimeout(pressTimeoutRef.current)
+        pressTimeoutRef.current = null
+      }
     },
     [action, onPress],
   )
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (pressTimeoutRef.current) {
+        clearTimeout(pressTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <button
       className={cn(
         "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-100",
-        "touch-none select-none active:scale-95",
-        "bg-zinc-700/90 border-zinc-500/70 text-zinc-200 active:bg-zinc-600/90 shadow-lg backdrop-blur-sm",
+        "touch-none select-none",
+        isPressed ? "scale-95 bg-zinc-600/90" : "scale-100 bg-zinc-700/90",
+        "border-zinc-500/70 text-zinc-200 shadow-lg backdrop-blur-sm",
         "hover:bg-zinc-600/80 focus:outline-none focus:ring-2 focus:ring-zinc-400/50",
         className,
       )}
@@ -259,170 +335,4 @@ export default function MobileGameContainer({
   onMovementChange = () => {},
   onActionPress = () => {},
 }: MobileGameContainerProps) {
-  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
-
-  useEffect(() => {
-    const handleOrientationChange = () => {
-      const currentOrientation = window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait"
-      setOrientation(currentOrientation)
-    }
-    handleOrientationChange()
-    window.addEventListener("resize", handleOrientationChange)
-    return () => window.removeEventListener("resize", handleOrientationChange)
-  }, [])
-
-  // Handle joystick movement - ONLY for player movement, NOT shooting
-  const handleJoystickMove = useCallback(
-    (data: { x: number; y: number; direction: string; distance: number }) => {
-      console.log("RC Joystick move:", data)
-
-      if (!onMovementChange) {
-        console.warn("onMovementChange not provided to MobileGameContainer")
-        return
-      }
-
-      const deadzone = 0.2 // Deadzone threshold
-      const { x, y, distance } = data
-
-      if (distance < deadzone) {
-        console.log("Joystick in deadzone - stopping movement")
-        onMovementChange({ up: false, down: false, left: false, right: false })
-        return
-      }
-
-      // Convert analog input to digital movement controls
-      const threshold = 0.3
-      const movement = {
-        up: y > threshold,
-        down: y < -threshold,
-        left: x < -threshold,
-        right: x > threshold,
-      }
-
-      console.log("RC Joystick movement applied:", {
-        raw: { x, y, distance, direction: data.direction },
-        movement,
-      })
-
-      onMovementChange(movement)
-    },
-    [onMovementChange],
-  )
-
-  // Handle joystick stop - ensure movement stops
-  const handleJoystickStop = useCallback(() => {
-    console.log("RC Joystick stopped - clearing all movement")
-
-    if (!onMovementChange) {
-      console.warn("onMovementChange not provided to MobileGameContainer")
-      return
-    }
-
-    onMovementChange({ up: false, down: false, left: false, right: false })
-  }, [onMovementChange])
-
-  const handleJoystickStart = useCallback(() => {
-    console.log("RC Joystick started")
-  }, [])
-
-  const isLandscape = orientation === "landscape"
-
-  if (isLandscape) {
-    // Landscape Layout: Movement | Game Screen | Actions
-    return (
-      <div
-        className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
-      >
-        <div className="w-full h-full flex flex-row items-center p-4 gap-4">
-          {/* Movement Controls - Left Side */}
-          <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-              <div className="relative">
-                <RCJoystick
-                  size={120}
-                  baseColor="rgba(63, 63, 70, 0.8)"
-                  stickColor="rgba(113, 113, 122, 0.9)"
-                  move={handleJoystickMove}
-                  stop={handleJoystickStop}
-                  start={handleJoystickStart}
-                  throttle={16} // ~60fps updates
-                />
-              </div>
-              <span className="text-xs text-zinc-500">Move Player</span>
-            </div>
-          </div>
-
-          {/* Game Screen - Center */}
-          <div className="w-1/2 h-full flex items-center justify-center">
-            <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden">
-              {children}
-            </div>
-          </div>
-
-          {/* Action Controls - Right Side */}
-          <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
-              <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
-                <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
-                <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
-                <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
-                <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
-              </div>
-              <span className="text-xs text-zinc-500">Combat Actions</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Portrait Layout: Game Screen on top, Controls on bottom
-  return (
-    <div
-      className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
-    >
-      <div className="w-full h-full flex flex-col items-center p-4 gap-4">
-        {/* Game Screen - Top */}
-        <div className="w-full h-2/3 flex items-center justify-center">
-          <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden max-w-md">
-            {children}
-          </div>
-        </div>
-
-        {/* Controls - Bottom */}
-        <div className="w-full h-1/3 flex flex-row items-center justify-between px-8">
-          {/* Movement Controls - Bottom Left */}
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-            <div className="relative">
-              <RCJoystick
-                size={100}
-                baseColor="rgba(63, 63, 70, 0.8)"
-                stickColor="rgba(113, 113, 122, 0.9)"
-                move={handleJoystickMove}
-                stop={handleJoystickStop}
-                start={handleJoystickStart}
-                throttle={16} // ~60fps updates
-              />
-            </div>
-            <span className="text-xs text-zinc-500">Move Player</span>
-          </div>
-
-          {/* Action Controls - Bottom Right */}
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
-            <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
-              <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
-              <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
-              <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
-              <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
-            </div>
-            <span className="text-xs text-zinc-500">Combat Actions</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+  const [\
