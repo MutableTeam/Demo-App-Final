@@ -1,3 +1,5 @@
-// Re-export styled and keyframes from emotion for consistent usage
-export { default as styled } from "@emotion/styled"
-export { keyframes } from "@emotion/react"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
+
+export { styled, keyframes }
+export default styled

@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { X, Maximize2, Minimize2, Volume2, VolumeX, Monitor, Smartphone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
-import EnhancedGameRenderer from "@/components/pvp-game/enhanced-game-renderer"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { usePlatform } from "@/contexts/platform-context"
 import GameErrorBoundary from "@/components/game-error-boundary"
+import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanced"
 
 interface DesktopGameContainerProps {
   gameId: string
@@ -172,16 +172,16 @@ export default function DesktopGameContainer({
       <div className="absolute inset-0 pt-24">
         <GameErrorBoundary>
           {children || (
-            <EnhancedGameRenderer
+            <GameControllerEnhanced
               gameId={gameId}
               playerId={playerId}
               playerName={playerName}
               isHost={isHost}
               gameMode={gameMode}
               onGameEnd={onGameEnd}
+              platformType={platformType}
               joystickInput={joystickInput}
               actionInput={actionInput}
-              isMuted={isMuted}
             />
           )}
         </GameErrorBoundary>

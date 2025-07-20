@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Gamepad2 } from "lucide-react"
+import { Gamepad2, Users, Clock, Trophy } from "lucide-react"
 import Image from "next/image"
 import WaitingRoom from "./waiting-room"
 import { loadAudioFiles } from "@/utils/audio-manager"
@@ -22,6 +22,7 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Button } from "@/components/ui/button"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
+import { cn } from "@/lib/utils"
 
 // Cyberpunk animations
 const scanline = keyframes`
@@ -223,6 +224,13 @@ interface GameLobby {
   gameType: string
 }
 
+interface Player {
+  id: string
+  name: string
+  isHost: boolean
+  isReady: boolean
+}
+
 export default function MatchmakingLobby({
   publicKey,
   playerName,
@@ -242,6 +250,7 @@ export default function MatchmakingLobby({
   const [gameState, setGameState] = useState<"lobby" | "waiting" | "playing" | "results">("lobby")
   const [selectedLobby, setSelectedLobby] = useState<GameLobby | null>(null)
   const [gameResult, setGameResult] = useState<{ winner: string | null; reward: number } | null>(null)
+  const [gameStarted, setGameStarted] = useState(false)
 
   // Pop-out state
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
@@ -250,6 +259,11 @@ export default function MatchmakingLobby({
   const componentIdRef = useRef<string>(`matchmaking-${Date.now()}`)
   const lobbyUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const newLobbyIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Players state
+  const [players, setPlayers] = useState<Player[]>([{ id: publicKey, name: playerName, isHost: true, isReady: false }])
+  const [isReady, setIsReady] = useState(false)
+  const [countdown, setCountdown] = useState<number | null>(null)
 
   // Load selected game implementation
   useEffect(() => {
@@ -287,6 +301,20 @@ export default function MatchmakingLobby({
       setIsGamePopOutOpen(false)
     }
   }, [gameState])
+
+  // Add AI players after a short delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPlayers((prev) => [
+        ...prev,
+        { id: "ai-1", name: "AI Player 1", isHost: false, isReady: true },
+        { id: "ai-2", name: "AI Player 2", isHost: false, isReady: true },
+        { id: "ai-3", name: "AI Player 3", isHost: false, isReady: true },
+      ])
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   // Mock lobbies with a more realistic structure
   const [lobbies, setLobbies] = useState<GameLobby[]>([
@@ -580,6 +608,29 @@ export default function MatchmakingLobby({
     }
   }
 
+  const handleReady = () => {
+    setIsReady(!isReady)
+    setPlayers((prev) => prev.map((p) => (p.id === publicKey ? { ...p, isReady: !isReady } : p)))
+  }
+
+  const handleStartGame = () => {
+    if (players.every((p) => p.isReady)) {
+      setCountdown(3)
+    }
+  }
+
+  // Countdown effect
+  useEffect(() => {
+    if (countdown !== null && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else if (countdown === 0) {
+      setGameStarted(true)
+    }
+  }, [countdown])
+
   // Game content to be rendered in the pop-out
   const renderGameContent = () => {
     if (!selectedLobby || !selectedGameImpl) return null
@@ -679,6 +730,13 @@ export default function MatchmakingLobby({
     ? lobbies.filter((lobby) => lobby.gameType === selectedGameImpl.config.id)
     : []
 
+  const cardClass = isCyberpunk
+    ? "bg-black/80 border-cyan-500/50 text-cyan-200"
+    : "border-4 border-black bg-[#fbf3de] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+
+  const titleClass = isCyberpunk ? "text-cyan-400" : "text-black"
+  const textClass = isCyberpunk ? "text-cyan-300" : "text-gray-700"
+
   return (
     <>
       {/* Game Pop-out Container */}
@@ -729,7 +787,7 @@ export default function MatchmakingLobby({
               </div>
             </div>
 
-            <CyberModeTabs defaultValue="browse" value={activeTab} onValueChange={setActiveTab}>
+            <Tabs defaultValue="browse" value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="cyber-tab-list mb-4">
                 <TabsTrigger value="browse" className="cyber-tab" onClick={withClickSound()}>
                   BROWSE GAMES
@@ -885,7 +943,7 @@ export default function MatchmakingLobby({
                   </div>
                 </div>
               </TabsContent>
-            </CyberModeTabs>
+            </Tabs>
           </CardContent>
           <CardFooter>
             {activeTab === "create" ? (
@@ -904,232 +962,131 @@ export default function MatchmakingLobby({
           </CardFooter>
         </CyberModeCard>
       ) : (
-        <Card className="bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Gamepad2 className="h-5 w-5" />
-                <CardTitle className="font-mono">PVP ARENA</CardTitle>
-              </div>
-              <Badge
-                variant="outline"
-                className="bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
-              >
-                <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-                {mutbBalance.toFixed(2)} MUTB
-              </Badge>
-            </div>
-            <CardDescription>Battle other players and win MUTB tokens</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Game selection tabs */}
-            <div className="mb-4">
-              <Label className="font-mono mb-2 block">SELECT GAME</Label>
-              <div className="flex flex-wrap gap-2">
-                {allGames.map((game) => (
-                  <Badge
-                    key={game.config.id}
-                    variant={selectedGameImpl?.config.id === game.config.id ? "default" : "outline"}
-                    className={`cursor-pointer ${
-                      selectedGameImpl?.config.id === game.config.id ? "bg-[#FFD54F] text-black" : "hover:bg-gray-100"
-                    } border-2 border-black`}
-                    onClick={() => setSelectedGameImpl(game)}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="mr-1">{game.config.icon}</span>
-                      {game.config.name}
-                    </div>
-                  </Badge>
-                ))}
-              </div>
-            </div>
+        <div className="w-full max-w-4xl mx-auto space-y-6">
+          {/* Header */}
+          <Card className={cardClass}>
+            <CardHeader>
+              <CardTitle className={cn("text-2xl font-mono flex items-center gap-2", titleClass)}>
+                <Gamepad2 className="h-6 w-6" />
+                {selectedGameImpl?.config.id === "archer-arena" ? "Archer Arena" : selectedGameImpl?.config.id} - Lobby
+              </CardTitle>
+            </CardHeader>
+          </Card>
 
-            <Tabs defaultValue="browse" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4 border-2 border-black bg-[#FFD54F]">
-                <TabsTrigger
-                  value="browse"
-                  className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
-                  onClick={withClickSound()}
-                >
-                  BROWSE GAMES
-                </TabsTrigger>
-                <TabsTrigger
-                  value="create"
-                  className="data-[state=active]:bg-white data-[state=active]:text-black font-mono"
-                  onClick={withClickSound()}
-                >
-                  CREATE GAME
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="browse" className="space-y-4">
-                {filteredLobbies.length > 0 ? (
-                  <div className="space-y-3">
-                    {filteredLobbies.map((lobby) => {
-                      const gameImpl = gameRegistry.getGame(lobby.gameType)
-                      const gameMode = gameImpl?.config.modes.find((m) => m.id === lobby.mode)
-
-                      return (
-                        <div
-                          key={lobby.id}
-                          className="flex items-center justify-between p-3 border-2 border-black rounded-md bg-[#f5efdc] hover:bg-[#f0e9d2] transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="bg-[#FFD54F] p-2 rounded-md border-2 border-black">
-                              {gameMode?.icon || gameImpl?.config.icon || <Gamepad2 className="h-5 w-5" />}
-                            </div>
-                            <div>
-                              <div className="font-bold font-mono flex items-center gap-2">
-                                {gameMode?.name || "Unknown"}
-                                <Badge variant="outline" className="bg-gray-100 text-gray-700 font-normal text-xs">
-                                  {lobby.status === "in-progress"
-                                    ? "IN PROGRESS"
-                                    : lobby.players + "/" + lobby.maxPlayers}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">Host: {lobby.hostName}</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-center">
-                              <div className="text-sm font-medium">Wager</div>
-                              <div className="font-mono flex items-center justify-center gap-1">
-                                <Image src="/images/mutable-token.png" alt="MUTB" width={12} height={12} />
-                                <span>{lobby.wager}</span>
-                              </div>
-                            </div>
-                            <SoundButton
-                              className="bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
-                              disabled={lobby.status !== "waiting" || lobby.host === publicKey}
-                              onClick={() => joinLobby(lobby)}
-                            >
-                              {lobby.status === "in-progress"
-                                ? "IN PROGRESS"
-                                : lobby.status === "full"
-                                  ? "FULL"
-                                  : lobby.host === publicKey
-                                    ? "YOUR GAME"
-                                    : "JOIN"}
-                            </SoundButton>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Gamepad2 className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p className="font-mono">NO ACTIVE GAMES</p>
-                    <p className="text-sm mt-2">Create a new game to start playing</p>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="create" className="space-y-4">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="playerName" className="font-mono">
-                      YOUR NAME
-                    </Label>
-                    <Input
-                      id="playerName"
-                      value={localPlayerName}
-                      onChange={(e) => setLocalPlayerName(e.target.value)}
-                      className="border-2 border-black"
-                      maxLength={15}
-                    />
-                  </div>
-
-                  {selectedGameImpl && (
-                    <>
-                      <div>
-                        <Label className="font-mono">GAME TYPE</Label>
-                        <div className="p-3 border-2 rounded-md border-black bg-[#FFD54F] mt-2">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="bg-white p-1 rounded-md border border-black">
-                              {selectedGameImpl.config.icon}
-                            </div>
-                            <div className="font-bold font-mono">{selectedGameImpl.config.name}</div>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{selectedGameImpl.config.description}</p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label className="font-mono">GAME MODE</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                          {selectedGameImpl.config.modes.map((mode) => (
-                            <div
-                              key={mode.id}
-                              className={`p-3 border-2 rounded-md cursor-pointer transition-colors ${
-                                selectedMode === mode.id
-                                  ? "border-black bg-[#FFD54F]"
-                                  : "border-gray-300 bg-[#f5efdc] hover:border-black"
-                              }`}
-                              onClick={withClickSound(() => setSelectedMode(mode.id))}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="bg-white p-1 rounded-md border border-black">{mode.icon}</div>
-                                <div className="font-bold font-mono">{mode.name}</div>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{mode.description}</p>
-                              <div className="mt-2 text-sm">
-                                <span className="font-medium">Players:</span> {mode.players}
-                              </div>
-                              <div className="text-sm">
-                                <span className="font-medium">Min Wager:</span> {mode.minWager} MUTB
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  <div>
-                    <Label htmlFor="wagerAmount" className="font-mono">
-                      WAGER AMOUNT (MUTB)
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="wagerAmount"
-                        type="number"
-                        min={1}
-                        max={mutbBalance}
-                        value={wagerAmount}
-                        onChange={(e) => setWagerAmount(Number(e.target.value))}
-                        className="border-2 border-black"
-                      />
-                      <div className="flex items-center gap-1 bg-[#f5efdc] px-3 py-2 rounded-md border-2 border-black">
-                        <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} />
-                        <span className="font-mono">MUTB</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">Your balance: {mutbBalance.toFixed(2)} MUTB</p>
-                  </div>
+          {/* Countdown Overlay */}
+          {countdown !== null && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+              <div className="text-center">
+                <div className={cn("text-8xl font-bold font-mono", isCyberpunk ? "text-cyan-400" : "text-white")}>
+                  {countdown > 0 ? countdown : "GO!"}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-          <CardFooter>
-            {activeTab === "create" ? (
-              <SoundButton
-                className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
-                disabled={!selectedMode || !selectedGameImpl || wagerAmount <= 0 || wagerAmount > mutbBalance}
-                onClick={createLobby}
-              >
-                CREATE GAME
-              </SoundButton>
-            ) : (
-              <SoundButton
-                className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
-                onClick={() => setActiveTab("create")}
-              >
-                CREATE NEW GAME
-              </SoundButton>
-            )}
-          </CardFooter>
-        </Card>
+                <p className={cn("text-xl mt-4", isCyberpunk ? "text-cyan-300" : "text-gray-300")}>Game starting...</p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Players List */}
+            <div className="lg:col-span-2">
+              <Card className={cardClass}>
+                <CardHeader>
+                  <CardTitle className={cn("text-lg font-mono flex items-center gap-2", titleClass)}>
+                    <Users className="h-5 w-5" />
+                    Players ({players.length}/4)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {players.map((player) => (
+                    <div
+                      key={player.id}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg",
+                        isCyberpunk ? "bg-cyan-500/10 border border-cyan-500/30" : "bg-gray-100 border border-gray-300",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn("w-3 h-3 rounded-full", player.isReady ? "bg-green-500" : "bg-red-500")} />
+                        <span className={cn("font-medium", textClass)}>{player.name}</span>
+                        {player.isHost && (
+                          <Badge variant="outline" className={isCyberpunk ? "border-cyan-500 text-cyan-400" : ""}>
+                            Host
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge variant={player.isReady ? "default" : "secondary"}>
+                        {player.isReady ? "Ready" : "Not Ready"}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Game Info & Controls */}
+            <div className="space-y-6">
+              <Card className={cardClass}>
+                <CardHeader>
+                  <CardTitle className={cn("text-lg font-mono", titleClass)}>Game Info</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span className={cn("text-sm", textClass)}>3-5 minutes</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4" />
+                    <span className={cn("text-sm", textClass)}>Free For All</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span className={cn("text-sm", textClass)}>Up to 4 players</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={handleReady}
+                  variant={isReady ? "default" : "outline"}
+                  className={cn(
+                    "w-full font-mono",
+                    isCyberpunk
+                      ? isReady
+                        ? "bg-cyan-500 hover:bg-cyan-600 text-black"
+                        : "border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
+                      : "",
+                  )}
+                >
+                  {isReady ? "Ready!" : "Ready Up"}
+                </Button>
+
+                {players.find((p) => p.id === publicKey)?.isHost && (
+                  <Button
+                    onClick={handleStartGame}
+                    disabled={!players.every((p) => p.isReady)}
+                    className={cn(
+                      "w-full font-mono",
+                      isCyberpunk ? "bg-green-500 hover:bg-green-600 text-black disabled:bg-gray-600" : "",
+                    )}
+                  >
+                    Start Game
+                  </Button>
+                )}
+
+                <Button
+                  onClick={exitGame}
+                  variant="outline"
+                  className={cn(
+                    "w-full font-mono",
+                    isCyberpunk ? "border-red-500 text-red-400 hover:bg-red-500/10" : "",
+                  )}
+                >
+                  Leave Lobby
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
