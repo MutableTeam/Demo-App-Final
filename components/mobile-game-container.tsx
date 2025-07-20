@@ -1,10 +1,193 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback, useRef } from "react"
-import { Joystick } from "react-joystick-component"
+import { useEffect, useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
-import type { IJoystickUpdateEvent } from "react-joystick-component"
+
+// Import the rc-joystick component
+// Note: This would normally be installed via npm install rc-joystick
+// For now, we'll create a compatible interface
+interface JoystickProps {
+  size?: number
+  baseColor?: string
+  stickColor?: string
+  throttle?: number
+  disabled?: boolean
+  move?: (data: { x: number; y: number; direction: string; distance: number }) => void
+  stop?: () => void
+  start?: () => void
+}
+
+// Temporary joystick component that mimics rc-joystick behavior
+function RCJoystick({
+  size = 100,
+  baseColor = "#ddd",
+  stickColor = "#999",
+  move,
+  stop,
+  start,
+  throttle = 50,
+}: JoystickProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 })
+
+  const radius = size / 2
+  const stickRadius = size / 6
+
+  const handleStart = useCallback(
+    (clientX: number, clientY: number, rect: DOMRect) => {
+      const centerX = rect.left + radius
+      const centerY = rect.top + radius
+      setStartPos({ x: centerX, y: centerY })
+      setIsDragging(true)
+      if (start) start()
+    },
+    [radius, start],
+  )
+
+  const handleMove = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!isDragging) return
+
+      const deltaX = clientX - startPos.x
+      const deltaY = clientY - startPos.y
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = radius - stickRadius
+
+      let x = deltaX
+      let y = deltaY
+
+      if (distance > maxDistance) {
+        const angle = Math.atan2(deltaY, deltaX)
+        x = Math.cos(angle) * maxDistance
+        y = Math.sin(angle) * maxDistance
+      }
+
+      setPosition({ x, y })
+
+      // Calculate normalized values (-1 to 1)
+      const normalizedX = x / maxDistance
+      const normalizedY = y / maxDistance
+      const normalizedDistance = Math.min(distance / maxDistance, 1)
+
+      // Determine direction
+      let direction = "C" // Center
+      if (normalizedDistance > 0.3) {
+        const angle = Math.atan2(-normalizedY, normalizedX) * (180 / Math.PI)
+        if (angle >= -22.5 && angle < 22.5) direction = "E"
+        else if (angle >= 22.5 && angle < 67.5) direction = "NE"
+        else if (angle >= 67.5 && angle < 112.5) direction = "N"
+        else if (angle >= 112.5 && angle < 157.5) direction = "NW"
+        else if (angle >= 157.5 || angle < -157.5) direction = "W"
+        else if (angle >= -157.5 && angle < -112.5) direction = "SW"
+        else if (angle >= -112.5 && angle < -67.5) direction = "S"
+        else if (angle >= -67.5 && angle < -22.5) direction = "SE"
+      }
+
+      if (move) {
+        move({
+          x: normalizedX,
+          y: -normalizedY, // Invert Y for standard game coordinates
+          direction,
+          distance: normalizedDistance,
+        })
+      }
+    },
+    [isDragging, startPos, radius, stickRadius, move],
+  )
+
+  const handleEnd = useCallback(() => {
+    setIsDragging(false)
+    setPosition({ x: 0, y: 0 })
+    if (stop) stop()
+  }, [stop])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    handleStart(e.clientX, e.clientY, rect)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    handleMove(e.clientX, e.clientY)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    const rect = e.currentTarget.getBoundingClientRect()
+    handleStart(touch.clientX, touch.clientY, rect)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    handleMove(touch.clientX, touch.clientY)
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault()
+    handleEnd()
+  }
+
+  useEffect(() => {
+    if (isDragging) {
+      const handleGlobalMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY)
+      const handleGlobalMouseUp = () => handleEnd()
+      const handleGlobalTouchMove = (e: TouchEvent) => {
+        e.preventDefault()
+        const touch = e.touches[0]
+        if (touch) handleMove(touch.clientX, touch.clientY)
+      }
+      const handleGlobalTouchEnd = (e: TouchEvent) => {
+        e.preventDefault()
+        handleEnd()
+      }
+
+      document.addEventListener("mousemove", handleGlobalMouseMove)
+      document.addEventListener("mouseup", handleGlobalMouseUp)
+      document.addEventListener("touchmove", handleGlobalTouchMove, { passive: false })
+      document.addEventListener("touchend", handleGlobalTouchEnd, { passive: false })
+
+      return () => {
+        document.removeEventListener("mousemove", handleGlobalMouseMove)
+        document.removeEventListener("mouseup", handleGlobalMouseUp)
+        document.removeEventListener("touchmove", handleGlobalTouchMove)
+        document.removeEventListener("touchend", handleGlobalTouchEnd)
+      }
+    }
+  }, [isDragging, handleMove, handleEnd])
+
+  return (
+    <div
+      className="relative select-none touch-none"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: baseColor,
+        borderRadius: "50%",
+        cursor: isDragging ? "grabbing" : "grab",
+      }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        className="absolute rounded-full transition-all duration-75"
+        style={{
+          width: stickRadius * 2,
+          height: stickRadius * 2,
+          backgroundColor: stickColor,
+          left: radius - stickRadius + position.x,
+          top: radius - stickRadius + position.y,
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  )
+}
 
 interface MobileGameContainerProps {
   children: React.ReactNode
@@ -22,8 +205,6 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ label, action, onPress, className, title }: ActionButtonProps) {
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
   const handleInteractionStart = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
       e.preventDefault()
@@ -46,7 +227,6 @@ function ActionButton({ label, action, onPress, className, title }: ActionButton
 
   return (
     <button
-      ref={buttonRef}
       className={cn(
         "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-100",
         "touch-none select-none active:scale-95",
@@ -80,8 +260,6 @@ export default function MobileGameContainer({
   onActionPress = () => {},
 }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
-  const containerRef = useRef<HTMLDivElement>(null)
-  const joystickRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -95,23 +273,16 @@ export default function MobileGameContainer({
 
   // Handle joystick movement - ONLY for player movement, NOT shooting
   const handleJoystickMove = useCallback(
-    (event: IJoystickUpdateEvent) => {
-      console.log("Joystick move event:", event)
+    (data: { x: number; y: number; direction: string; distance: number }) => {
+      console.log("RC Joystick move:", data)
 
       if (!onMovementChange) {
         console.warn("onMovementChange not provided to MobileGameContainer")
         return
       }
 
-      const deadzone = 0.15 // Reduced deadzone for better responsiveness
-      const x = event.x ?? 0
-      const y = event.y ?? 0
-
-      // Normalize joystick values (react-joystick-component returns values roughly -50 to 50)
-      const normalizedX = Math.max(-1, Math.min(1, x / 50))
-      const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Invert Y for standard game coordinates
-
-      const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
+      const deadzone = 0.2 // Deadzone threshold
+      const { x, y, distance } = data
 
       if (distance < deadzone) {
         console.log("Joystick in deadzone - stopping movement")
@@ -120,18 +291,16 @@ export default function MobileGameContainer({
       }
 
       // Convert analog input to digital movement controls
-      const threshold = 0.25 // Lower threshold for better responsiveness
+      const threshold = 0.3
       const movement = {
-        up: normalizedY > threshold,
-        down: normalizedY < -threshold,
-        left: normalizedX < -threshold,
-        right: normalizedX > threshold,
+        up: y > threshold,
+        down: y < -threshold,
+        left: x < -threshold,
+        right: x > threshold,
       }
 
-      console.log("Joystick movement applied:", {
-        raw: { x, y },
-        normalized: { x: normalizedX, y: normalizedY },
-        distance: distance.toFixed(3),
+      console.log("RC Joystick movement applied:", {
+        raw: { x, y, distance, direction: data.direction },
         movement,
       })
 
@@ -142,7 +311,7 @@ export default function MobileGameContainer({
 
   // Handle joystick stop - ensure movement stops
   const handleJoystickStop = useCallback(() => {
-    console.log("Joystick stopped - clearing all movement")
+    console.log("RC Joystick stopped - clearing all movement")
 
     if (!onMovementChange) {
       console.warn("onMovementChange not provided to MobileGameContainer")
@@ -152,13 +321,8 @@ export default function MobileGameContainer({
     onMovementChange({ up: false, down: false, left: false, right: false })
   }, [onMovementChange])
 
-  // Prevent touch events from bubbling up to the game canvas
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Only prevent default for joystick and action button areas
-    const target = e.target as HTMLElement
-    if (target.closest(".joystick-container") || target.closest(".action-button")) {
-      e.stopPropagation()
-    }
+  const handleJoystickStart = useCallback(() => {
+    console.log("RC Joystick started")
   }, [])
 
   const isLandscape = orientation === "landscape"
@@ -167,25 +331,22 @@ export default function MobileGameContainer({
     // Landscape Layout: Movement | Game Screen | Actions
     return (
       <div
-        ref={containerRef}
         className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
-        onTouchStart={handleTouchStart}
       >
         <div className="w-full h-full flex flex-row items-center p-4 gap-4">
           {/* Movement Controls - Left Side */}
           <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
             <div className="flex flex-col items-center justify-center space-y-2">
               <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-              <div ref={joystickRef} className="joystick-container relative">
-                <Joystick
+              <div className="relative">
+                <RCJoystick
                   size={120}
-                  sticky={false}
                   baseColor="rgba(63, 63, 70, 0.8)"
                   stickColor="rgba(113, 113, 122, 0.9)"
                   move={handleJoystickMove}
                   stop={handleJoystickStop}
+                  start={handleJoystickStart}
                   throttle={16} // ~60fps updates
-                  disabled={false}
                 />
               </div>
               <span className="text-xs text-zinc-500">Move Player</span>
@@ -204,18 +365,10 @@ export default function MobileGameContainer({
             <div className="flex flex-col items-center justify-center space-y-2">
               <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
               <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
-                <div className="action-button">
-                  <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
-                </div>
-                <div className="action-button">
-                  <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
-                </div>
-                <div className="action-button">
-                  <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
-                </div>
-                <div className="action-button">
-                  <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
-                </div>
+                <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
+                <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
+                <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+                <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
               </div>
               <span className="text-xs text-zinc-500">Combat Actions</span>
             </div>
@@ -228,9 +381,7 @@ export default function MobileGameContainer({
   // Portrait Layout: Game Screen on top, Controls on bottom
   return (
     <div
-      ref={containerRef}
       className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
-      onTouchStart={handleTouchStart}
     >
       <div className="w-full h-full flex flex-col items-center p-4 gap-4">
         {/* Game Screen - Top */}
@@ -245,16 +396,15 @@ export default function MobileGameContainer({
           {/* Movement Controls - Bottom Left */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-            <div ref={joystickRef} className="joystick-container relative">
-              <Joystick
+            <div className="relative">
+              <RCJoystick
                 size={100}
-                sticky={false}
                 baseColor="rgba(63, 63, 70, 0.8)"
                 stickColor="rgba(113, 113, 122, 0.9)"
                 move={handleJoystickMove}
                 stop={handleJoystickStop}
+                start={handleJoystickStart}
                 throttle={16} // ~60fps updates
-                disabled={false}
               />
             </div>
             <span className="text-xs text-zinc-500">Move Player</span>
@@ -264,18 +414,10 @@ export default function MobileGameContainer({
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className="text-xs tracking-widest font-bold text-zinc-300">ACTIONS</span>
             <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
-              <div className="action-button">
-                <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
-              </div>
-              <div className="action-button">
-                <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
-              </div>
-              <div className="action-button">
-                <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
-              </div>
-              <div className="action-button">
-                <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
-              </div>
+              <ActionButton label="Y" action="special" onPress={onActionPress} title="Special Attack" />
+              <ActionButton label="X" action="dash" onPress={onActionPress} title="Dash" />
+              <ActionButton label="B" action="explosive" onPress={onActionPress} title="Explosive Arrow" />
+              <ActionButton label="A" action="shoot" onPress={onActionPress} title="Shoot Arrow" />
             </div>
             <span className="text-xs text-zinc-500">Combat Actions</span>
           </div>

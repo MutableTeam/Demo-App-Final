@@ -92,7 +92,7 @@ export default function GameControllerEnhanced({
   const [playersOnline, setPlayersOnline] = useState(0)
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Handle movement from joystick - ONLY movement, no shooting
+  // Handle movement from RC joystick - ONLY movement, no shooting
   const handleMovementChange = useCallback(
     (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => {
       console.log("🎮 handleMovementChange called with:", movement)
@@ -122,7 +122,7 @@ export default function GameControllerEnhanced({
       const isMoving = movement.up || movement.down || movement.left || movement.right
       const wasMoving = previousControls.up || previousControls.down || previousControls.left || previousControls.right
 
-      console.log("🎮 Movement controls updated:", {
+      console.log("🎮 RC Joystick movement controls updated:", {
         playerId,
         previousControls,
         newControls: {
@@ -180,7 +180,7 @@ export default function GameControllerEnhanced({
           if (pressed) {
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            player.animationState = "draw"
+            player.animationState = "fire"
             player.lastAnimationChange = Date.now()
             console.log("🏹 Started drawing bow")
           } else {
@@ -288,7 +288,7 @@ export default function GameControllerEnhanced({
     if (gameInitializedRef.current) return
     gameInitializedRef.current = true
 
-    console.log("🎮 Initializing game with playerId:", playerId)
+    console.log("🎮 Initializing game with RC Joystick support, playerId:", playerId)
 
     audioManager.init().catch((err) => debugManager.logError("AUDIO", "Failed to initialize audio", err))
 
@@ -351,7 +351,7 @@ export default function GameControllerEnhanced({
     setGameState(initialState)
     gameStateRef.current = initialState
 
-    console.log("🎮 Initial game state:", {
+    console.log("🎮 Initial game state with RC Joystick:", {
       playerCount: Object.keys(initialState.players).length,
       players: Object.keys(initialState.players),
       localPlayerId: playerId,

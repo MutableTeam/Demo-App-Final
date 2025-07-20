@@ -33,16 +33,8 @@ export interface AimingState {
   currentY: number
 }
 
-export interface MovementState {
-  up: boolean
-  down: boolean
-  left: boolean
-  right: boolean
-}
-
 export interface GameInputState {
   aiming: AimingState
-  movement: MovementState
   actions: {
     shoot: boolean
     dash: boolean
@@ -55,7 +47,6 @@ export interface GameInputState {
 class GameInputHandler {
   private state: GameInputState
   private callbacks: {
-    onMovementChange?: (state: MovementState) => void
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
     onShoot?: () => void
@@ -64,7 +55,6 @@ class GameInputHandler {
   constructor() {
     this.state = {
       aiming: { angle: 0, power: 0, active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
-      movement: { up: false, down: false, left: false, right: false },
       actions: {
         shoot: false,
         dash: false,
@@ -74,24 +64,11 @@ class GameInputHandler {
       touchPoints: new Map(),
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "GameInputHandler created with separated movement and action handling")
+    debugManager.logInfo("INPUT", "GameInputHandler created (no joystick support)")
   }
 
-  // Handle movement changes - ONLY movement, no shooting
-  public handleMovementChange = (movement: MovementState) => {
-    this.state.movement = { ...movement }
-
-    debugManager.logDebug("INPUT", `Movement change:`, movement)
-
-    if (this.callbacks.onMovementChange) {
-      this.callbacks.onMovementChange(this.state.movement)
-    }
-  }
-
-  // Handle action button presses - ONLY actions, no movement
   public handleActionPress = (action: string, pressed: boolean) => {
     debugManager.logDebug("INPUT", `Action button: ${action}, pressed: ${pressed}`)
-
     switch (action) {
       case "shoot":
         this.state.actions.shoot = pressed
@@ -106,14 +83,12 @@ class GameInputHandler {
         this.state.actions.explosiveArrow = pressed
         break
     }
-
     if (this.callbacks.onAction) {
       this.callbacks.onAction(action, pressed)
     }
   }
 
   setCallbacks(callbacks: {
-    onMovementChange?: (state: MovementState) => void
     onAiming?: (state: AimingState) => void
     onAction?: (action: string, pressed: boolean) => void
     onShoot?: () => void
@@ -184,10 +159,7 @@ class GameInputHandler {
   }
 
   public getControls() {
-    return {
-      ...this.state.actions,
-      ...this.state.movement,
-    }
+    return { ...this.state.actions }
   }
 
   public getState = (): GameInputState => {
