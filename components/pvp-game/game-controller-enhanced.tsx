@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react"
 import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
 import EnhancedGameRenderer from "./enhanced-game-renderer"
-import DebugOverlay from "./debug-overlay"
 import {
   playBowDrawSound,
   playBowReleaseSound,
@@ -21,13 +20,10 @@ import {
 } from "@/utils/audio-manager"
 import { debugManager, DebugLevel } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
-import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Play, Pause, Square, RotateCcw, Settings, Users, Zap, Monitor, Gamepad2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import MobileGameContainer from "@/components/mobile-game-container"
 
@@ -107,18 +103,24 @@ export default function GameControllerEnhanced({
 
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
+  // Correctly handle joystick movement for mobile
   const handleJoystickMove = (direction: { x: number; y: number }) => {
     if (!gameStateRef.current.players[playerId]) return
     const player = gameStateRef.current.players[playerId]
-
-    // A small deadzone
     const deadzone = 0.1
-    player.controls.up = direction.y > deadzone
-    player.controls.down = direction.y < -deadzone
+
+    // The joystick component y-axis is inverted.
+    // Positive y from joystick means "up".
+    // Game engine expects standard coordinates where positive y is "down".
+    // The mobile container already inverts this, so here:
+    // positive y means down, negative y means up.
+    player.controls.up = direction.y < -deadzone
+    player.controls.down = direction.y > deadzone
     player.controls.left = direction.x < -deadzone
     player.controls.right = direction.x > deadzone
   }
 
+  // Map action buttons to game controls
   const handleActionPress = (action: string, pressed: boolean) => {
     if (!gameStateRef.current.players[playerId]) return
     const player = gameStateRef.current.players[playerId]
@@ -936,174 +938,37 @@ export default function GameControllerEnhanced({
     return (
       <MobileGameContainer onJoystickMove={handleJoystickMove} onActionPress={handleActionPress}>
         {gameRenderer}
+        {gameState.isGameOver && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
+            <h2 className="text-4xl font-bold mb-4">{gameState.winner === playerId ? "Victory!" : "Game Over"}</h2>
+            <Button onClick={onGameReset}>Play Again</Button>
+          </div>
+        )}
       </MobileGameContainer>
     )
   }
 
+  // Desktop Layout
   return (
-    <div className={cn("relative w-full h-full", className)}>
-      {/* Game Stats Header */}
-      <Card className="mb-4">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Gamepad2 className="w-5 h-5" />
-              Archer Arena - {gameMode.toUpperCase()}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Badge variant={connectionStatus === "connected" ? "default" : "destructive"}>{connectionStatus}</Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {Object.keys(gameState.players).length}
-              </Badge>
-              {platformType === "desktop" && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Monitor className="w-3 h-3" />
-                  Desktop
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-            <div className="text-center">
-              <div className="font-semibold text-lg">{gameStats.score}</div>
-              <div className="text-muted-foreground">Score</div>
-            </div>
-            <div className="text-center">
-              <div className="font-semibold text-lg">{gameStats.level}</div>
-              <div className="text-muted-foreground">Level</div>
-            </div>
-            <div className="text-center">
-              <div className="font-semibold text-lg">{gameStats.lives}</div>
-              <div className="text-muted-foreground">Lives</div>
-            </div>
-            <div className="text-center">
-              <div className="font-semibold text-lg">{formatTime(gameState.gameTime)}</div>
-              <div className="text-muted-foreground">Time</div>
-            </div>
-            <div className="text-center">
-              <div className="font-semibold text-lg flex items-center justify-center gap-1">
-                <Zap className="w-4 h-4" />
-                {gameStats.multiplier}x
-              </div>
-              <div className="text-muted-foreground">Multiplier</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Game Controls */}
-      <Card className="mb-4">
-        <CardContent className="pt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={isPlaying ? onGamePause : onGameStart}
-                variant={isPlaying ? "secondary" : "default"}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="w-4 h-4" />
-                    Pause
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" />
-                    {isPaused ? "Resume" : "Start"}
-                  </>
-                )}
-              </Button>
-              <Button onClick={onGameStop} variant="destructive" size="sm" className="flex items-center gap-2">
-                <Square className="w-4 h-4" />
-                Stop
-              </Button>
-              <Button
-                onClick={onGameReset}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2 bg-transparent"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reset
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowDebug(!showDebug)}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                Debug
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Game Renderer */}
-      <div className="relative">
-        {gameRenderer}
-
-        {/* Debug Overlay */}
-        {showDebug && (
-          <div className="absolute top-4 right-4 z-50">
-            <DebugOverlay
-              gameState={gameState}
-              playerId={playerId}
-              showFps={true}
-              showEntityCount={true}
-              showPlayerInfo={true}
-              showPerformanceMetrics={true}
-            />
-          </div>
-        )}
-
-        {/* Resource Monitor */}
-        {showResourceMonitor && (
-          <div className="absolute bottom-4 right-4 z-50">
-            <ResourceMonitor />
-          </div>
-        )}
-
-        {/* Game Over Overlay */}
-        {gameState.isGameOver && (
-          <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
-            <Card className="max-w-md mx-4">
-              <CardHeader>
-                <CardTitle className="text-center">
-                  {gameState.winner === playerId ? "Victory!" : "Game Over"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-4">
-                <div>
-                  <p className="text-lg font-semibold">
-                    {gameState.winner === playerId
-                      ? "Congratulations! You won!"
-                      : gameState.winner
-                        ? `${gameState.players[gameState.winner]?.name || "Unknown"} wins!`
-                        : "It's a draw!"}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">Game Time: {formatTime(gameState.gameTime)}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={onGameReset} className="flex-1">
-                    Play Again
-                  </Button>
-                  <Button onClick={onGameStop} variant="outline" className="flex-1 bg-transparent">
-                    Exit
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+    <div className={cn("relative w-full h-[600px] bg-gray-900", className)}>
+      <div className="absolute top-2 left-2 z-10">
+        <Card className="bg-gray-800/50 text-white border-cyan-400/50">
+          <CardHeader>
+            <CardTitle>Archer Arena</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Score: {gameStats.score}</p>
+            <p>Time: {Math.floor(gameState.gameTime)}</p>
+          </CardContent>
+        </Card>
       </div>
+      {gameRenderer}
+      {gameState.isGameOver && (
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
+          <h2 className="text-4xl font-bold mb-4">{gameState.winner === playerId ? "Victory!" : "Game Over"}</h2>
+          <Button onClick={onGameReset}>Play Again</Button>
+        </div>
+      )}
     </div>
   )
 }
