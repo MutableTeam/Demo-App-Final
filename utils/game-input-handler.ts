@@ -40,6 +40,22 @@ export interface AimingState {
 }
 
 export interface GameInputState {
+  keyboard: {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+    shoot: boolean
+    special: boolean
+    dash: boolean
+    explosive: boolean
+  }
+  mouse: {
+    x: number
+    y: number
+    leftButton: boolean
+    rightButton: boolean
+  }
   aiming: AimingState
   actions: {
     dash: boolean
@@ -51,6 +67,21 @@ export interface GameInputState {
 
 export class GameInputHandler {
   private state: GameInputState
+  private canvas: HTMLCanvasElement | null = null
+  private keyMap: Record<string, keyof GameInputState["keyboard"]> = {
+    KeyW: "up",
+    KeyS: "down",
+    KeyA: "left",
+    KeyD: "right",
+    ArrowUp: "up",
+    ArrowDown: "down",
+    ArrowLeft: "left",
+    ArrowRight: "right",
+    Space: "shoot",
+    KeyE: "special",
+    Shift: "dash",
+    KeyQ: "explosive",
+  }
   private callbacks: {
     onJoystickMove?: (state: JoystickState) => void
     onAiming?: (state: AimingState) => void
@@ -60,11 +91,82 @@ export class GameInputHandler {
 
   constructor() {
     this.state = {
+      keyboard: {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        shoot: false,
+        special: false,
+        dash: false,
+        explosive: false,
+      },
+      mouse: {
+        x: 0,
+        y: 0,
+        leftButton: false,
+        rightButton: false,
+      },
       aiming: { angle: 0, power: 0, active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
       actions: { dash: false, special: false, shoot: false },
       touchPoints: new Map(),
     }
     this.callbacks = {}
+    this.bindEvents()
+  }
+
+  private bindEvents() {
+    if (typeof window === "undefined") return
+
+    window.addEventListener("keydown", this.handleKeyDown.bind(this))
+    window.addEventListener("keyup", this.handleKeyUp.bind(this))
+    window.addEventListener("mousemove", this.handleMouseMove.bind(this))
+    window.addEventListener("mousedown", this.handleMouseDown.bind(this))
+    window.addEventListener("mouseup", this.handleMouseUp.bind(this))
+  }
+
+  public setCanvas(canvas: HTMLCanvasElement) {
+    this.canvas = canvas
+  }
+
+  private handleKeyDown(event: KeyboardEvent) {
+    const action = this.keyMap[event.code]
+    if (action) {
+      event.preventDefault()
+      this.state.keyboard[action] = true
+    }
+  }
+
+  private handleKeyUp(event: KeyboardEvent) {
+    const action = this.keyMap[event.code]
+    if (action) {
+      event.preventDefault()
+      this.state.keyboard[action] = false
+    }
+  }
+
+  private handleMouseMove(event: MouseEvent) {
+    if (!this.canvas) return
+
+    const rect = this.canvas.getBoundingClientRect()
+    this.state.mouse.x = event.clientX - rect.left
+    this.state.mouse.y = event.clientY - rect.top
+  }
+
+  private handleMouseDown(event: MouseEvent) {
+    if (event.button === 0) {
+      this.state.mouse.leftButton = true
+    } else if (event.button === 2) {
+      this.state.mouse.rightButton = true
+    }
+  }
+
+  private handleMouseUp(event: MouseEvent) {
+    if (event.button === 0) {
+      this.state.mouse.leftButton = false
+    } else if (event.button === 2) {
+      this.state.mouse.rightButton = false
+    }
   }
 
   setCallbacks(callbacks: {
@@ -217,13 +319,13 @@ export class GameInputHandler {
   // Convert input state to game controls
   toGameControls() {
     return {
-      up: false,
-      down: false,
-      left: false,
-      right: false,
-      shoot: this.state.actions.shoot,
-      special: this.state.actions.special,
-      dash: this.state.actions.dash,
+      up: this.state.keyboard.up,
+      down: this.state.keyboard.down,
+      left: this.state.keyboard.left,
+      right: this.state.keyboard.right,
+      shoot: this.state.actions.shoot || this.state.keyboard.shoot || this.state.mouse.leftButton,
+      special: this.state.actions.special || this.state.keyboard.special || this.state.mouse.rightButton,
+      dash: this.state.actions.dash || this.state.keyboard.dash,
       rotation: this.state.aiming.angle,
       drawPower: this.state.aiming.power,
       isDrawingBow: this.state.aiming.active,
@@ -234,7 +336,22 @@ export class GameInputHandler {
   destroy() {
     this.state.touchPoints.clear()
     this.callbacks = {}
+    this.cleanup()
     debugManager.logInfo("INPUT", "Game input handler destroyed")
+  }
+
+  public updateKeyboardState(updates: Partial<GameInputState["keyboard"]>) {
+    Object.assign(this.state.keyboard, updates)
+  }
+
+  public cleanup() {
+    if (typeof window === "undefined") return
+
+    window.removeEventListener("keydown", this.handleKeyDown.bind(this))
+    window.removeEventListener("keyup", this.handleKeyUp.bind(this))
+    window.removeEventListener("mousemove", this.handleMouseMove.bind(this))
+    window.removeEventListener("mousedown", this.handleMouseDown.bind(this))
+    window.removeEventListener("mouseup", this.handleMouseUp.bind(this))
   }
 }
 
