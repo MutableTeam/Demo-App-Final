@@ -9,6 +9,42 @@ interface MobileGameContainerProps {
   className?: string
 }
 
+interface ActionButtonProps {
+  label: string
+  action: string
+  onPress: (action: string, pressed: boolean) => void
+  className?: string
+}
+
+function ActionButton({ label, action, onPress, className }: ActionButtonProps) {
+  const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault()
+    onPress(action, true)
+  }
+  const handleEnd = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault()
+    onPress(action, false)
+  }
+
+  return (
+    <button
+      className={cn(
+        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-150",
+        "touch-none select-none active:scale-95",
+        "bg-zinc-700/80 border-zinc-500/70 text-zinc-300 active:bg-zinc-600/90",
+        className,
+      )}
+      onTouchStart={handleStart}
+      onTouchEnd={handleEnd}
+      onMouseDown={handleStart}
+      onMouseUp={handleEnd}
+      onMouseLeave={handleEnd}
+    >
+      {label}
+    </button>
+  )
+}
+
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
 
@@ -21,6 +57,8 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     window.addEventListener("resize", handleOrientationChange)
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
+
+  const isLandscape = orientation === "landscape"
 
   return (
     <div
