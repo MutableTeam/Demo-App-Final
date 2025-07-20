@@ -97,18 +97,18 @@ export default function MobileGameContainer({
         className,
       )}
     >
-      <div className="bg-zinc-800/50 rounded-2xl border border-zinc-700/50 w-full h-full flex items-center justify-center p-4 relative">
-        {/* Game Screen - takes up most of the space */}
-        <div className="bg-black/70 border border-dashed border-zinc-600 rounded-lg flex items-center justify-center relative w-full h-full">
-          {children}
-        </div>
-
-        {/* Right Side Controls - positioned absolutely on the right */}
-        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col items-center space-y-4">
-          {/* Joystick at the top */}
-          <div className="flex flex-col items-center space-y-2">
+      <div
+        className={cn(
+          "bg-zinc-800/50 rounded-2xl border border-zinc-700/50 w-full h-full flex",
+          isLandscape ? "flex-row items-center p-4 gap-4" : "flex-col items-center p-2 gap-2",
+        )}
+      >
+        {/* Left/Top Controls for Landscape/Portrait */}
+        {isLandscape && (
+          <div className="flex flex-col items-center justify-center w-1/4 h-full space-y-2">
+            <span className="text-xs tracking-widest">MOVEMENT</span>
             <Joystick
-              size={80}
+              size={100}
               sticky={false}
               baseColor="#4a4a4a"
               stickColor="#333333"
@@ -116,18 +116,49 @@ export default function MobileGameContainer({
               stop={handleJoystickStop}
               throttle={50}
             />
-            <span className="text-xs tracking-widest text-center">MOVE</span>
           </div>
+        )}
 
-          {/* Action buttons below joystick */}
-          <div className="flex flex-col items-center space-y-2">
-            <div className="flex flex-col space-y-3">
-              <ActionButton label="Y" action="actionY" onPress={onActionPress} />
-              <ActionButton label="X" action="actionX" onPress={onActionPress} />
-              <ActionButton label="B" action="actionB" onPress={onActionPress} />
-              <ActionButton label="A" action="actionA" onPress={onActionPress} />
+        {/* Game Screen */}
+        <div
+          className={cn(
+            "bg-black/70 border border-dashed border-zinc-600 rounded-lg flex items-center justify-center relative",
+            isLandscape ? "w-1/2 h-full" : "w-full h-3/5",
+          )}
+        >
+          {children}
+        </div>
+
+        {/* Bottom/Right Controls */}
+        <div
+          className={cn(
+            "flex items-center",
+            isLandscape ? "w-1/4 h-full flex-col justify-center space-y-2" : "w-full h-2/5 justify-between px-4",
+          )}
+        >
+          {!isLandscape && (
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <Joystick
+                size={100}
+                sticky={false}
+                baseColor="#4a4a4a"
+                stickColor="#333333"
+                move={handleJoystickUpdate}
+                stop={handleJoystickStop}
+                throttle={50}
+              />
+              <span className="text-xs tracking-widest">MOVE</span>
             </div>
-            <span className="text-xs tracking-widest text-center">ACTIONS</span>
+          )}
+
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <div className="grid grid-cols-2 gap-4 w-[160px] h-[160px] place-items-center">
+              <ActionButton label="Y" action="actionY" onPress={onActionPress} className="col-start-1" />
+              <ActionButton label="X" action="actionX" onPress={onActionPress} className="col-start-2" />
+              <ActionButton label="B" action="actionB" onPress={onActionPress} className="col-start-1" />
+              <ActionButton label="A" action="actionA" onPress={onActionPress} className="col-start-2" />
+            </div>
+            <span className="text-xs tracking-widest">ACTIONS</span>
           </div>
         </div>
       </div>
