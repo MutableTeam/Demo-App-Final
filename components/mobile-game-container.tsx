@@ -1,231 +1,301 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo } from "react"
-import { Joystick } from "react-joystick-component"
+import { useState, useRef, useEffect, useCallback } from "react"
+import { X, Pause, Play } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick"
 
 interface MobileGameContainerProps {
   children: React.ReactNode
-  className?: string
-  onJoystickMove?: (direction: { x: number; y: number }) => void
-  onActionPress?: (action: string, pressed: boolean) => void
-}
-
-interface ActionButtonProps {
-  label: string
-  action: string
-  onPress: (action: string, pressed: boolean) => void
-  className?: string
-}
-
-function ActionButton({ label, action, onPress, className }: ActionButtonProps) {
-  const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
-    onPress(action, true)
-  }
-  const handleEnd = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
-    onPress(action, false)
-  }
-
-  return (
-    <button
-      className={cn(
-        "w-16 h-16 rounded-full border-2 font-bold transition-all duration-150",
-        "touch-none select-none active:scale-95 flex items-center justify-center",
-        "bg-[#3a3a3a] border-[#2a2a2a] text-gray-300 active:bg-[#4a4a4a]",
-        "shadow-[2px_2px_5px_rgba(0,0,0,0.5)] active:shadow-inner",
-        className,
-      )}
-      onTouchStart={handleStart}
-      onTouchEnd={handleEnd}
-      onMouseDown={handleStart}
-      onMouseUp={handleEnd}
-      onMouseLeave={handleEnd}
-    >
-      {label}
-    </button>
-  )
-}
-
-function DirectionalPad({ onMove, onStop }: { onMove: (x: number, y: number) => void; onStop: () => void }) {
-  const DPadButton = ({ x, y, children }: { x: number; y: number; children: React.ReactNode }) => {
-    const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      onMove(x, y)
-    }
-    const handleEnd = (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      onStop()
-    }
-    return (
-      <div
-        className="w-12 h-12 bg-[#3a3a3a] border-2 border-[#2a2a2a] rounded-md flex items-center justify-center active:bg-[#4a4a4a] cursor-pointer"
-        onTouchStart={handleStart}
-        onTouchEnd={handleEnd}
-        onMouseDown={handleStart}
-        onMouseUp={handleEnd}
-        onMouseLeave={handleEnd}
-      >
-        {children}
-      </div>
-    )
-  }
-
-  return (
-    <div className="grid grid-cols-3 gap-1 w-[156px] justify-items-center">
-      <div />
-      <DPadButton x={0} y={-1}>
-        ▲
-      </DPadButton>
-      <div />
-      <DPadButton x={-1} y={0}>
-        ◀
-      </DPadButton>
-      <div className="w-12 h-12" />
-      <DPadButton x={1} y={0}>
-        ▶
-      </DPadButton>
-      <div />
-      <DPadButton x={0} y={1}>
-        ▼
-      </DPadButton>
-      <div />
-    </div>
-  )
-}
-
-function ControlLabel({ children }: { children: React.ReactNode }) {
-  return <div className="text-xs text-gray-400 font-mono tracking-widest select-none">{children}</div>
+  onJoystickMove: (direction: { x: number; y: number }) => void
+  onActionPress: (action: string, pressed: boolean) => void
+  onExit?: () => void
 }
 
 export default function MobileGameContainer({
   children,
-  className,
-  onJoystickMove = () => {},
-  onActionPress = () => {},
+  onJoystickMove,
+  onActionPress,
+  onExit,
 }: MobileGameContainerProps) {
-  const [isLandscape, setIsLandscape] = useState(false)
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
+  const [isPaused, setIsPaused] = useState(false)
+  const joystickRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const [joystickActive, setJoystickActive] = useState(false)
+  const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0 })
 
+  // Detect orientation changes
   useEffect(() => {
-    const checkOrientation = () => {
-      // Use a simple width > height check for orientation
-      setIsLandscape(window.innerWidth > window.innerHeight)
+    const handleOrientationChange = () => {
+      const isLandscape = window.innerWidth > window.innerHeight
+      setOrientation(isLandscape ? "landscape" : "portrait")
     }
-    checkOrientation()
-    // Use ResizeObserver for more reliable updates on orientation change
-    const resizeObserver = new ResizeObserver(checkOrientation)
-    resizeObserver.observe(document.documentElement)
-    return () => resizeObserver.disconnect()
+
+    handleOrientationChange()
+    window.addEventListener("resize", handleOrientationChange)
+    window.addEventListener("orientationchange", handleOrientationChange)
+
+    return () => {
+      window.removeEventListener("resize", handleOrientationChange)
+      window.removeEventListener("orientationchange", handleOrientationChange)
+    }
   }, [])
 
-  const handleJoystickMove = (event: IJoystickUpdateEvent) => {
-    const normalizedX = event.x ? event.x / 50 : 0
-    const normalizedY = event.y ? -event.y / 50 : 0 // Invert Y-axis for standard game coordinates
-    onJoystickMove({ x: normalizedX, y: normalizedY })
-  }
+  // Joystick handling
+  const handleJoystickStart = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!joystickRef.current) return
 
-  const handleJoystickStop = () => {
-    onJoystickMove({ x: 0, y: 0 })
-  }
+      setJoystickActive(true)
+      const rect = joystickRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
 
-  const handleDPadMove = (x: number, y: number) => {
-    onJoystickMove({ x, y })
-  }
+      const updateJoystick = (x: number, y: number) => {
+        const deltaX = x - centerX
+        const deltaY = y - centerY
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+        const maxDistance = rect.width / 2 - 20 // Account for knob size
 
-  const handleDPadStop = () => {
-    onJoystickMove({ x: 0, y: 0 })
-  }
+        let normalizedX = deltaX / maxDistance
+        let normalizedY = deltaY / maxDistance
 
-  const actionButtons = useMemo(
-    () => (
-      <div className="flex flex-col items-center space-y-4">
-        <ControlLabel>ACTIONS</ControlLabel>
-        <div className="relative w-40 h-40">
-          <ActionButton
-            label="Y"
-            action="actionY"
-            onPress={onActionPress}
-            className="absolute top-0 left-1/2 -translate-x-1/2"
-          />
-          <ActionButton
-            label="X"
-            action="actionX"
-            onPress={onActionPress}
-            className="absolute top-1/2 left-0 -translate-y-1/2"
-          />
-          <ActionButton
-            label="A"
-            action="actionA"
-            onPress={onActionPress}
-            className="absolute top-1/2 right-0 -translate-y-1/2"
-          />
-          <ActionButton
-            label="B"
-            action="actionB"
-            onPress={onActionPress}
-            className="absolute bottom-0 left-1/2 -translate-x-1/2"
-          />
-        </div>
-      </div>
-    ),
-    [onActionPress],
+        if (distance > maxDistance) {
+          normalizedX = (deltaX / distance) * 1
+          normalizedY = (deltaY / distance) * 1
+        }
+
+        // Clamp values between -1 and 1
+        normalizedX = Math.max(-1, Math.min(1, normalizedX))
+        normalizedY = Math.max(-1, Math.min(1, normalizedY))
+
+        setJoystickPosition({ x: normalizedX, y: normalizedY })
+        onJoystickMove({ x: normalizedX, y: normalizedY })
+      }
+
+      updateJoystick(clientX, clientY)
+    },
+    [onJoystickMove],
   )
 
-  // Portrait Layout
-  if (!isLandscape) {
+  const handleJoystickMove = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!joystickActive || !joystickRef.current) return
+
+      const rect = joystickRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+
+      const deltaX = clientX - centerX
+      const deltaY = clientY - centerY
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const maxDistance = rect.width / 2 - 20
+
+      let normalizedX = deltaX / maxDistance
+      let normalizedY = deltaY / maxDistance
+
+      if (distance > maxDistance) {
+        normalizedX = (deltaX / distance) * 1
+        normalizedY = (deltaY / distance) * 1
+      }
+
+      normalizedX = Math.max(-1, Math.min(1, normalizedX))
+      normalizedY = Math.max(-1, Math.min(1, normalizedY))
+
+      setJoystickPosition({ x: normalizedX, y: normalizedY })
+      onJoystickMove({ x: normalizedX, y: normalizedY })
+    },
+    [joystickActive, onJoystickMove],
+  )
+
+  const handleJoystickEnd = useCallback(() => {
+    setJoystickActive(false)
+    setJoystickPosition({ x: 0, y: 0 })
+    onJoystickMove({ x: 0, y: 0 })
+  }, [onJoystickMove])
+
+  // Touch event handlers
+  useEffect(() => {
+    const handleTouchMove = (e: TouchEvent) => {
+      if (joystickActive && e.touches.length > 0) {
+        e.preventDefault()
+        const touch = e.touches[0]
+        handleJoystickMove(touch.clientX, touch.clientY)
+      }
+    }
+
+    const handleTouchEnd = () => {
+      if (joystickActive) {
+        handleJoystickEnd()
+      }
+    }
+
+    document.addEventListener("touchmove", handleTouchMove, { passive: false })
+    document.addEventListener("touchend", handleTouchEnd)
+
+    return () => {
+      document.removeEventListener("touchmove", handleTouchMove)
+      document.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [joystickActive, handleJoystickMove, handleJoystickEnd])
+
+  // Action button handlers
+  const handleActionStart = (action: string) => {
+    onActionPress(action, true)
+  }
+
+  const handleActionEnd = (action: string) => {
+    onActionPress(action, false)
+  }
+
+  const ActionButton = ({ action, label, className }: { action: string; label: string; className?: string }) => (
+    <button
+      className={cn(
+        "w-16 h-16 rounded-full bg-gray-700/80 border-2 border-gray-500 text-white font-bold text-sm",
+        "active:bg-gray-600 active:scale-95 transition-all duration-100",
+        "flex items-center justify-center select-none touch-manipulation",
+        className,
+      )}
+      onTouchStart={(e) => {
+        e.preventDefault()
+        handleActionStart(action)
+      }}
+      onTouchEnd={(e) => {
+        e.preventDefault()
+        handleActionEnd(action)
+      }}
+      onMouseDown={() => handleActionStart(action)}
+      onMouseUp={() => handleActionEnd(action)}
+      onMouseLeave={() => handleActionEnd(action)}
+    >
+      {label}
+    </button>
+  )
+
+  const JoystickComponent = () => (
+    <div className="relative">
+      <div
+        ref={joystickRef}
+        className="w-24 h-24 rounded-full bg-gray-800/60 border-2 border-gray-600 relative select-none touch-manipulation"
+        onTouchStart={(e) => {
+          e.preventDefault()
+          const touch = e.touches[0]
+          handleJoystickStart(touch.clientX, touch.clientY)
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault()
+          handleJoystickStart(e.clientX, e.clientY)
+        }}
+      >
+        <div
+          ref={knobRef}
+          className="w-8 h-8 rounded-full bg-gray-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-100"
+          style={{
+            transform: `translate(-50%, -50%) translate(${joystickPosition.x * 32}px, ${joystickPosition.y * 32}px)`,
+          }}
+        />
+      </div>
+      <div className="text-xs text-gray-400 text-center mt-1 font-mono">MOVE</div>
+    </div>
+  )
+
+  if (orientation === "landscape") {
     return (
-      <div className={cn("w-full h-screen bg-[#121212] flex items-center justify-center p-2", className)}>
-        <div className="w-full h-full max-w-md max-h-[800px] bg-[#212121] rounded-3xl p-4 flex flex-col shadow-2xl">
-          {/* Game Screen Area */}
-          <div className="flex-grow w-full bg-black rounded-lg border-2 border-gray-800/50 overflow-hidden flex items-center justify-center">
-            <div className="w-full h-full">{children}</div>
+      <div className="fixed inset-0 bg-gray-900 flex flex-col overflow-hidden">
+        {/* Top bar */}
+        <div className="flex items-center justify-between p-2 bg-gray-800/50 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsPaused(!isPaused)}
+              className="text-white hover:bg-gray-700"
+            >
+              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            </Button>
+          </div>
+          <div className="text-white font-mono text-sm">ARCHER ARENA</div>
+          <Button size="sm" variant="ghost" onClick={onExit} className="text-white hover:bg-gray-700">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Main game area */}
+        <div className="flex-1 flex">
+          {/* Left controls */}
+          <div className="w-32 flex flex-col items-center justify-center bg-gray-800/30 border-r border-gray-700">
+            <div className="text-xs text-gray-400 mb-2 font-mono">MOVEMENT</div>
+            <JoystickComponent />
+            <div className="text-xs text-gray-400 mt-2 font-mono">ANALOG</div>
           </div>
 
-          {/* Control Panel Area */}
-          <div className="h-[220px] flex items-center justify-between px-4 pt-4">
-            {/* Left Controls */}
-            <div className="flex flex-col items-center space-y-2">
-              <DirectionalPad onMove={handleDPadMove} onStop={handleDPadStop} />
-              <ControlLabel>MOVE</ControlLabel>
+          {/* Game content */}
+          <div className="flex-1 relative bg-black">
+            <div className="absolute inset-4 border-2 border-dashed border-gray-600 rounded">
+              <div className="w-full h-full flex items-center justify-center">{children}</div>
             </div>
+          </div>
 
-            {/* Right Controls */}
-            {actionButtons}
+          {/* Right controls */}
+          <div className="w-32 flex flex-col items-center justify-center bg-gray-800/30 border-l border-gray-700">
+            <div className="text-xs text-gray-400 mb-4 font-mono">ACTIONS</div>
+            <div className="grid grid-cols-2 gap-3">
+              <ActionButton action="special" label="Y" className="bg-yellow-600/80 border-yellow-500" />
+              <ActionButton action="dash" label="X" className="bg-blue-600/80 border-blue-500" />
+              <ActionButton action="ready" label="B" className="bg-red-600/80 border-red-500" />
+              <ActionButton action="shoot" label="A" className="bg-green-600/80 border-green-500" />
+            </div>
           </div>
         </div>
       </div>
     )
   }
 
-  // Landscape Layout
+  // Portrait orientation
   return (
-    <div className={cn("w-full h-screen bg-[#121212] flex items-center justify-center p-2", className)}>
-      <div className="w-full h-full max-h-[480px] max-w-[900px] bg-[#212121] rounded-3xl p-4 flex items-center shadow-2xl">
-        {/* Left Controls */}
-        <div className="w-[200px] flex flex-col items-center justify-center space-y-4">
-          <ControlLabel>MOVEMENT</ControlLabel>
-          <Joystick
-            size={120}
-            sticky={false}
-            baseColor="#3a3a3a"
-            stickColor="#2a2a2a"
-            move={handleJoystickMove}
-            stop={handleJoystickStop}
-            throttle={50}
-          />
-          <ControlLabel>ANALOG</ControlLabel>
+    <div className="fixed inset-0 bg-gray-900 flex flex-col overflow-hidden">
+      {/* Top bar */}
+      <div className="flex items-center justify-between p-3 bg-gray-800/50 border-b border-gray-700">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setIsPaused(!isPaused)}
+          className="text-white hover:bg-gray-700"
+        >
+          {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+        </Button>
+        <div className="text-white font-mono text-sm">ARCHER ARENA</div>
+        <Button size="sm" variant="ghost" onClick={onExit} className="text-white hover:bg-gray-700">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Game content area */}
+      <div className="flex-1 relative bg-black">
+        <div className="absolute inset-4 border-2 border-dashed border-gray-600 rounded">
+          <div className="w-full h-full flex items-center justify-center">{children}</div>
+        </div>
+      </div>
+
+      {/* Bottom controls */}
+      <div className="h-40 bg-gray-800/30 border-t border-gray-700 flex items-center justify-between px-8">
+        {/* Left side - Movement controls */}
+        <div className="flex flex-col items-center">
+          <JoystickComponent />
         </div>
 
-        {/* Game Screen Area */}
-        <div className="flex-1 h-full bg-black rounded-lg border-2 border-gray-800/50 overflow-hidden flex items-center justify-center">
-          <div className="w-full h-full">{children}</div>
+        {/* Right side - Action buttons */}
+        <div className="flex flex-col items-center">
+          <div className="text-xs text-gray-400 mb-2 font-mono">ACTIONS</div>
+          <div className="grid grid-cols-2 gap-3">
+            <ActionButton action="special" label="Y" className="bg-yellow-600/80 border-yellow-500" />
+            <ActionButton action="dash" label="X" className="bg-blue-600/80 border-blue-500" />
+            <ActionButton action="ready" label="B" className="bg-red-600/80 border-red-500" />
+            <ActionButton action="shoot" label="A" className="bg-green-600/80 border-green-500" />
+          </div>
         </div>
-
-        {/* Right Controls */}
-        <div className="w-[200px] flex items-center justify-center">{actionButtons}</div>
       </div>
     </div>
   )
