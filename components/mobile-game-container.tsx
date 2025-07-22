@@ -2,11 +2,10 @@
 
 import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
-import { Joystick } from "react-joystick-component"
+import JoystickController from "joystick-controller"
 import { cn } from "@/lib/utils"
-import type { IJoystickUpdateEvent } from "react-joystick-component"
 import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
-import { Orbitron } from "next/font/google" // Using a cyberpunk-style font
+import { Orbitron } from "next/font/google"
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -78,6 +77,7 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const aimPadRef = useRef<HTMLDivElement>(null)
+  const joystickContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -89,12 +89,37 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  const handleJoystickMove = useCallback((event: IJoystickUpdateEvent) => {
-    gameInputHandler.handleJoystickMove(event.x ?? 0, event.y ?? 0)
-  }, [])
+  // Initialize the new joystick
+  useEffect(() => {
+    if (!joystickContainerRef.current) return
 
-  const handleJoystickStop = useCallback(() => {
-    gameInputHandler.handleJoystickStop()
+    console.log("[InputDebug] Initializing JoystickController")
+    const joystick = new JoystickController(
+      {
+        maxRange: 70,
+        level: 10,
+        radius: 70,
+        joystickRadius: 40,
+        opacity: 0.7,
+        container: joystickContainerRef.current,
+        isFixed: true,
+        isReturnToCenter: true,
+        color: "rgba(34, 211, 238, 0.6)",
+        borderColor: "rgba(17, 24, 39, 0.7)",
+        joystickBorderColor: "rgba(34, 211, 238, 0.8)",
+        minDebounceTime: 0,
+        maxDebounceTime: 16,
+        bottomToUp: false, // Y-axis increases downwards, matching game coordinates
+      },
+      (data) => {
+        gameInputHandler.handleJoystickData(data)
+      },
+    )
+
+    return () => {
+      console.log("[InputDebug] Destroying JoystickController")
+      joystick.destroy()
+    }
   }, [])
 
   const handleAimTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
@@ -126,16 +151,9 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           <div className="w-[25%] h-full flex items-center justify-center">
             <div className={controlsBaseClasses}>
               <span className={labelClasses}>Movement</span>
-              <Joystick
-                size={140}
-                sticky={false}
-                baseColor="rgba(17, 24, 39, 0.7)"
-                stickColor="rgba(34, 211, 238, 0.6)"
-                move={handleJoystickMove}
-                stop={handleJoystickStop}
-                throttle={16}
-                baseClassName="border-2 border-cyan-500/30 rounded-full shadow-lg"
-                stickClassName="shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+              <div
+                ref={joystickContainerRef}
+                className="w-[140px] h-[140px] relative rounded-full border-2 border-cyan-500/30 shadow-lg"
               />
               <span className={subLabelClasses}>Move Player</span>
             </div>
@@ -198,16 +216,9 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           {/* Bottom Left: Movement */}
           <div className={controlsBaseClasses}>
             <span className={labelClasses}>Move</span>
-            <Joystick
-              size={120}
-              sticky={false}
-              baseColor="rgba(17, 24, 39, 0.7)"
-              stickColor="rgba(34, 211, 238, 0.6)"
-              move={handleJoystickMove}
-              stop={handleJoystickStop}
-              throttle={16}
-              baseClassName="border-2 border-cyan-500/30 rounded-full shadow-lg"
-              stickClassName="shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+            <div
+              ref={joystickContainerRef}
+              className="w-[120px] h-[120px] relative rounded-full border-2 border-cyan-500/30 shadow-lg"
             />
           </div>
 

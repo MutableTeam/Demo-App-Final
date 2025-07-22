@@ -27,6 +27,12 @@ export interface GameInputState {
   }
 }
 
+// --- Type for the new joystick library data ---
+interface JoystickData {
+  leveledX: number
+  leveledY: number
+}
+
 // --- Mobile Input Handler Class ---
 class GameInputHandler {
   private state: GameInputState
@@ -53,31 +59,37 @@ class GameInputHandler {
     this.callbacks = callbacks
   }
 
-  handleJoystickMove(x: number, y: number) {
-    const deadzone = 0.2
-    const normalizedX = Math.max(-1, Math.min(1, x / 50))
-    const normalizedY = Math.max(-1, Math.min(1, -y / 50)) // Y is inverted
-    const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
+  // --- NEW: Handler for joystick-controller ---
+  handleJoystickData(data: JoystickData) {
+    const threshold = 3 // Leveled values are -10 to 10.
+    const { leveledX, leveledY } = data
 
-    if (distance < deadzone) {
-      this.state.movement = { up: false, down: false, left: false, right: false }
-    } else {
-      const threshold = 0.3
-      this.state.movement = {
-        up: normalizedY > threshold,
-        down: normalizedY < -threshold,
-        left: normalizedX < -threshold,
-        right: normalizedX > threshold,
-      }
+    // Determine new movement state based on joystick output
+    const newMovementState = {
+      up: leveledY < -threshold, // Negative Y is up
+      down: leveledY > threshold, // Positive Y is down
+      left: leveledX < -threshold,
+      right: leveledX > threshold,
     }
-    console.log(`[InputDebug] Joystick Move: x=${x?.toFixed(2)}, y=${y?.toFixed(2)} -> state=`, this.state.movement)
-    this.notifyStateChange()
-  }
 
-  handleJoystickStop() {
-    this.state.movement = { up: false, down: false, left: false, right: false }
-    console.log("[InputDebug] Joystick Stop")
-    this.notifyStateChange()
+    // Only update and notify if the directional state has actually changed
+    if (
+      this.state.movement.up !== newMovementState.up ||
+      this.state.movement.down !== newMovementState.down ||
+      this.state.movement.left !== newMovementState.left ||
+      this.state.movement.right !== newMovementState.right
+    ) {
+      this.state.movement = newMovementState
+      if (leveledX === 0 && leveledY === 0) {
+        console.log("[InputDebug] Joystick Stop")
+      } else {
+        console.log(
+          `[InputDebug] Joystick Data: leveledX=${leveledX}, leveledY=${leveledY} -> state=`,
+          this.state.movement,
+        )
+      }
+      this.notifyStateChange()
+    }
   }
 
   handleAimTouchStart(e: React.TouchEvent<HTMLDivElement>) {
@@ -88,7 +100,6 @@ class GameInputHandler {
     this.state.aiming = { angle: 0, power: 0, active: true, touchId: touch.identifier }
     this.aimStartPos = { x: touch.clientX, y: touch.clientY }
     console.log(`[InputDebug] Aim Start: touchId=${touch.identifier}`, this.aimStartPos)
-    debugManager.logDebug("INPUT", "Aiming started", { touchId: touch.identifier })
     this.notifyStateChange()
   }
 
@@ -109,7 +120,6 @@ class GameInputHandler {
 
     this.state.aiming.angle = angle
     this.state.aiming.power = power
-    console.log(`[InputDebug] Aim Move: angle=${angle.toFixed(2)}, power=${power.toFixed(2)}`)
     this.notifyStateChange()
   }
 
@@ -129,7 +139,6 @@ class GameInputHandler {
 
     this.state.aiming = { angle: 0, power: 0, active: false, touchId: null }
     this.aimStartPos = null
-    debugManager.logDebug("INPUT", "Shot fired via touch")
     console.log("[InputDebug] Aim End")
     this.notifyStateChange()
   }
@@ -137,7 +146,6 @@ class GameInputHandler {
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
     this.state.actions[action] = pressed
     console.log(`[InputDebug] Action: ${action}, Pressed: ${pressed}`)
-    debugManager.logDebug("INPUT", `Action button: ${action}, pressed: ${pressed}`)
     this.notifyStateChange()
   }
 
