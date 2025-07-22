@@ -1,212 +1,171 @@
-import type { GameState, Player } from "../components/pvp-game/game-engine"
-
 export interface AIDecision {
-  moveUp: boolean
-  moveDown: boolean
-  moveLeft: boolean
-  moveRight: boolean
-  shoot: boolean
-  drawBow: boolean
-  specialAttack: boolean
-  targetRotation?: number
-}
-
-export interface AIInternalState {
-  targetId: string | null
-  currentBehavior: "seek" | "attack" | "evade" | "idle"
-  lastDecisionTime: number
-  bowDrawStartTime: number
-  lastShotTime: number
-  pathfindingTarget: { x: number; y: number } | null
+  controls: {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+    shoot: boolean
+    dash: boolean
+    special: boolean
+    explosiveArrow: boolean
+  }
+  targetRotation: number
 }
 
 export interface AIController {
-  update(gameState: GameState, deltaTime: number): void
-  getDecision(): AIDecision
-  getState(): AIInternalState
+  update: (playerId: string, gameState: any, deltaTime: number) => AIDecision
 }
 
-// Factory function to create a new AI controller
-export function createAIController(playerId: string): AIController {
-  const state: AIInternalState = {
-    targetId: null,
-    currentBehavior: "idle",
-    lastDecisionTime: 0,
-    bowDrawStartTime: 0,
-    lastShotTime: 0,
-    pathfindingTarget: null,
-  }
+export function createAIController(): AIController {
+  const lastTargetId: string | null = null
+  let lastShootTime = 0
+  const lastMoveTime = 0
+  const moveDirection = { x: 0, y: 0 }
+  let behaviorState = "seek" // seek, attack, evade
+  let stateTimer = 0
 
-  let lastDecision: AIDecision = {
-    moveUp: false,
-    moveDown: false,
-    moveLeft: false,
-    moveRight: false,
-    shoot: false,
-    drawBow: false,
-    specialAttack: false,
-  }
-
-  const getDistance = (pos1: { x: number; y: number }, pos2: { x: number; y: number }): number => {
-    const dx = pos2.x - pos1.x
-    const dy = pos2.y - pos1.y
-    return Math.sqrt(dx * dx + dy * dy)
-  }
-
-  const hasLineOfSight = (
-    gameState: GameState,
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-  ): boolean => {
-    const distance = getDistance(from, to)
-    return distance < 400 // Simplified: Max shooting range
-  }
-
-  const findTarget = (gameState: GameState, aiPlayer: Player): void => {
-    const enemies = Object.values(gameState.players).filter((p) => p.id !== playerId && p.health > 0)
-    if (enemies.length === 0) {
-      state.targetId = null
-      return
-    }
-    const humanEnemies = enemies.filter((p) => !p.id.startsWith("ai_"))
-    const targetPool = humanEnemies.length > 0 ? humanEnemies : enemies
-    let closestEnemy = targetPool[0]
-    let closestDistance = getDistance(aiPlayer.position, closestEnemy.position)
-    for (const enemy of targetPool) {
-      const distance = getDistance(aiPlayer.position, enemy.position)
-      if (distance < closestDistance) {
-        closestDistance = distance
-        closestEnemy = enemy
+  const update = (playerId: string, gameState: any, deltaTime: number): AIDecision => {
+    const aiPlayer = gameState.players[playerId]
+    if (!aiPlayer || aiPlayer.health <= 0) {
+      return {
+        controls: {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          shoot: false,
+          dash: false,
+          special: false,
+          explosiveArrow: false,
+        },
+        targetRotation: 0,
       }
     }
-    state.targetId = closestEnemy.id
+
+    stateTimer += deltaTime
+
+    // Find closest enemy (prioritize human players)
+    const enemies = Object.values(gameState.players).filter((p: any) => p.id !== playerId && p.health > 0) as any[]
+
+    if (enemies.length === 0) {
+      return {
+        controls: {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          shoot: false,
+          dash: false,
+          special: false,
+          explosiveArrow: false,
+        },
+        targetRotation: aiPlayer.rotation,
+      }
+    }
+
+    // Sort enemies by distance, prioritizing human players
+    enemies.sort((a, b) => {
+      const aIsHuman = !a.id.startsWith("ai-")
+      const bIsHuman = !b.id.startsWith("ai-")
+
+      if (aIsHuman && !bIsHuman) return -1
+      if (!aIsHuman && bIsHuman) return 1
+
+      const distA = Math.sqrt(
+        Math.pow(a.position.x - aiPlayer.position.x, 2) + Math.pow(a.position.y - aiPlayer.position.y, 2),
+      )
+      const distB = Math.sqrt(
+        Math.pow(b.position.x - aiPlayer.position.x, 2) + Math.pow(b.position.y - aiPlayer.position.y, 2),
+      )
+
+      return distA - distB
+    })
+
+    const target = enemies[0]
+    const distanceToTarget = Math.sqrt(
+      Math.pow(target.position.x - aiPlayer.position.x, 2) + Math.pow(target.position.y - aiPlayer.position.y, 2),
+    )
+
+    // Calculate angle to target
+    const angleToTarget = Math.atan2(target.position.y - aiPlayer.position.y, target.position.x - aiPlayer.position.x)
+
+    // Behavior state machine
+    if (behaviorState === "seek" && distanceToTarget < 200) {
+      behaviorState = "attack"
+      stateTimer = 0
+    } else if (behaviorState === "attack" && (distanceToTarget > 300 || aiPlayer.health < 30)) {
+      behaviorState = "evade"
+      stateTimer = 0
+    } else if (behaviorState === "evade" && stateTimer > 2 && aiPlayer.health > 50) {
+      behaviorState = "seek"
+      stateTimer = 0
+    }
+
+    // Movement logic
+    let moveUp = false
+    let moveDown = false
+    let moveLeft = false
+    let moveRight = false
+
+    if (behaviorState === "seek" || behaviorState === "attack") {
+      // Move towards target with some randomness
+      const moveToX = target.position.x + (Math.random() - 0.5) * 50
+      const moveToY = target.position.y + (Math.random() - 0.5) * 50
+
+      if (aiPlayer.position.x < moveToX - 20) moveRight = true
+      if (aiPlayer.position.x > moveToX + 20) moveLeft = true
+      if (aiPlayer.position.y < moveToY - 20) moveDown = true
+      if (aiPlayer.position.y > moveToY + 20) moveUp = true
+    } else if (behaviorState === "evade") {
+      // Move away from target
+      if (aiPlayer.position.x < target.position.x) moveLeft = true
+      else moveRight = true
+      if (aiPlayer.position.y < target.position.y) moveUp = true
+      else moveDown = true
+    }
+
+    // Shooting logic
+    const currentTime = Date.now() / 1000
+    let shouldShoot = false
+
+    if (behaviorState === "attack" && distanceToTarget < 250 && currentTime - lastShootTime > 1.5) {
+      // Check if we have a clear shot (simplified line of sight)
+      const angleDiff = Math.abs(angleToTarget - aiPlayer.rotation)
+      const normalizedAngleDiff = Math.min(angleDiff, Math.PI * 2 - angleDiff)
+
+      if (normalizedAngleDiff < 0.3) {
+        // Within 17 degrees
+        shouldShoot = true
+        lastShootTime = currentTime
+      }
+    }
+
+    // Special attack logic
+    let shouldSpecial = false
+    if (distanceToTarget < 150 && aiPlayer.specialAttackCooldown <= 0 && Math.random() < 0.1) {
+      shouldSpecial = true
+    }
+
+    // Dash logic
+    let shouldDash = false
+    if (behaviorState === "evade" && Math.random() < 0.05) {
+      shouldDash = true
+    }
+
+    return {
+      controls: {
+        up: moveUp,
+        down: moveDown,
+        left: moveLeft,
+        right: moveRight,
+        shoot: shouldShoot,
+        dash: shouldDash,
+        special: shouldSpecial,
+        explosiveArrow: false,
+      },
+      targetRotation: angleToTarget,
+    }
   }
 
-  const updateBehavior = (gameState: GameState, aiPlayer: Player): void => {
-    if (!state.targetId) {
-      state.currentBehavior = "idle"
-      return
-    }
-    const target = gameState.players[state.targetId]
-    if (!target) {
-      state.currentBehavior = "idle"
-      return
-    }
-    const distance = getDistance(aiPlayer.position, target.position)
-    if (distance > 300) {
-      state.currentBehavior = "seek"
-    } else if (distance > 150) {
-      state.currentBehavior = "attack"
-    } else if (aiPlayer.health < 30) {
-      state.currentBehavior = "evade"
-    } else {
-      state.currentBehavior = "attack"
-    }
-  }
-
-  const makeDecision = (gameState: GameState, aiPlayer: Player): void => {
-    lastDecision = {
-      moveUp: false,
-      moveDown: false,
-      moveLeft: false,
-      moveRight: false,
-      shoot: false,
-      drawBow: false,
-      specialAttack: false,
-    }
-    if (!state.targetId) return
-    const target = gameState.players[state.targetId]
-    if (!target) return
-
-    const now = Date.now()
-    const distance = getDistance(aiPlayer.position, target.position)
-    const dx = target.position.x - aiPlayer.position.x
-    const dy = target.position.y - aiPlayer.position.y
-    const targetAngle = Math.atan2(dy, dx)
-    lastDecision.targetRotation = targetAngle
-
-    switch (state.currentBehavior) {
-      case "seek":
-        if (Math.abs(dx) > 10) {
-          lastDecision.moveRight = dx > 0
-          lastDecision.moveLeft = dx < 0
-        }
-        if (Math.abs(dy) > 10) {
-          lastDecision.moveDown = dy > 0
-          lastDecision.moveUp = dy < 0
-        }
-        break
-      case "attack":
-        if (distance < 150) {
-          lastDecision.moveLeft = dx > 0
-          lastDecision.moveRight = dx < 0
-          lastDecision.moveUp = dy > 0
-          lastDecision.moveDown = dy < 0
-        } else if (distance > 250) {
-          lastDecision.moveRight = dx > 0
-          lastDecision.moveLeft = dx < 0
-          lastDecision.moveDown = dy > 0
-          lastDecision.moveUp = dy < 0
-        } else {
-          const perpAngle = Math.atan2(dy, dx) + Math.PI / 2
-          const strafeX = Math.cos(perpAngle)
-          const strafeY = Math.sin(perpAngle)
-          lastDecision.moveRight = strafeX > 0
-          lastDecision.moveLeft = strafeX < 0
-          lastDecision.moveDown = strafeY > 0
-          lastDecision.moveUp = strafeY < 0
-        }
-        const timeSinceLastShot = now - state.lastShotTime
-        if (hasLineOfSight(gameState, aiPlayer.position, target.position) && timeSinceLastShot > 1000) {
-          if (!aiPlayer.isDrawingBow && state.bowDrawStartTime === 0) {
-            lastDecision.drawBow = true
-            state.bowDrawStartTime = now
-          } else if (aiPlayer.isDrawingBow && now - state.bowDrawStartTime > 800) {
-            lastDecision.drawBow = false
-            lastDecision.shoot = true
-            state.lastShotTime = now
-            state.bowDrawStartTime = 0
-          } else if (aiPlayer.isDrawingBow) {
-            lastDecision.drawBow = true
-          }
-        }
-        if (distance < 100 && aiPlayer.specialAttackCooldown <= 0 && Math.random() < 0.3) {
-          lastDecision.specialAttack = true
-        }
-        break
-      case "evade":
-        lastDecision.moveLeft = dx > 0
-        lastDecision.moveRight = dx < 0
-        lastDecision.moveUp = dy > 0
-        lastDecision.moveDown = dy < 0
-        break
-      case "idle":
-        if (Math.random() < 0.1) {
-          lastDecision.moveUp = Math.random() < 0.5
-          lastDecision.moveDown = Math.random() < 0.5
-          lastDecision.moveLeft = Math.random() < 0.5
-          lastDecision.moveRight = Math.random() < 0.5
-        }
-        break
-    }
-  }
-
-  return {
-    update(gameState: GameState, deltaTime: number): void {
-      const aiPlayer = gameState.players[playerId]
-      if (!aiPlayer || aiPlayer.health <= 0) return
-      const now = Date.now()
-      if (now - state.lastDecisionTime < 100) return
-      state.lastDecisionTime = now
-      findTarget(gameState, aiPlayer)
-      updateBehavior(gameState, aiPlayer)
-      makeDecision(gameState, aiPlayer)
-    },
-    getDecision(): AIDecision {
-      return { ...lastDecision }
-    },
-    getState(): AIInternalState {
-      return { ...state }
-    },
-  }
+  return { update }
 }

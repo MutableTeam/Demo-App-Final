@@ -1,236 +1,161 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect, useRef, useState, useCallback } from "react"
-import { GameRenderer } from "./game-renderer"
-import { DebugOverlay } from "./debug-overlay"
-import { GameEngine, type GameState } from "./game-engine"
-import { gameInputHandler } from "../../utils/game-input-handler"
-import { createAIController, type AIController } from "../../utils/game-ai"
+import { useEffect, useRef, useState } from "react"
+import { createInitialGameState, createPlayer, updateGameState, type GameState } from "./game-engine"
+import GameRenderer from "./game-renderer"
+import { createAIController } from "@/utils/game-ai"
+import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
+import { usePlatform } from "@/contexts/platform-context"
 
 interface GameControllerProps {
-  localPlayerId: string
+  playerId: string
+  playerName: string
+  isHost: boolean
+  gameMode?: string
   onGameEnd?: (winner: string | null) => void
-  debugMode?: boolean
 }
 
-export default function GameController({ localPlayerId, onGameEnd, debugMode = false }: GameControllerProps) {
-  const gameEngineRef = useRef<GameEngine | null>(null)
-  const [gameState, setGameState] = useState<GameState | null>(null)
-  const [showDebug, setShowDebug] = useState(false)
-  const animationFrameRef = useRef<number>()
-  const aiControllersRef = useRef<Record<string, AIController>>({})
+export default function GameController({
+  playerId,
+  playerName,
+  isHost,
+  gameMode = "duel",
+  onGameEnd,
+}: GameControllerProps) {
+  const { platformType } = usePlatform()
+  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState())
+  const gameStateRef = useRef<GameState>(gameState)
   const lastUpdateTimeRef = useRef<number>(Date.now())
+  const requestAnimationFrameIdRef = useRef<number | null>(null)
+  const gameInitializedRef = useRef<boolean>(false)
+  const aiControllersRef = useRef<Record<string, ReturnType<typeof createAIController>>>({})
+  const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
 
-  // Initialize game engine
+  // Initialize game
   useEffect(() => {
-    if (!gameEngineRef.current) {
-      gameEngineRef.current = new GameEngine()
+    if (gameInitializedRef.current) return
+    gameInitializedRef.current = true
 
-      // Add local player
-      gameEngineRef.current.addPlayer(localPlayerId, `Player`, false)
+    const playerColors = ["#FF5252", "#4CAF50", "#2196F3", "#FFC107"]
+    const playerPositions = [
+      { x: 100, y: 100 },
+      { x: 700, y: 500 },
+      { x: 700, y: 100 },
+      { x: 100, y: 500 },
+    ]
 
-      // Add AI players
-      const aiPlayerIds = ["ai_1", "ai_2", "ai_3"]
-      aiPlayerIds.forEach((aiId, index) => {
-        gameEngineRef.current?.addPlayer(aiId, `AI Bot ${index + 1}`, true)
+    const currentState = createInitialGameState()
 
-        // Create AI controller with standard difficulty
-        aiControllersRef.current[aiId] = createAIController(aiId)
+    // Add human player
+    currentState.players[playerId] = createPlayer(playerId, playerName, playerPositions[0], playerColors[0])
+    console.log(`Created player with ID: ${playerId}, name: ${playerName}`)
+
+    // Add AI players
+    const aiCount = gameMode === "ffa" || gameMode === "timed" ? 3 : 1
+    for (let i = 1; i <= aiCount; i++) {
+      const aiId = `ai-${i}`
+      currentState.players[aiId] = createPlayer(aiId, `AI ${i}`, playerPositions[i], playerColors[i])
+      aiControllersRef.current[aiId] = createAIController()
+      console.log(`Created AI player ${aiId}`)
+    }
+
+    setGameState(currentState)
+    gameStateRef.current = currentState
+
+    // Start game loop
+    const gameLoop = () => {
+      const now = Date.now()
+      const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1)
+      lastUpdateTimeRef.current = now
+
+      // Update AI controllers
+      Object.keys(aiControllersRef.current).forEach((aiId) => {
+        if (gameStateRef.current.players[aiId]) {
+          const aiController = aiControllersRef.current[aiId]
+          const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
+          gameStateRef.current.players[aiId].controls = controls
+          gameStateRef.current.players[aiId].rotation = targetRotation
+        }
       })
 
-      // Set initial game state
-      setGameState(gameEngineRef.current.getGameState())
-    }
+      // Update game state
+      const newState = updateGameState(gameStateRef.current, deltaTime)
+      gameStateRef.current = newState
+      setGameState(newState)
 
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+      // Check for game end
+      if (newState.isGameOver) {
+        if (onGameEnd) onGameEnd(newState.winner)
+        return
       }
+
+      requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
     }
-  }, [localPlayerId])
 
-  // Game loop
-  const gameLoop = useCallback(() => {
-    if (!gameEngineRef.current) return
+    requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
 
-    const now = Date.now()
-    const deltaTime = (now - lastUpdateTimeRef.current) / 1000
-    lastUpdateTimeRef.current = now
+    // Setup input handlers
+    let cleanupInputHandlers: (() => void) | null = null
 
-    const currentState = gameEngineRef.current.getGameState()
+    if (platformType === "desktop") {
+      console.log("[InputDebug] Initializing DESKTOP controls.")
+      cleanupInputHandlers = setupGameInputHandlers({
+        playerId,
+        gameStateRef,
+        componentIdRef,
+      })
+    } else {
+      console.log("[InputDebug] Initializing MOBILE controls.")
+      const handleMobileInput = (inputState: GameInputState) => {
+        const player = gameStateRef.current.players[playerId]
+        if (!player) return
 
-    // Update AI controllers
-    Object.entries(aiControllersRef.current).forEach(([aiId, controller]) => {
-      const aiPlayer = currentState.players[aiId]
-      if (aiPlayer && aiPlayer.health > 0) {
-        // Update AI with current game state
-        controller.update(currentState, deltaTime)
+        player.controls = {
+          ...player.controls,
+          ...inputState.movement,
+          ...inputState.actions,
+        }
 
-        // Apply AI decisions to player
-        const decision = controller.getDecision()
-        if (decision) {
-          // Apply movement controls
-          aiPlayer.controls = {
-            up: decision.moveUp,
-            down: decision.moveDown,
-            left: decision.moveLeft,
-            right: decision.moveRight,
-            shoot: decision.shoot,
-            drawBow: decision.drawBow,
-            specialAttack: decision.specialAttack,
-          }
-
-          // Apply rotation
-          if (decision.targetRotation !== undefined) {
-            aiPlayer.rotation = decision.targetRotation
-          }
-
-          // Handle bow drawing
-          if (decision.drawBow && !aiPlayer.isDrawingBow) {
-            gameEngineRef.current?.startDrawingBow(aiId)
-          } else if (!decision.drawBow && aiPlayer.isDrawingBow) {
-            gameEngineRef.current?.releaseBow(aiId)
-          }
-
-          // Handle shooting
-          if (decision.shoot) {
-            gameEngineRef.current?.shoot(aiId)
-          }
-
-          // Handle special attack
-          if (decision.specialAttack) {
-            gameEngineRef.current?.useSpecialAttack(aiId)
-          }
+        if (inputState.aiming.active) {
+          player.rotation = inputState.aiming.angle
         }
       }
-    })
 
-    // Update game engine
-    gameEngineRef.current.update(deltaTime)
-
-    // Update state
-    const newState = gameEngineRef.current.getGameState()
-    setGameState(newState)
-
-    // Check for game end
-    if (newState.isGameOver && onGameEnd) {
-      const alivePlayers = Object.values(newState.players).filter((p) => p.health > 0)
-      const winner = alivePlayers.length === 1 ? alivePlayers[0].id : null
-      onGameEnd(winner)
-      return
-    }
-
-    // Continue game loop
-    animationFrameRef.current = requestAnimationFrame(gameLoop)
-  }, [onGameEnd])
-
-  // Start game loop
-  useEffect(() => {
-    if (gameEngineRef.current) {
-      animationFrameRef.current = requestAnimationFrame(gameLoop)
+      gameInputHandler.setCallbacks({
+        onStateChange: handleMobileInput,
+      })
+      cleanupInputHandlers = () => gameInputHandler.destroy()
     }
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+      if (requestAnimationFrameIdRef.current) {
+        cancelAnimationFrame(requestAnimationFrameIdRef.current)
       }
-    }
-  }, [gameLoop])
-
-  // Setup input handlers for local player
-  useEffect(() => {
-    if (!gameEngineRef.current) return
-
-    const handleMove = (direction: string, pressed: boolean) => {
-      const player = gameEngineRef.current.getGameState().players[localPlayerId]
-      if (!player) return
-
-      player.controls = player.controls || {}
-      switch (direction) {
-        case "up":
-          player.controls.up = pressed
-          break
-        case "down":
-          player.controls.down = pressed
-          break
-        case "left":
-          player.controls.left = pressed
-          break
-        case "right":
-          player.controls.right = pressed
-          break
+      if (cleanupInputHandlers) {
+        console.log("[InputDebug] Cleaning up input handlers.")
+        cleanupInputHandlers()
       }
+      console.log("Game cleanup completed")
     }
+  }, [playerId, playerName, isHost, gameMode, onGameEnd, platformType])
 
-    const handleAim = (rotation: number) => {
-      const player = gameEngineRef.current.getGameState().players[localPlayerId]
-      if (player) {
-        player.rotation = rotation
-      }
-    }
-
-    const handleDrawBow = (drawing: boolean) => {
-      if (drawing) {
-        gameEngineRef.current.startDrawingBow(localPlayerId)
-      } else {
-        gameEngineRef.current.releaseBow(localPlayerId)
-      }
-    }
-
-    const handleSpecialAttack = () => {
-      gameEngineRef.current.useSpecialAttack(localPlayerId)
-    }
-
-    gameInputHandler.setCallbacks({
-      onMove: handleMove,
-      onAim: handleAim,
-      onDrawBow: handleDrawBow,
-      onSpecialAttack: handleSpecialAttack,
-    })
-
-    return () => {
-      gameInputHandler.cleanup()
-    }
-  }, [localPlayerId])
-
-  // Handle canvas click for debug toggle
-  const handleCanvasClick = useCallback(
-    (event: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!debugMode) return
-
-      const canvas = event.currentTarget
-      const rect = canvas.getBoundingClientRect()
-      const x = event.clientX - rect.left
-      const y = event.clientY - rect.top
-
-      // Check if click is in bottom-right corner (for debug toggle)
-      if (x > rect.width - 50 && y > rect.height - 50) {
-        setShowDebug(!showDebug)
-      }
-    },
-    [debugMode, showDebug],
-  )
-
-  if (!gameState) {
-    return <div className="flex items-center justify-center h-64">Loading game...</div>
+  if (!gameInitializedRef.current) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-800">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl font-bold">Loading Game...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="relative w-full h-full">
-      <GameRenderer gameState={gameState} localPlayerId={localPlayerId} onClick={handleCanvasClick} />
-
-      {debugMode && <DebugOverlay gameState={gameState} localPlayerId={localPlayerId} visible={showDebug} />}
-
-      {debugMode && (
-        <button
-          onClick={() => setShowDebug(!showDebug)}
-          className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 text-xs rounded z-20"
-        >
-          Debug: {showDebug ? "ON" : "OFF"}
-        </button>
-      )}
+      <GameRenderer gameState={gameState} localPlayerId={playerId} />
+      <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
+        Press M to toggle sound
+      </div>
     </div>
   )
 }
