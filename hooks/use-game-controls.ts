@@ -4,7 +4,6 @@ import type React from "react"
 import { useEffect, useRef } from "react"
 import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
 import type { PlatformType } from "@/contexts/platform-context"
-import { logger } from "@/utils/logger"
 
 interface UseGameControlsProps {
   playerId: string
@@ -35,7 +34,7 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
 
         // Add debugging for shooting
         if (inputState.actions.shoot !== prevShootState.current) {
-          logger.info(`Shoot state changed: ${inputState.actions.shoot}`, "MOBILE_INPUT")
+          console.log(`[MOBILE_INPUT] Shoot state changed: ${inputState.actions.shoot}`)
           prevShootState.current = inputState.actions.shoot
         }
 
@@ -56,7 +55,7 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
           if (!player.isDrawingBow) {
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            logger.info("Started drawing bow", "MOBILE_INPUT")
+            console.log("[MOBILE_INPUT] Started drawing bow")
           }
           // The angle from the joystick is already in radians, pointing away from the center.
           // We need to adjust it because the game engine expects rotation relative to the player's 'forward' direction.
@@ -66,7 +65,7 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
           // If aiming is not active, but the player was drawing, this signals a release.
           if (player.isDrawingBow) {
             player.isDrawingBow = false
-            logger.info("Stopped drawing bow", "MOBILE_INPUT")
+            console.log("[MOBILE_INPUT] Stopped drawing bow")
           }
         }
 

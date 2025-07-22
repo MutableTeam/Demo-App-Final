@@ -1,8 +1,6 @@
-import type React from "react"
-// This is a simplified version of the game input handler
-// It handles both keyboard/mouse input for desktop and touch input for mobile
+"use client"
 
-import { logger } from "./logger"
+import type React from "react"
 
 export interface GameInputState {
   movement: {
@@ -27,19 +25,12 @@ export interface GameInputState {
   }
 }
 
-interface GameInputHandlerOptions {
-  playerId: string
-  gameStateRef: React.MutableRefObject<any>
-  componentIdRef: React.MutableRefObject<string>
+interface GameInputCallbacks {
+  onStateChange?: (state: GameInputState) => void
 }
 
-// Singleton for mobile input handling
 class GameInputHandler {
-  private callbacks: {
-    onStateChange?: (state: GameInputState) => void
-  } = {}
-
-  private inputState: GameInputState = {
+  private state: GameInputState = {
     movement: {
       up: false,
       down: false,
@@ -62,80 +53,140 @@ class GameInputHandler {
     },
   }
 
+  private callbacks: GameInputCallbacks = {}
   private shootTimeout: NodeJS.Timeout | null = null
   private lastShootTime = 0
-  private minShootInterval = 300 // ms
+  private readonly SHOOT_COOLDOWN = 100 // Minimum time between shots in ms
 
-  constructor() {
-    // Initialize with default state
-  }
-
-  setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
+  setCallbacks(callbacks: GameInputCallbacks) {
     this.callbacks = callbacks
-  }
-
-  updateMovement(up: boolean, down: boolean, left: boolean, right: boolean, vectorX = 0, vectorY = 0, magnitude = 0) {
-    this.inputState.movement = {
-      up,
-      down,
-      left,
-      right,
-      vectorX,
-      vectorY,
-      magnitude,
-    }
-    this.notifyStateChange()
-  }
-
-  updateAiming(active: boolean, angle: number, power: number) {
-    this.inputState.aiming = {
-      active,
-      angle,
-      power,
-    }
-    this.notifyStateChange()
-  }
-
-  triggerShoot() {
-    const now = Date.now()
-    // Prevent rapid firing by enforcing a minimum interval
-    if (now - this.lastShootTime < this.minShootInterval) {
-      return
-    }
-
-    this.lastShootTime = now
-    logger.info("Triggering shoot", "GAME_INPUT")
-
-    // Set shoot to true
-    this.inputState.actions.shoot = true
-    this.notifyStateChange()
-
-    // Reset shoot after a short delay
-    if (this.shootTimeout) {
-      clearTimeout(this.shootTimeout)
-    }
-
-    this.shootTimeout = setTimeout(() => {
-      this.inputState.actions.shoot = false
-      this.notifyStateChange()
-      logger.info("Reset shoot state", "GAME_INPUT")
-    }, 100) // Increased timeout to ensure the game engine processes the shoot action
-  }
-
-  updateAction(action: "dash" | "special" | "explosiveArrow", active: boolean) {
-    this.inputState.actions[action] = active
-    this.notifyStateChange()
   }
 
   private notifyStateChange() {
     if (this.callbacks.onStateChange) {
-      this.callbacks.onStateChange(this.inputState)
+      this.callbacks.onStateChange({ ...this.state })
     }
+  }
+
+  handleMovementJoystick(event: any) {
+    if (!event) {
+      // Reset movement when joystick is released
+      this.state.movement = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        vectorX: 0,
+        vectorY: 0,
+        magnitude: 0,
+      }
+      this.notifyStateChange()
+      return
+    }
+
+    const { x, y } = event
+    const deadzone = 0.2
+    const threshold = 0.2
+
+    // Calculate magnitude
+    const magnitude = Math.sqrt(x * x + y * y)
+
+    if (magnitude < deadzone) {
+      // Within deadzone - no movement
+      this.state.movement = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        vectorX: 0,
+        vectorY: 0,
+        magnitude: 0,
+      }
+    } else {
+      // Outside deadzone - calculate 8-directional movement
+      const normalizedX = x / magnitude
+      const normalizedY = y / magnitude
+
+      this.state.movement = {
+        up: normalizedY < -threshold,
+        down: normalizedY > threshold,
+        left: normalizedX < -threshold,
+        right: normalizedX > threshold,
+        vectorX: normalizedX,
+        vectorY: normalizedY,
+        magnitude: Math.min(magnitude, 1),
+      }
+    }
+
+    this.notifyStateChange()
+  }
+
+  handleAimingJoystick(event: any) {
+    const now = Date.now()
+
+    if (!event) {
+      // Joystick released - trigger shot if we were aiming
+      if (this.state.aiming.active && now - this.lastShootTime > this.SHOOT_COOLDOWN) {
+        console.log("[JOYSTICK] Aiming joystick released - triggering shot")
+        this.state.actions.shoot = true
+        this.lastShootTime = now
+
+        // Reset shoot action after a short delay
+        if (this.shootTimeout) {
+          clearTimeout(this.shootTimeout)
+        }
+        this.shootTimeout = setTimeout(() => {
+          this.state.actions.shoot = false
+          this.notifyStateChange()
+        }, 100)
+      }
+
+      // Reset aiming state
+      this.state.aiming = {
+        active: false,
+        angle: 0,
+        power: 0,
+      }
+      this.notifyStateChange()
+      return
+    }
+
+    const { x, y } = event
+    const distance = Math.sqrt(x * x + y * y)
+    const minDistance = 0.1 // Minimum distance to register as active aiming
+
+    if (distance > minDistance) {
+      const angle = Math.atan2(y, x)
+      const power = Math.min(distance, 1)
+
+      this.state.aiming = {
+        active: true,
+        angle,
+        power,
+      }
+
+      console.log(`[JOYSTICK] Aiming: angle=${((angle * 180) / Math.PI).toFixed(1)}°, power=${power.toFixed(2)}`)
+    } else {
+      this.state.aiming = {
+        active: false,
+        angle: 0,
+        power: 0,
+      }
+    }
+
+    this.notifyStateChange()
+  }
+
+  handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
+    this.state.actions[action] = pressed
+    console.log(`[ACTION] ${action}: ${pressed}`)
+    this.notifyStateChange()
   }
 
   destroy() {
     if (this.shootTimeout) {
       clearTimeout(this.shootTimeout)
+      this.shootTimeout = null
     }
     this.callbacks = {}
   }
@@ -143,45 +194,48 @@ class GameInputHandler {
 
 export const gameInputHandler = new GameInputHandler()
 
+// Desktop keyboard input setup function
 export function setupGameInputHandlers({
   playerId,
   gameStateRef,
   componentIdRef,
-}: GameInputHandlerOptions): () => void {
-  // Desktop input handling implementation
-  // This is a simplified version that would be expanded in a real implementation
-
+}: {
+  playerId: string
+  gameStateRef: React.MutableRefObject<any>
+  componentIdRef: React.MutableRefObject<string>
+}) {
   const handleKeyDown = (e: KeyboardEvent) => {
     const player = gameStateRef.current?.players?.[playerId]
     if (!player) return
 
-    switch (e.key) {
-      case "w":
+    switch (e.code) {
+      case "KeyW":
       case "ArrowUp":
         player.controls.up = true
         break
-      case "s":
+      case "KeyS":
       case "ArrowDown":
         player.controls.down = true
         break
-      case "a":
+      case "KeyA":
       case "ArrowLeft":
         player.controls.left = true
         break
-      case "d":
+      case "KeyD":
       case "ArrowRight":
         player.controls.right = true
         break
-      case " ":
+      case "Space":
+        e.preventDefault()
         player.controls.shoot = true
         break
-      case "Shift":
+      case "ShiftLeft":
         player.controls.dash = true
         break
-      case "q":
+      case "KeyE":
         player.controls.special = true
         break
-      case "e":
+      case "KeyQ":
         player.controls.explosiveArrow = true
         break
     }
@@ -191,43 +245,43 @@ export function setupGameInputHandlers({
     const player = gameStateRef.current?.players?.[playerId]
     if (!player) return
 
-    switch (e.key) {
-      case "w":
+    switch (e.code) {
+      case "KeyW":
       case "ArrowUp":
         player.controls.up = false
         break
-      case "s":
+      case "KeyS":
       case "ArrowDown":
         player.controls.down = false
         break
-      case "a":
+      case "KeyA":
       case "ArrowLeft":
         player.controls.left = false
         break
-      case "d":
+      case "KeyD":
       case "ArrowRight":
         player.controls.right = false
         break
-      case " ":
+      case "Space":
         player.controls.shoot = false
         break
-      case "Shift":
+      case "ShiftLeft":
         player.controls.dash = false
         break
-      case "q":
+      case "KeyE":
         player.controls.special = false
         break
-      case "e":
+      case "KeyQ":
         player.controls.explosiveArrow = false
         break
     }
   }
 
-  window.addEventListener("keydown", handleKeyDown)
-  window.addEventListener("keyup", handleKeyUp)
+  document.addEventListener("keydown", handleKeyDown)
+  document.addEventListener("keyup", handleKeyUp)
 
   return () => {
-    window.removeEventListener("keydown", handleKeyDown)
-    window.removeEventListener("keyup", handleKeyUp)
+    document.removeEventListener("keydown", handleKeyDown)
+    document.removeEventListener("keyup", handleKeyUp)
   }
 }
