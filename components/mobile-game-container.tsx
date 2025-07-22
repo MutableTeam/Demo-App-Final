@@ -47,9 +47,9 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
     <div className="flex flex-col items-center gap-1">
       <button
         className={cn(
-          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-75",
+          "w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-75",
           "touch-none select-none active:scale-95 active:brightness-125",
-          "bg-gray-800/80 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] backdrop-blur-sm",
+          "bg-gray-800/80 border-cyan-400/50 text-cyan-300 shadow-[0_0_8px_rgba(0,255,255,0.3)] backdrop-blur-sm",
           "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
           orbitron.className,
           className,
@@ -125,7 +125,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           {/* Right: Aiming Joystick & Actions */}
           <div className="w-[25%] h-full flex flex-col items-center justify-center p-4 pointer-events-auto">
             {/* Aiming Joystick - Centered */}
-            <div className="flex flex-col items-center justify-center space-y-3 mb-8">
+            <div className="flex flex-col items-center justify-center space-y-3 mb-6">
               <span className={labelClasses}>Aim & Shoot</span>
               <Joystick
                 size={120}
@@ -138,9 +138,9 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               <span className={subLabelClasses}>Pull to charge, release to fire</span>
             </div>
 
-            {/* Action Buttons - Below joystick */}
-            <div className="flex flex-col gap-3 items-center">
-              <div className="flex gap-4">
+            {/* Action Buttons - Smaller and more compact */}
+            <div className="flex flex-col gap-2 items-center">
+              <div className="flex gap-3">
                 <ActionButton label="X" action="dash" title="Dash" />
                 <ActionButton label="Y" action="special" title="Special" />
               </div>
@@ -180,13 +180,17 @@ export default function MobileGameContainer({ children, className }: MobileGameC
             />
           </div>
 
-          {/* Center: Actions */}
+          {/* Center: Actions - Smaller buttons */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className={labelClasses}>Actions</span>
-            <div className="flex gap-3">
-              <ActionButton label="X" action="dash" />
-              <ActionButton label="Y" action="special" />
-              <ActionButton label="B" action="explosiveArrow" />
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <ActionButton label="X" action="dash" />
+                <ActionButton label="Y" action="special" />
+              </div>
+              <div className="flex justify-center">
+                <ActionButton label="B" action="explosiveArrow" />
+              </div>
             </div>
           </div>
 
