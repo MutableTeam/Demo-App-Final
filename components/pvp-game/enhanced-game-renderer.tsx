@@ -1,28 +1,29 @@
 "use client"
 
-// This is a new file, so we'll create the entire component from scratch, incorporating the updates.
-
-import type React from "react"
-import { useRef, useEffect } from "react"
-import BowDrawIndicator from "@/components/bow-draw-indicator" // Added import
+import { useEffect, useRef, useState } from "react"
+import type { GameState } from "./game-engine"
+import type { PlatformType } from "@/contexts/platform-context"
+import { cn } from "@/lib/utils"
+import BowDrawIndicator from "@/components/bow-draw-indicator"
 
 interface EnhancedGameRendererProps {
-  gameState: any // Replace 'any' with a more specific type if possible
+  gameState: GameState
   localPlayerId: string
-  width: number
-  height: number
-  platformType: string
+  debugMode?: boolean
+  platformType?: PlatformType
 }
 
-const EnhancedGameRenderer: React.FC<EnhancedGameRendererProps> = ({
+export default function EnhancedGameRenderer({
   gameState,
   localPlayerId,
-  width,
-  height,
-  platformType,
-}) => {
+  debugMode = false,
+  platformType = "desktop",
+}: EnhancedGameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animationFrameRef = useRef<number>()
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
+  // Canvas rendering logic
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -30,22 +31,211 @@ const EnhancedGameRenderer: React.FC<EnhancedGameRendererProps> = ({
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Example rendering logic (replace with your actual rendering code)
-    ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = "lightblue"
-    ctx.fillRect(0, 0, width, height)
+    const render = () => {
+      // Clear canvas
+      ctx.fillStyle = "#1a2a1a" // Dark green background
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Example player rendering
-    if (gameState?.players) {
-      for (const playerId in gameState.players) {
-        const player = gameState.players[playerId]
-        ctx.fillStyle = playerId === localPlayerId ? "green" : "red"
+      // Draw grid
+      ctx.strokeStyle = "rgba(0, 255, 0, 0.1)"
+      ctx.lineWidth = 1
+      for (let x = 0; x < canvas.width; x += 40) {
         ctx.beginPath()
-        ctx.arc(player.x || 50, player.y || 50, 10, 0, 2 * Math.PI)
-        ctx.fill()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, canvas.height)
+        ctx.stroke()
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(canvas.width, y)
+        ctx.stroke()
+      }
+
+      // Draw players
+      Object.values(gameState.players).forEach((player) => {
+        if (!player || player.health <= 0) return
+
+        ctx.save()
+        ctx.translate(player.position.x, player.position.y)
+        ctx.rotate(player.rotation)
+
+        // Draw player body
+        ctx.fillStyle = player.color
+        ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size)
+
+        // Draw player direction indicator
+        ctx.strokeStyle = "#ffffff"
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(player.size, 0)
+        ctx.stroke()
+
+        // Draw bow charging indicator if player is drawing bow
+        if (player.isDrawingBow && player.drawStartTime) {
+          const currentTime = Date.now() / 1000
+          const drawTime = currentTime - player.drawStartTime
+          const chargePercentage = Math.min(drawTime / player.maxDrawTime, 1)
+
+          // Draw a charge indicator above the player
+          const indicatorWidth = player.size * 1.2
+          const indicatorHeight = 4
+
+          // Background
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+          ctx.fillRect(-indicatorWidth / 2, -player.size / 2 - 10, indicatorWidth, indicatorHeight)
+
+          // Charge level
+          let chargeColor = "#4CAF50" // Green for low charge
+          if (chargePercentage > 0.6) chargeColor = "#FFC107" // Yellow for medium charge
+          if (chargePercentage > 0.9) chargeColor = "#F44336" // Red for high charge
+
+          ctx.fillStyle = chargeColor
+          ctx.fillRect(-indicatorWidth / 2, -player.size / 2 - 10, indicatorWidth * chargePercentage, indicatorHeight)
+        }
+
+        ctx.restore()
+
+        // Draw player name and health
+        ctx.fillStyle = "#ffffff"
+        ctx.font = "12px Arial"
+        ctx.textAlign = "center"
+        ctx.fillText(player.name, player.position.x, player.position.y - player.size - 15)
+
+        // Health bar
+        const healthBarWidth = 40
+        const healthBarHeight = 5
+        const healthPercentage = player.health / 100
+
+        ctx.fillStyle = "#333"
+        ctx.fillRect(
+          player.position.x - healthBarWidth / 2,
+          player.position.y - player.size - 10,
+          healthBarWidth,
+          healthBarHeight,
+        )
+
+        ctx.fillStyle = healthPercentage > 0.5 ? "#00ff00" : healthPercentage > 0.2 ? "#ffff00" : "#ff0000"
+        ctx.fillRect(
+          player.position.x - healthBarWidth / 2,
+          player.position.y - player.size - 10,
+          healthBarWidth * healthPercentage,
+          healthBarHeight,
+        )
+      })
+
+      // Draw arrows
+      if (gameState.arrows) {
+        gameState.arrows.forEach((arrow) => {
+          ctx.save()
+          ctx.translate(arrow.position.x, arrow.position.y)
+          ctx.rotate(arrow.rotation)
+          ctx.fillStyle = arrow.color || "#ffff00"
+          ctx.fillRect(-8, -1, 16, 2)
+          ctx.beginPath()
+          ctx.moveTo(8, 0)
+          ctx.lineTo(4, -3)
+          ctx.lineTo(4, 3)
+          ctx.closePath()
+          ctx.fill()
+          ctx.restore()
+        })
+      }
+
+      // Draw walls
+      if (gameState.walls) {
+        ctx.fillStyle = "#666666"
+        gameState.walls.forEach((wall) => {
+          ctx.fillRect(wall.position.x, wall.position.y, wall.width, wall.height)
+        })
+      }
+
+      // Draw pickups
+      if (gameState.pickups) {
+        gameState.pickups.forEach((pickup) => {
+          ctx.save()
+          ctx.translate(pickup.position.x, pickup.position.y)
+          ctx.rotate(Date.now() * 0.005)
+          ctx.fillStyle = pickup.color || "#00ff00"
+          ctx.fillRect(-8, -8, 16, 16)
+          ctx.restore()
+        })
+      }
+
+      // Draw timer at top center
+      const timeLeft = Math.max(0, (gameState.gameEndTime || Date.now() + 180000) - Date.now())
+      const minutes = Math.floor(timeLeft / 60000)
+      const seconds = Math.floor((timeLeft % 60000) / 1000)
+      const timeString = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+
+      ctx.fillStyle = "#ffffff"
+      ctx.font = "20px Arial"
+      ctx.textAlign = "center"
+      ctx.fillText(timeString, canvas.width / 2, 30)
+
+      // Draw scoreboard
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
+      ctx.fillRect(canvas.width - 200, 10, 180, 100)
+
+      ctx.fillStyle = "#ffffff"
+      ctx.font = "14px Arial"
+      ctx.textAlign = "left"
+      ctx.fillText("SCOREBOARD", canvas.width - 190, 30)
+
+      let yOffset = 50
+      Object.values(gameState.players).forEach((player, index) => {
+        if (!player) return
+        ctx.fillStyle = player.color
+        ctx.fillText(`${index + 1}. ${player.name}`, canvas.width - 190, yOffset)
+        ctx.fillStyle = "#ffffff"
+        ctx.textAlign = "right"
+        ctx.fillText(`${player.score || 0}`, canvas.width - 30, yOffset)
+        ctx.textAlign = "left"
+        yOffset += 20
+      })
+
+      // Debug information
+      if (debugMode) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+        ctx.font = "14px monospace"
+        ctx.textAlign = "left"
+        const debugInfo = [
+          `Platform: ${platformType}`,
+          `Players: ${Object.keys(gameState.players).length}`,
+          `Arrows: ${gameState.arrows?.length || 0}`,
+          `Game Time: ${Math.floor((gameState.gameTime || 0) / 1000)}s`,
+        ]
+        debugInfo.forEach((info, index) => ctx.fillText(info, 10, 20 + index * 20))
+      }
+
+      animationFrameRef.current = requestAnimationFrame(render)
+    }
+
+    render()
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, localPlayerId, width, height])
+  }, [gameState, localPlayerId, debugMode, platformType])
+
+  // Update canvas size to fit its container
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const parent = canvas.parentElement
+    if (!parent) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      setCanvasSize({ width: parent.clientWidth, height: parent.clientHeight })
+    })
+    resizeObserver.observe(parent)
+
+    return () => resizeObserver.disconnect()
+  }, [])
 
   // Get the local player for bow draw indicator
   const localPlayer = gameState.players[localPlayerId]
@@ -54,8 +244,16 @@ const EnhancedGameRenderer: React.FC<EnhancedGameRendererProps> = ({
   const maxDrawTime = localPlayer?.maxDrawTime || 1.5
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Add the bow draw indicator */}
+    <div className="relative w-full h-full">
+      <canvas
+        ref={canvasRef}
+        width={canvasSize.width}
+        height={canvasSize.height}
+        className={cn("absolute top-0 left-0 w-full h-full bg-transparent")}
+        style={{ imageRendering: "pixelated", touchAction: "none" }}
+      />
+
+      {/* Bow draw indicator for mobile */}
       {platformType === "mobile" && (
         <BowDrawIndicator
           isDrawing={isDrawingBow}
@@ -64,12 +262,6 @@ const EnhancedGameRenderer: React.FC<EnhancedGameRendererProps> = ({
           className="bottom-24 right-24"
         />
       )}
-
-      {/* Rest of the renderer content */}
-      <canvas ref={canvasRef} width={width} height={height} className="w-full h-full" />
-      {/* ... other elements ... */}
     </div>
   )
 }
-
-export default EnhancedGameRenderer

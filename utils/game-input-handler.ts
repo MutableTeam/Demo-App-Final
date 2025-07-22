@@ -19,9 +19,9 @@ export interface GameInputState {
   }
   actions: {
     shoot: boolean
+    shootCharging: boolean // New state to track if shoot button is being held
     dash: boolean
     special: boolean
-    explosiveArrow: boolean
   }
 }
 
@@ -47,15 +47,14 @@ class GameInputHandler {
     },
     actions: {
       shoot: false,
+      shootCharging: false,
       dash: false,
       special: false,
-      explosiveArrow: false,
     },
   }
 
   private callbacks: GameInputCallbacks = {}
   private shootTimeout: NodeJS.Timeout | null = null
-  private isAiming = false // Track aiming state internally
 
   setCallbacks(callbacks: GameInputCallbacks) {
     this.callbacks = callbacks
@@ -104,59 +103,61 @@ class GameInputHandler {
     this.notifyStateChange()
   }
 
-  private isAiming = false // This will track the entire "touch" duration
-
+  // Modified to only handle aiming, not shooting
   handleAimingJoystick(event: any) {
     const deadzone = 0.15
 
-    // Case 1: Joystick is released (event is null)
-    if (!event) {
-      if (this.isAiming) {
-        // We were aiming, so now we shoot (mouseup)
-        console.log("[INPUT_HANDLER] Joystick released. Firing shot.")
-        this.state.actions.shoot = true
-
-        // Reset the aiming state completely
-        this.isAiming = false
+    // If joystick is released or in deadzone
+    if (!event || event.distance < deadzone) {
+      if (this.state.aiming.active) {
         this.state.aiming.active = false
         this.state.aiming.power = 0
-
-        // Reset the shoot pulse after a short delay
-        if (this.shootTimeout) clearTimeout(this.shootTimeout)
-        this.shootTimeout = setTimeout(() => {
-          if (this.state.actions.shoot) {
-            this.state.actions.shoot = false
-            this.notifyStateChange()
-            console.log("[INPUT_HANDLER] Shoot action pulse reset.")
-          }
-        }, 100)
+        this.notifyStateChange()
       }
-      this.notifyStateChange()
       return
     }
 
-    // Case 2: Joystick is active (event is not null)
+    // Joystick is active
     const { x, y, distance } = event
-    const minDistance = deadzone * 50 // Convert deadzone to actual distance
 
-    // If we aren't already aiming and the joystick is pulled beyond the deadzone,
-    // start aiming (this is the "mousedown" equivalent)
-    if (!this.isAiming && distance > minDistance) {
-      console.log("[INPUT_HANDLER] Joystick pulled. Starting aim/charge.")
-      this.isAiming = true
-      this.state.aiming.active = true
-    }
-
-    // If we are in an aiming state, update the aiming properties
-    if (this.isAiming) {
-      this.state.aiming.angle = Math.atan2(y, x)
-      this.state.aiming.power = Math.min(distance / 50, 1)
-    }
+    // Update aiming state
+    this.state.aiming.active = true
+    this.state.aiming.angle = Math.atan2(y, x)
+    this.state.aiming.power = Math.min(distance / 50, 1)
 
     this.notifyStateChange()
   }
 
+  // New method to handle shoot button press/release
+  handleShootButton(pressed: boolean) {
+    if (pressed) {
+      // Start charging the shot
+      console.log("[INPUT_HANDLER] Shoot button pressed. Charging shot.")
+      this.state.actions.shootCharging = true
+      this.notifyStateChange()
+    } else if (this.state.actions.shootCharging) {
+      // Release the shot
+      console.log("[INPUT_HANDLER] Shoot button released. Firing shot.")
+      this.state.actions.shootCharging = false
+      this.state.actions.shoot = true
+      this.notifyStateChange()
+
+      // Reset the shoot action after a short delay
+      if (this.shootTimeout) clearTimeout(this.shootTimeout)
+      this.shootTimeout = setTimeout(() => {
+        this.state.actions.shoot = false
+        this.notifyStateChange()
+        console.log("[INPUT_HANDLER] Shoot action pulse reset.")
+      }, 100)
+    }
+  }
+
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
+    if (action === "shoot") {
+      this.handleShootButton(pressed)
+      return
+    }
+
     if (this.state.actions[action] !== pressed) {
       this.state.actions[action] = pressed
       this.notifyStateChange()
@@ -208,15 +209,14 @@ export function setupGameInputHandlers({
       case "Space":
         e.preventDefault()
         player.controls.shoot = true
+        player.isDrawingBow = true
+        player.drawStartTime = Date.now() / 1000
         break
       case "ShiftLeft":
         player.controls.dash = true
         break
       case "KeyE":
         player.controls.special = true
-        break
-      case "KeyQ":
-        player.controls.explosiveArrow = true
         break
     }
   }
@@ -243,16 +243,16 @@ export function setupGameInputHandlers({
         player.controls.right = false
         break
       case "Space":
-        player.controls.shoot = false
+        // Release arrow if we were drawing the bow
+        if (player.isDrawingBow) {
+          player.controls.shoot = false
+        }
         break
       case "ShiftLeft":
         player.controls.dash = false
         break
       case "KeyE":
         player.controls.special = false
-        break
-      case "KeyQ":
-        player.controls.explosiveArrow = false
         break
     }
   }
