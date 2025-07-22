@@ -2,9 +2,8 @@
 
 import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
-import type nipplejs from "nipplejs"
 import { cn } from "@/lib/utils"
-import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
+import { gameInputHandler, type GameInputState, type MovementState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
 
 const orbitron = Orbitron({
@@ -22,6 +21,12 @@ interface ActionButtonProps {
   action: keyof GameInputState["actions"]
   className?: string
   title?: string
+}
+
+interface MovementButtonProps {
+  label: string
+  direction: keyof MovementState
+  className?: string
 }
 
 function ActionButton({ label, action, className, title }: ActionButtonProps) {
@@ -47,7 +52,7 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
     <div className="flex flex-col items-center gap-1">
       <button
         className={cn(
-          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-100",
+          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-75",
           "touch-none select-none active:scale-95 active:brightness-125",
           "bg-gray-800/80 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] backdrop-blur-sm",
           "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
@@ -74,10 +79,56 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
   )
 }
 
+function MovementButton({ label, direction, className }: MovementButtonProps) {
+  const handleInteractionStart = useCallback(
+    (e: React.TouchEvent | React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      gameInputHandler.handleMovementPress(direction, true)
+    },
+    [direction],
+  )
+
+  const handleInteractionEnd = useCallback(
+    (e: React.TouchEvent | React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      gameInputHandler.handleMovementPress(direction, false)
+    },
+    [direction],
+  )
+
+  return (
+    <button
+      className={cn(
+        "w-14 h-14 rounded-lg border-2 flex items-center justify-center text-sm font-bold transition-all duration-75",
+        "touch-none select-none active:scale-95 active:brightness-125",
+        "bg-gray-800/80 border-green-400/50 text-green-300 shadow-[0_0_8px_rgba(0,255,0,0.3)] backdrop-blur-sm",
+        "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-green-400/50",
+        orbitron.className,
+        className,
+      )}
+      onTouchStart={handleInteractionStart}
+      onTouchEnd={handleInteractionEnd}
+      onTouchCancel={handleInteractionEnd}
+      onMouseDown={handleInteractionStart}
+      onMouseUp={handleInteractionEnd}
+      onMouseLeave={handleInteractionEnd}
+      style={{
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        WebkitTouchCallout: "none",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const aimPadRef = useRef<HTMLDivElement>(null)
-  const joystickManagerRef = useRef<nipplejs.JoystickManager | null>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -88,44 +139,6 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     window.addEventListener("resize", handleOrientationChange)
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
-
-  // Initialize nipplejs
-  useEffect(() => {
-    // Dynamically import nipplejs only on the client
-    import("nipplejs").then((nipplejs) => {
-      const joystickZone = document.getElementById("joystick-zone")
-      if (joystickZone && !joystickManagerRef.current) {
-        console.log("[InputDebug] Initializing NippleJS on zone:", joystickZone)
-        const manager = nipplejs.default.create({
-          zone: joystickZone,
-          mode: "static",
-          position: { left: "50%", top: "50%" },
-          color: "cyan",
-          size: 140,
-          restOpacity: 0.7,
-          fadeTime: 0,
-        })
-
-        manager.on("move", (evt, data) => {
-          gameInputHandler.handleNippleMove(data)
-        })
-
-        manager.on("end", () => {
-          gameInputHandler.handleNippleEnd()
-        })
-
-        joystickManagerRef.current = manager
-      }
-    })
-
-    return () => {
-      if (joystickManagerRef.current) {
-        console.log("[InputDebug] Destroying NippleJS manager")
-        joystickManagerRef.current.destroy()
-        joystickManagerRef.current = null
-      }
-    }
-  }, [orientation]) // Re-run if orientation changes to re-create the joystick
 
   const handleAimTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     gameInputHandler.handleAimTouchStart(e)
@@ -156,7 +169,14 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           <div className="w-[25%] h-full flex items-center justify-center">
             <div className={controlsBaseClasses}>
               <span className={labelClasses}>Movement</span>
-              <div id="joystick-zone" className="w-[140px] h-[140px] relative rounded-full bg-gray-900/50" />
+              <div className="flex flex-col items-center space-y-2">
+                <MovementButton label="↑" direction="up" />
+                <div className="flex space-x-2">
+                  <MovementButton label="←" direction="left" />
+                  <MovementButton label="→" direction="right" />
+                </div>
+                <MovementButton label="↓" direction="down" />
+              </div>
               <span className={subLabelClasses}>Move Player</span>
             </div>
           </div>
@@ -218,7 +238,14 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           {/* Bottom Left: Movement */}
           <div className={controlsBaseClasses}>
             <span className={labelClasses}>Move</span>
-            <div id="joystick-zone" className="w-[120px] h-[120px] relative rounded-full bg-gray-900/50" />
+            <div className="flex flex-col items-center space-y-1">
+              <MovementButton label="↑" direction="up" />
+              <div className="flex space-x-1">
+                <MovementButton label="←" direction="left" />
+                <MovementButton label="→" direction="right" />
+              </div>
+              <MovementButton label="↓" direction="down" />
+            </div>
           </div>
 
           {/* Bottom Right: Actions */}
