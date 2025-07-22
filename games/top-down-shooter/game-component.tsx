@@ -11,6 +11,7 @@ import ResourceMonitor from "@/components/resource-monitor"
 import { updateGameState } from "@/components/pvp-game/game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
 import { useGameControls } from "@/hooks/use-game-controls"
+import { createAIController, AIDifficulty } from "@/utils/game-ai"
 
 export default function GameComponent({
   playerId,
@@ -52,13 +53,14 @@ export default function GameComponent({
     onGameEnd,
   })
 
+  const aiControllersRef = useRef<Record<string, ReturnType<typeof createAIController>>>({})
   const bowSoundPlayedRef = useRef(false)
   const fullDrawSoundPlayedRef = useRef(false)
   const specialSoundPlayedRef = useRef(false)
   const minDrawSoundPlayedRef = useRef(false)
   const [showTutorial, setShowTutorial] = useState(true)
 
-  // Use the new unified game controls hook
+  // Use the new unified game controls hook for the human player
   useGameControls({
     playerId,
     gameStateRef,
@@ -107,6 +109,17 @@ export default function GameComponent({
     setGameState(initialGameState)
     gameStateRef.current = initialGameState
 
+    // Initialize AI controllers for AI players
+    Object.keys(initialGameState.players).forEach((pId) => {
+      if (pId.startsWith("ai-")) {
+        const aiNum = Number.parseInt(pId.split("-")[1] || "1", 10)
+        const difficulties = [AIDifficulty.EASY, AIDifficulty.MEDIUM, AIDifficulty.HARD, AIDifficulty.EXPERT]
+        const difficulty = difficulties[(aiNum - 1) % difficulties.length]
+        aiControllersRef.current[pId] = createAIController(difficulty)
+        debugManager.logInfo("AI_INIT", `Created AI controller for ${pId} with difficulty ${difficulty}`)
+      }
+    })
+
     // Capture initial state
     debugManager.captureState(initialGameState, "Initial State")
 
@@ -140,57 +153,19 @@ export default function GameComponent({
         lastUpdateTimeRef.current = now
 
         if (gameStateRef.current) {
-          const entityCounts = {
-            players: Object.keys(gameStateRef.current.players).length,
-            arrows: gameStateRef.current.arrows?.length || 0,
-            walls: gameStateRef.current.walls?.length || 0,
-            pickups: gameStateRef.current.pickups?.length || 0,
-          }
-          debugManager.trackEntities(entityCounts)
-
-          if (gameStateRef.current.arrows && gameStateRef.current.arrows.length > 100) {
-            debugManager.logWarning("GAME_LOOP", "Possible memory leak: Too many arrows", {
-              arrowCount: gameStateRef.current.arrows.length,
-            })
-            if (gameStateRef.current.arrows.length > 200) {
-              gameStateRef.current.arrows = gameStateRef.current.arrows.slice(-100)
-              debugManager.logInfo("GAME_LOOP", "Performed safety cleanup of arrows")
+          // Update AI players before updating the game state
+          Object.keys(aiControllersRef.current).forEach((aiId) => {
+            if (gameStateRef.current.players[aiId]) {
+              const aiController = aiControllersRef.current[aiId]
+              const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
+              gameStateRef.current.players[aiId].controls = controls
+              gameStateRef.current.players[aiId].rotation = targetRotation
             }
-          }
+          })
 
-          let newState = gameStateRef.current
+          const newState = updateGameState(gameStateRef.current, deltaTime)
 
-          const updateWithTimeout = () => {
-            return new Promise((resolve, reject) => {
-              const timeoutId = setTimeout(() => {
-                reject(new Error("Game update timed out - possible infinite loop"))
-              }, 500)
-
-              try {
-                const result = updateGameState(gameStateRef.current, deltaTime, handlePlayerDeath)
-                clearTimeout(timeoutId)
-                resolve(result)
-              } catch (error) {
-                clearTimeout(timeoutId)
-                reject(error)
-              }
-            })
-          }
-
-          updateWithTimeout()
-            .then((result) => {
-              newState = result
-              continueGameLoop(newState)
-            })
-            .catch((error) => {
-              debugManager.logError("GAME_LOOP", "Error in game update", error)
-              debugManager.captureState(gameStateRef.current, "Update Error State")
-              continueGameLoop(gameStateRef.current)
-            })
-        }
-
-        function continueGameLoop(state) {
-          const localPlayer = state.players[playerId]
+          const localPlayer = newState.players[playerId]
           if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
             try {
               if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
@@ -231,13 +206,6 @@ export default function GameComponent({
                 minDrawSoundPlayedRef.current = false
               }
 
-              if (localPlayer.isChargingSpecial && !specialSoundPlayedRef.current) {
-                specialSoundPlayedRef.current = true
-              }
-              if (!localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
-                audioManager.playSound("special-attack")
-                specialSoundPlayedRef.current = false
-              }
               if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
                 audioManager.playSound("dash")
               }
@@ -258,12 +226,12 @@ export default function GameComponent({
             }
           }
 
-          gameStateRef.current = state
-          setGameState(state)
+          gameStateRef.current = newState
+          setGameState(newState)
 
-          if (state.isGameOver) {
+          if (newState.isGameOver) {
             if (!audioManager.isSoundMuted()) {
-              if (state.winner === playerId) {
+              if (newState.winner === playerId) {
                 audioManager.playSound("victory")
               } else {
                 audioManager.playSound("game-over")
@@ -272,12 +240,12 @@ export default function GameComponent({
             audioManager.stopBackgroundMusic()
             transitionDebugger.trackTransition("playing", "game-over", "GameComponent")
             if (onGameEnd) {
-              onGameEnd(state.winner)
+              onGameEnd(newState.winner)
             }
             debugManager.logInfo("GAME", "Game ended", {
-              winner: state.winner,
-              gameTime: state.gameTime,
-              playerCount: Object.keys(state.players).length,
+              winner: newState.winner,
+              gameTime: newState.gameTime,
+              playerCount: Object.keys(newState.players).length,
             })
           } else {
             requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
@@ -285,7 +253,6 @@ export default function GameComponent({
               `${componentIdRef.current}-game-loop`,
             )
           }
-          debugManager.endFrame()
         }
       } catch (error) {
         debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
@@ -296,51 +263,6 @@ export default function GameComponent({
             `${componentIdRef.current}-game-loop`,
           )
         }, 1000)
-      }
-    }
-
-    const handlePlayerDeath = (playerId) => {
-      if (!gameStateRef.current) return
-      const player = gameStateRef.current.players[playerId]
-      if (!player) return
-      player.lives -= 1
-      if (player.lives <= 0) {
-        player.health = 0
-        player.animationState = "death"
-        if (gameStateRef.current.gameMode === "duel") {
-          const winner =
-            Object.values(gameStateRef.current.players).find((p) => p.id !== playerId && p.lives > 0)?.id || null
-          setGameState((prev) => ({ ...prev, isGameOver: true, winner }))
-          if (onGameEnd) onGameEnd(winner)
-          return
-        }
-        player.deaths += 1
-        player.respawnTimer = 3
-        if (player.lastDamageFrom && player.lastDamageFrom !== playerId) {
-          const killer = gameStateRef.current.players[player.lastDamageFrom]
-          if (killer) {
-            killer.kills += 1
-            killer.score += 10
-          }
-        }
-      }
-      if (player.lives > 0) {
-        player.health = 100
-        player.velocity = { x: 0, y: 0 }
-        player.isDrawingBow = false
-        player.drawStartTime = null
-        player.isChargingSpecial = false
-        player.specialChargeStartTime = null
-        player.specialAttackCooldown = 0
-        player.hitAnimationTimer = 0
-      }
-      const topPlayer = Object.values(gameStateRef.current.players).reduce(
-        (top, p) => (p.kills > top.kills ? p : top),
-        { kills: -1 },
-      )
-      if (topPlayer.kills >= 10) {
-        setGameState((prev) => ({ ...prev, isGameOver: true, winner: topPlayer.id }))
-        if (onGameEnd) onGameEnd(topPlayer.id)
       }
     }
 

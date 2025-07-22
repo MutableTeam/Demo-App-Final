@@ -125,12 +125,24 @@ export default function GameController({
       const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1)
       lastUpdateTimeRef.current = now
 
+      // Update AI controllers and apply their decisions
       Object.keys(aiControllersRef.current).forEach((aiId) => {
-        if (gameStateRef.current.players[aiId]) {
+        const aiPlayer = gameStateRef.current.players[aiId]
+        if (aiPlayer && aiPlayer.health > 0 && aiPlayer.lives > 0) {
           const aiController = aiControllersRef.current[aiId]
           const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
-          gameStateRef.current.players[aiId].controls = controls
-          gameStateRef.current.players[aiId].rotation = targetRotation
+
+          // Apply AI controls to the player
+          aiPlayer.controls = controls
+          aiPlayer.rotation = targetRotation
+
+          // Debug logging for AI behavior
+          if (controls.shoot && !aiPlayer.isDrawingBow) {
+            debugManager.logInfo("AI", `AI ${aiId} starting to draw bow`)
+          }
+          if (!controls.shoot && aiPlayer.isDrawingBow) {
+            debugManager.logInfo("AI", `AI ${aiId} releasing arrow`)
+          }
         }
       })
 

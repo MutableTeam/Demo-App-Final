@@ -329,11 +329,7 @@ const calculateDashVelocity = (player: Player): Vector2D => {
 }
 
 // Update the updateGameState function to check for time limit and update animation states
-export const updateGameState = (
-  state: GameState,
-  deltaTime: number,
-  onPlayerDeath?: (playerId: string) => void,
-): GameState => {
+export const updateGameState = (state: GameState, deltaTime: number): GameState => {
   try {
     // Create a deep copy of the state to avoid mutation issues
     const newState = {
@@ -397,12 +393,33 @@ export const updateGameState = (
     Object.keys(newState.players).forEach((playerId) => {
       const player = newState.players[playerId]
 
+      // If player is in death animation, don't process movement or actions
+      if (player.animationState === "death") {
+        if (player.respawnTimer > 0) {
+          player.respawnTimer -= deltaTime
+          if (player.respawnTimer <= 0) {
+            // Respawn player if they have lives left
+            if (player.lives > 0) {
+              player.health = 100
+              player.animationState = "idle"
+              player.lastAnimationChange = Date.now()
+              player.position = {
+                x: Math.random() * (newState.arenaSize.width - 100) + 50,
+                y: Math.random() * (newState.arenaSize.height - 100) + 50,
+              }
+              player.invulnerableTime = 2.0 // 2 seconds of invulnerability after respawn
+            }
+          }
+        }
+        return // Skip the rest of the update for this player
+      }
+
       // Skip players with no lives left
       if (player.lives <= 0) {
         return
       }
 
-      // Handle invulnerability timer - add this line to fix the issue
+      // Handle invulnerability timer
       if (player.invulnerableTime > 0) {
         player.invulnerableTime -= deltaTime
       }
@@ -426,87 +443,42 @@ export const updateGameState = (
       // Handle hit animation timer
       if (player.hitAnimationTimer > 0) {
         player.hitAnimationTimer -= deltaTime
-        if (player.hitAnimationTimer <= 0 && player.animationState === "hit" && player.health > 0) {
-          // Transition back to idle or run
-          if (player.velocity.x !== 0 || player.velocity.y !== 0) {
-            player.animationState = "run"
-          } else {
-            player.animationState = "idle"
-          }
+        if (player.hitAnimationTimer <= 0 && player.animationState === "hit") {
+          player.animationState = "idle"
           player.lastAnimationChange = Date.now()
-        }
-      }
-
-      // Handle respawn timer
-      if (player.respawnTimer > 0) {
-        player.respawnTimer -= deltaTime
-        if (player.respawnTimer <= 0 && player.health <= 0) {
-          // Only respawn if player has lives left
-          if (player.lives > 0) {
-            // Respawn player
-            player.health = 100
-            player.animationState = "idle"
-            player.lastAnimationChange = Date.now()
-
-            // Respawn at random position
-            player.position = {
-              x: Math.random() * (newState.arenaSize.width - 100) + 50,
-              y: Math.random() * (newState.arenaSize.height - 100) + 50,
-            }
-          }
         }
       }
 
       // Update animation state based on player actions
       const now = Date.now()
-      const timeSinceLastAnimChange = now - player.lastAnimationChange
 
       // Priority order: death > hit > fire > dash > run > idle
-      if (player.health <= 0 && player.animationState !== "death") {
-        player.animationState = "death"
-        player.lastAnimationChange = now
-        // Set respawn timer
-        player.respawnTimer = 1.0 // 1 second
-      } else if (player.isDrawingBow && player.animationState !== "fire") {
+      if (player.isDrawingBow && player.animationState !== "fire") {
         player.animationState = "fire"
         player.lastAnimationChange = now
       } else if (player.isDashing && player.animationState !== "dash") {
         player.animationState = "dash"
         player.lastAnimationChange = now
       } else if ((player.velocity.x !== 0 || player.velocity.y !== 0) && player.animationState !== "run") {
-        // Only change to run if we're not already in a higher priority animation
-        if (
-          player.animationState !== "hit" &&
-          player.animationState !== "death" &&
-          player.animationState !== "fire" &&
-          player.animationState !== "dash"
-        ) {
+        if (!["hit", "fire", "dash"].includes(player.animationState)) {
           player.animationState = "run"
           player.lastAnimationChange = now
         }
       } else if (
-        player.animationState !== "idle" &&
-        player.animationState !== "death" &&
-        player.animationState !== "hit" &&
-        player.animationState !== "fire" &&
-        player.animationState !== "dash" &&
         player.velocity.x === 0 &&
-        player.velocity.y === 0
+        player.velocity.y === 0 &&
+        !["idle", "hit", "fire", "dash"].includes(player.animationState)
       ) {
-        // Only transition to idle if we're not in a higher priority animation
-        // and we're not moving
         player.animationState = "idle"
         player.lastAnimationChange = now
       }
 
-      // COMPLETELY NEW DASH IMPLEMENTATION
       // Handle dash initiation
       if (player.controls.dash && !player.isDashing && player.dashCooldown <= 0) {
-        // Start a new dash
         player.isDashing = true
-        player.dashStartTime = Date.now() / 1000 // Current time in seconds
+        player.dashStartTime = Date.now() / 1000
         player.dashVelocity = calculateDashVelocity(player)
-        player.dashCooldown = 1.5 // 1.5 second cooldown
+        player.dashCooldown = 1.5
         player.animationState = "dash"
         player.lastAnimationChange = now
       }
@@ -514,66 +486,46 @@ export const updateGameState = (
       // Handle active dash
       if (player.isDashing && player.dashStartTime !== null) {
         const currentTime = Date.now() / 1000
-        const dashDuration = 0.15 // 150ms dash
+        const dashDuration = 0.15
 
-        // Check if dash should end
         if (currentTime - player.dashStartTime >= dashDuration) {
-          // End dash
           player.isDashing = false
           player.dashStartTime = null
           player.dashVelocity = null
-
-          // Return to appropriate animation
-          if (player.velocity.x !== 0 || player.velocity.y !== 0) {
-            player.animationState = "run"
-          } else {
-            player.animationState = "idle"
-          }
+          player.animationState = "idle"
           player.lastAnimationChange = now
         } else if (player.dashVelocity) {
-          // Apply dash movement
           player.position.x += player.dashVelocity.x * deltaTime
           player.position.y += player.dashVelocity.y * deltaTime
         }
       } else {
         // Normal movement (only if not dashing)
-        const speed = 200 // pixels per second
+        const speed = 200
+        const movementMultiplier = player.isDrawingBow ? 0.4 : 1.0
 
-        // Apply movement penalty when drawing bow
-        const movementMultiplier = player.isDrawingBow ? 0.4 : 1.0 // 40% speed when drawing bow
-
-        // Reset velocity
         player.velocity.x = 0
         player.velocity.y = 0
 
-        // Apply controls to velocity
         if (player.controls.up) player.velocity.y = -speed * movementMultiplier
         if (player.controls.down) player.velocity.y = speed * movementMultiplier
         if (player.controls.left) player.velocity.x = -speed * movementMultiplier
         if (player.controls.right) player.velocity.x = speed * movementMultiplier
 
-        // Normalize diagonal movement
         if (player.velocity.x !== 0 && player.velocity.y !== 0) {
           const magnitude = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y)
           player.velocity.x = (player.velocity.x / magnitude) * speed * movementMultiplier
           player.velocity.y = (player.velocity.y / magnitude) * speed * movementMultiplier
         }
 
-        // Apply velocity
         player.position.x += player.velocity.x * deltaTime
         player.position.y += player.velocity.y * deltaTime
       }
 
-      // --- Desktop Shooting Logic (Simplified) ---
-      // Handle shooting for desktop controls only
-      if (player.controls.shoot && !player.wasShooting && player.cooldown <= 0) {
-        // Start drawing bow
-        if (!player.isDrawingBow) {
-          player.isDrawingBow = true
-          player.drawStartTime = Date.now() / 1000
-        }
+      // Shooting Logic
+      if (player.controls.shoot && !player.wasShooting && player.cooldown <= 0 && !player.isDrawingBow) {
+        player.isDrawingBow = true
+        player.drawStartTime = Date.now() / 1000
       } else if (!player.controls.shoot && player.wasShooting && player.isDrawingBow) {
-        // Fire arrow on mouse release
         const currentTime = Date.now() / 1000
         const drawTime = player.drawStartTime ? currentTime - player.drawStartTime : 0
 
@@ -597,99 +549,12 @@ export const updateGameState = (
         }
         newState.arrows.push(arrow)
 
-        // Reset state after firing
         player.isDrawingBow = false
         player.drawStartTime = null
         player.cooldown = 0.2
       }
 
-      // Track previous shooting state
       player.wasShooting = player.controls.shoot
-
-      // Handle special attack charging
-      if (player.controls.special) {
-        if (!player.isChargingSpecial && player.specialAttackCooldown <= 0) {
-          player.isChargingSpecial = true
-          player.specialChargeStartTime = Date.now() / 1000
-
-          // Set animation to fire when charging special
-          player.animationState = "fire"
-          player.lastAnimationChange = Date.now()
-        }
-      } else if (player.isChargingSpecial && player.specialChargeStartTime !== null) {
-        // Release special attack (3 arrows in quick succession)
-        const currentTime = Date.now() / 1000
-        const chargeTime = currentTime - player.specialChargeStartTime
-
-        // Only trigger if charged for at least 0.5 seconds
-        if (chargeTime >= 0.5) {
-          const arrowSpeed = 500 // Fixed speed for special attack
-          const spreadAngle = 0.1 // Small spread between arrows
-
-          // Fire 3 arrows with slight spread
-          for (let i = -1; i <= 1; i++) {
-            const angle = player.rotation + i * spreadAngle
-            const arrowVelocity = {
-              x: Math.cos(angle) * arrowSpeed,
-              y: Math.sin(angle) * arrowSpeed,
-            }
-
-            const arrowPosition = {
-              x: player.position.x + Math.cos(angle) * (player.size + 5),
-              y: player.position.y + Math.sin(angle) * (player.size + 5),
-            }
-
-            newState.arrows.push(createArrow(arrowPosition, arrowVelocity, angle, player.id, 15))
-          }
-
-          // Set cooldown for special attack
-          player.specialAttackCooldown = 5 // 5 seconds cooldown
-          player.specialAttackReady = false
-        }
-
-        // Reset special attack state
-        player.isChargingSpecial = false
-        player.specialChargeStartTime = null
-      }
-
-      // Handle explosive arrow cooldown
-      if (player.explosiveArrowCooldown > 0) {
-        player.explosiveArrowCooldown -= deltaTime
-      }
-
-      // Handle explosive arrow firing (using 'e' key or right-click + shift)
-      if (player.controls.explosiveArrow && player.explosiveArrowCooldown <= 0 && !player.isDrawingBow) {
-        // Fire explosive arrow
-        const arrowSpeed = 400 // Slightly slower than regular arrows
-        const arrowVelocity = {
-          x: Math.cos(player.rotation) * arrowSpeed,
-          y: Math.sin(player.rotation) * arrowSpeed,
-        }
-
-        const arrowPosition = {
-          x: player.position.x + Math.cos(player.rotation) * (player.size + 5),
-          y: player.position.y + Math.sin(player.rotation) * (player.size + 5),
-        }
-
-        // Create the explosive arrow
-        const explosiveArrow = createArrow(arrowPosition, arrowVelocity, player.rotation, player.id, 20)
-
-        // Add custom properties for explosive arrow
-        // @ts-ignore - Adding custom property
-        explosiveArrow.isExplosive = true
-        // @ts-ignore - Custom property
-        explosiveArrow.explosionRadius = 100
-        // @ts-ignore - Custom property
-        explosiveArrow.explosionDamage = 40
-        // Change color to indicate explosive arrow
-        explosiveArrow.color = "#FF5722" // Orange-red color
-
-        newState.arrows.push(explosiveArrow)
-
-        // Set cooldown
-        player.explosiveArrowCooldown = 30 // 30 seconds cooldown
-        player.isUsingExplosiveArrow = false
-      }
 
       // Collision with walls
       newState.walls.forEach((wall) => {
@@ -699,10 +564,8 @@ export const updateGameState = (
         const minDistance = player.size + wall.size
 
         if (distance < minDistance) {
-          // Push player away from wall
           const angle = Math.atan2(dy, dx)
           const pushDistance = minDistance - distance
-
           player.position.x += Math.cos(angle) * pushDistance
           player.position.y += Math.sin(angle) * pushDistance
         }
@@ -716,62 +579,31 @@ export const updateGameState = (
 
     // Update arrows
     newState.arrows = newState.arrows.filter((arrow) => {
-      // Move arrow
       arrow.position.x += arrow.velocity.x * deltaTime
       arrow.position.y += arrow.velocity.y * deltaTime
 
-      // Check if arrow is out of bounds
       const { width, height } = newState.arenaSize
       if (arrow.position.x < 0 || arrow.position.x > width || arrow.position.y < 0 || arrow.position.y > height) {
         return false
       }
 
-      // Check for weak shot range limit
-      // @ts-ignore - Custom property
-      if (arrow.isWeakShot) {
-        // @ts-ignore - Custom property
-        const range = arrow.range || 200
-        // @ts-ignore - Custom property
-        arrow.distanceTraveled =
-          (arrow.distanceTraveled || 0) +
-          Math.sqrt(Math.pow(arrow.velocity.x * deltaTime, 2) + Math.pow(arrow.velocity.y * deltaTime, 2))
-
-        // @ts-ignore - Custom property
-        if (arrow.distanceTraveled > range) {
-          return false
-        }
-      }
-
-      // Check collision with walls
       for (const wall of newState.walls) {
         const dx = arrow.position.x - wall.position.x
         const dy = arrow.position.y - wall.position.y
         const distance = Math.sqrt(dx * dx + dy * dy)
-
         if (distance < arrow.size + wall.size) {
-          // @ts-ignore - Custom property
-          if (arrow.isExplosive) {
-            // Create explosion
-            createExplosion(newState, arrow)
-          }
           return false
         }
       }
 
-      // Check collision with players
       for (const playerId in newState.players) {
         const player = newState.players[playerId]
 
-        // Don't hit the player who fired the arrow or players with no lives
-        // Add a debug log to help diagnose the issue
-        if (arrow.ownerId === player.id || player.lives <= 0) {
+        if (arrow.ownerId === player.id || player.lives <= 0 || player.animationState === "death") {
           continue
         }
 
-        // Add separate check for invulnerability with debug logging
         if (player.invulnerableTime > 0) {
-          // Debug log to see invulnerability values
-          // console.log(`Player ${playerId} is invulnerable for ${player.invulnerableTime.toFixed(3)} more seconds`);
           continue
         }
 
@@ -780,97 +612,55 @@ export const updateGameState = (
         const distance = Math.sqrt(dx * dx + dy * dy)
 
         if (distance < arrow.size + player.size) {
-          // Hit player
           const damage = arrow.damage || 10
           player.health -= damage
-
-          // Track who hit this player
           player.lastDamageFrom = arrow.ownerId
 
-          // Set hit animation
-          if (player.animationState !== "death") {
+          if (player.health > 0) {
             player.animationState = "hit"
             player.lastAnimationChange = Date.now()
-            player.hitAnimationTimer = 0.5 // 0.5 seconds
-          }
-
-          // Add invulnerability frames to prevent multiple hits from same arrow
-          player.invulnerableTime = 0.1 // 100ms of invulnerability
-
-          // Debug log to confirm hit registered
-          // console.log(`Player ${playerId} hit! Health: ${player.health}, Invulnerable for: ${player.invulnerableTime}s`);
-
-          // Check if player is dead
-          if (player.health <= 0) {
-            player.health = 0 // Ensure health doesn't go negative
+            player.hitAnimationTimer = 0.5
+            player.invulnerableTime = 0.1
+          } else {
+            player.health = 0
             player.animationState = "death"
             player.lastAnimationChange = Date.now()
             player.deaths += 1
+            player.lives -= 1
 
-            // Award kill to the player who fired the arrow
             if (arrow.ownerId && newState.players[arrow.ownerId]) {
               newState.players[arrow.ownerId].kills += 1
               newState.players[arrow.ownerId].score += 100
             }
 
-            // Call the onPlayerDeath callback if provided
-            if (onPlayerDeath) {
-              onPlayerDeath(playerId)
+            if (player.lives > 0) {
+              player.respawnTimer = 3.0
             }
           }
-
-          // @ts-ignore - Custom property
-          if (arrow.isExplosive) {
-            // Create explosion
-            createExplosion(newState, arrow)
-          }
-
-          return false // Remove the arrow
+          return false
         }
       }
-
       return true
     })
 
     // Check for game over conditions
     if (!newState.isGameOver) {
-      if (newState.gameMode === "duel") {
-        // For duel mode, check if only one player has lives left
-        const playersWithLives = Object.values(newState.players).filter((p) => p.lives > 0)
-        if (playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
-          newState.isGameOver = true
-          newState.winner = playersWithLives.length === 1 ? playersWithLives[0].id : null
-        }
+      const playersWithLives = Object.values(newState.players).filter((p) => p.lives > 0)
+      if (playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
+        newState.isGameOver = true
+        newState.winner = playersWithLives.length === 1 ? playersWithLives[0].id : null
       } else {
-        // For FFA mode, check if only one player is active or if someone reached 10 kills
-        const activePlayers = Object.values(newState.players).filter((p) => p.lives > 0)
-        const topKiller = Object.values(newState.players).reduce(
-          (top, p) => (p.kills > (top?.kills || 0) ? p : top),
-          null,
-        )
-
-        if (activePlayers.length <= 1 && Object.keys(newState.players).length > 1) {
-          newState.isGameOver = true
-          newState.winner = activePlayers.length === 1 ? activePlayers[0].id : null
-        } else if (topKiller && topKiller.kills >= 10) {
+        const topKiller = Object.values(newState.players).find((p) => p.kills >= 10)
+        if (topKiller) {
           newState.isGameOver = true
           newState.winner = topKiller.id
         }
       }
     }
 
-    // Update explosions
-    if (newState.explosions && newState.explosions.length > 0) {
-      newState.explosions = newState.explosions.filter((explosion) => {
-        explosion.time += deltaTime
-        return explosion.time < explosion.maxTime
-      })
-    }
-
     return newState
   } catch (error) {
     console.error("Error in updateGameState:", error)
-    // Return the original state if there's an error
     return state
   }
 }
