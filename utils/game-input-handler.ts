@@ -1,27 +1,25 @@
-import { debugManager } from "./debug-utils"
-import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
 import type { IJoystickUpdateEvent } from "react-joystick-component"
+import type { MutableRefObject } from "react"
 
 // --- Interfaces for Mobile Input ---
-export interface AimingState {
-  angle: number // radians
-  power: number // 0 to 1
-  active: boolean
-}
-
-export interface MovementState {
-  up: boolean
-  down: boolean
-  left: boolean
-  right: boolean
-}
-
 export interface GameInputState {
-  aiming: AimingState
-  movement: MovementState
+  movement: {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+    vectorX: number // Normalized vector (-1 to 1)
+    vectorY: number // Normalized vector (-1 to 1)
+    magnitude: number // 0 to 1
+  }
+  aiming: {
+    active: boolean
+    angle: number // In radians
+    power: number // 0 to 1
+  }
   actions: {
-    shoot: boolean // Added for joystick release shooting
+    shoot: boolean
     dash: boolean
     special: boolean
     explosiveArrow: boolean
@@ -30,19 +28,52 @@ export interface GameInputState {
 
 // --- Mobile Input Handler Class ---
 class GameInputHandler {
-  private state: GameInputState
+  private inputState: GameInputState
   private callbacks: {
     onStateChange?: (state: GameInputState) => void
   }
+  private touchIdentifiers: Record<string, number> = {}
+  private shootingTimeout: NodeJS.Timeout | null = null
+  private debugEnabled = true
 
   constructor() {
-    this.state = {
-      aiming: { angle: 0, power: 0, active: false },
-      movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+    this.inputState = {
+      movement: {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        vectorX: 0,
+        vectorY: 0,
+        magnitude: 0,
+      },
+      aiming: {
+        active: false,
+        angle: 0,
+        power: 0,
+      },
+      actions: {
+        shoot: false,
+        dash: false,
+        special: false,
+        explosiveArrow: false,
+      },
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
+    this.logDebug("INPUT", "GameInputHandler initialized for joystick controls.")
+  }
+
+  // Simple debug logger
+  private logDebug(category: string, message: string) {
+    if (this.debugEnabled) {
+      console.log(`[${category}] ${message}`)
+    }
+  }
+
+  // Reset the input state
+  reset() {
+    this.inputState = JSON.parse(JSON.stringify(this.inputState))
+    this.notifyStateChange()
   }
 
   setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
@@ -51,18 +82,34 @@ class GameInputHandler {
 
   // --- Joystick Handlers ---
   handleMovementJoystick(event: IJoystickUpdateEvent) {
-    const { type, direction } = event
-    const newState: MovementState = { up: false, down: false, left: false, right: false }
-
-    if (type === "move" && direction) {
-      if (direction === "FORWARD") newState.up = true
-      if (direction === "BACKWARD") newState.down = true
-      if (direction === "LEFT") newState.left = true
-      if (direction === "RIGHT") newState.right = true
+    const { type, x, y, distance } = event
+    const newState: GameInputState["movement"] = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      vectorX: 0,
+      vectorY: 0,
+      magnitude: 0,
     }
-    // On 'stop', newState remains all false, correctly stopping movement.
 
-    this.state.movement = newState
+    if (type === "move" && x != null && y != null && distance != null) {
+      const magnitude = Math.min(1, Math.sqrt(x * x + y * y))
+      const normalizedX = magnitude > 0 ? x / magnitude : 0
+      const normalizedY = magnitude > 0 ? y / magnitude : 0
+
+      newState.vectorX = normalizedX
+      newState.vectorY = normalizedY
+      newState.magnitude = magnitude
+
+      const threshold = 0.2
+      newState.up = normalizedY < -threshold
+      newState.down = normalizedY > threshold
+      newState.left = normalizedX < -threshold
+      newState.right = normalizedX > threshold
+    }
+
+    this.inputState.movement = newState
     this.notifyStateChange()
   }
 
@@ -70,25 +117,22 @@ class GameInputHandler {
     const { type, x, y, distance } = event
 
     // Add debugging
-    debugManager.logInfo(
-      "AIMING",
-      `Joystick event: ${type}, distance: ${distance}, active: ${this.state.aiming.active}`,
-    )
+    this.logDebug("AIMING", `Joystick event: ${type}, distance: ${distance}, active: ${this.inputState.aiming.active}`)
 
     if (type === "stop") {
       // If the joystick was active, trigger a shot on release.
-      if (this.state.aiming.active) {
-        debugManager.logInfo("AIMING", "Triggering shot on joystick release")
-        this.state.actions.shoot = true
+      if (this.inputState.aiming.active) {
+        this.logDebug("AIMING", "Triggering shot on joystick release")
+        this.inputState.actions.shoot = true
       }
-      this.state.aiming = { active: false, angle: 0, power: 0 }
+      this.inputState.aiming = { active: false, angle: 0, power: 0 }
       this.notifyStateChange()
 
       // Reset the shoot action after a longer delay to ensure it's processed
       setTimeout(() => {
-        if (this.state.actions.shoot) {
-          this.state.actions.shoot = false
-          debugManager.logInfo("AIMING", "Resetting shoot action")
+        if (this.inputState.actions.shoot) {
+          this.inputState.actions.shoot = false
+          this.logDebug("AIMING", "Resetting shoot action")
           this.notifyStateChange()
         }
       }, 100) // Increased from 50ms to 100ms
@@ -99,8 +143,8 @@ class GameInputHandler {
         const angle = Math.atan2(y, x)
         const power = Math.min(distance / 50, 1) // Assuming joystick size of 100, so radius is 50.
 
-        debugManager.logInfo("AIMING", `Setting aim: angle=${angle.toFixed(2)}, power=${power.toFixed(2)}`)
-        this.state.aiming = { active: true, angle, power }
+        this.logDebug("AIMING", `Setting aim: angle=${angle.toFixed(2)}, power=${power.toFixed(2)}`)
+        this.inputState.aiming = { active: true, angle, power }
         this.notifyStateChange()
       }
     }
@@ -108,8 +152,8 @@ class GameInputHandler {
 
   // --- Action Button Handlers (Retained for other actions) ---
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
-    if (this.state.actions[action] !== pressed) {
-      this.state.actions[action] = pressed
+    if (this.inputState.actions[action] !== pressed) {
+      this.inputState.actions[action] = pressed
       this.notifyStateChange()
     }
   }
@@ -117,19 +161,18 @@ class GameInputHandler {
   private notifyStateChange() {
     if (this.callbacks.onStateChange) {
       // Create a deep copy to avoid mutation issues in React state
-      const stateCopy = JSON.parse(JSON.stringify(this.state))
+      const stateCopy = JSON.parse(JSON.stringify(this.inputState))
       this.callbacks.onStateChange(stateCopy)
     }
   }
 
   destroy() {
-    this.state = {
-      aiming: { angle: 0, power: 0, active: false },
-      movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+    if (this.shootingTimeout) {
+      clearTimeout(this.shootingTimeout)
+      this.shootingTimeout = null
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
+    this.logDebug("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }
 
@@ -138,8 +181,8 @@ export const gameInputHandler = new GameInputHandler()
 // --- Desktop Input Handler Function (Retained for compatibility) ---
 export interface InputHandlerOptions {
   playerId: string
-  gameStateRef: React.MutableRefObject<any>
-  componentIdRef: React.MutableRefObject<string>
+  gameStateRef: MutableRefObject<any>
+  componentIdRef: MutableRefObject<string>
 }
 
 export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef }: InputHandlerOptions) {
