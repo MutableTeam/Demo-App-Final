@@ -34,6 +34,7 @@ class GameInputHandler {
   private callbacks: {
     onStateChange?: (state: GameInputState) => void
   }
+  private shootCooldown = false
 
   constructor() {
     this.state = {
@@ -70,26 +71,36 @@ class GameInputHandler {
     const { type, x, y, distance } = event
 
     if (type === "stop") {
-      // If the joystick was active, trigger a shot on release.
-      if (this.state.aiming.active) {
+      // Only trigger shot if joystick was active and we're not in cooldown
+      if (this.state.aiming.active && !this.shootCooldown && this.state.aiming.power > 0.1) {
         this.state.actions.shoot = true
-      }
-      this.state.aiming = { active: false, angle: 0, power: 0 }
-      this.notifyStateChange()
+        this.shootCooldown = true
 
-      // Reset the shoot action shortly after to prevent continuous firing.
-      setTimeout(() => {
-        if (this.state.actions.shoot) {
+        // Reset shoot action and cooldown after a brief moment
+        setTimeout(() => {
           this.state.actions.shoot = false
           this.notifyStateChange()
-        }
-      }, 50)
-    } else if (x != null && y != null && distance != null) {
-      // Joystick is being moved.
+        }, 50)
+
+        setTimeout(() => {
+          this.shootCooldown = false
+        }, 200) // 200ms cooldown to prevent spam
+      }
+
+      this.state.aiming = { active: false, angle: 0, power: 0 }
+      this.notifyStateChange()
+    } else if (type === "move" && x != null && y != null && distance != null) {
+      // Joystick is being moved - only update aiming, don't shoot
       const angle = Math.atan2(y, x)
       const power = Math.min(distance / 50, 1) // Assuming joystick size of 100, so radius is 50.
 
       this.state.aiming = { active: true, angle, power }
+      this.state.actions.shoot = false // Ensure shoot is false while aiming
+      this.notifyStateChange()
+    } else if (type === "start") {
+      // Joystick interaction started
+      this.state.aiming.active = true
+      this.state.actions.shoot = false // Ensure shoot is false when starting
       this.notifyStateChange()
     }
   }
@@ -117,6 +128,7 @@ class GameInputHandler {
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
+    this.shootCooldown = false
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }
