@@ -22,7 +22,7 @@ import transitionDebugger from "@/utils/transition-debug"
 import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
-import { useGameControls } from "@/hooks/use-game-controls"
+import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
 
 interface GameControllerProps {
   playerId: string
@@ -53,14 +53,7 @@ export default function GameController({
   const [showDebug, setShowDebug] = useState<boolean>(false)
   const [showResourceMonitor, setShowDebugResourceMonitor] = useState<boolean>(false)
   const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
-
-  // Centralized game controls hook for both desktop and mobile
-  useGameControls({
-    playerId,
-    gameStateRef,
-    platformType,
-    isEnabled: !gameState.isGameOver && gameInitializedRef.current,
-  })
+  const previousInputStateRef = useRef<GameInputState | null>(null)
 
   useEffect(() => {
     debugManager.updateConfig({ enabled: true, level: DebugLevel.DEBUG, capturePerformance: true })
@@ -190,6 +183,58 @@ export default function GameController({
     if (!audioManager.isSoundMuted())
       startBackgroundMusic().catch((err) => debugManager.logWarning("AUDIO", "Failed to start BGM", err))
 
+    let cleanupInputHandlers: (() => void) | null = null
+
+    if (platformType === "desktop") {
+      cleanupInputHandlers = setupGameInputHandlers({ playerId, gameStateRef })
+    } else {
+      const handleMobileInput = (currentInputState: GameInputState) => {
+        const player = gameStateRef.current.players[playerId]
+        if (!player || gameStateRef.current.isGameOver) return
+
+        const previousInputState = previousInputStateRef.current
+
+        // --- Handle Movement & Actions ---
+        player.controls.up = currentInputState.movement.up
+        player.controls.down = currentInputState.movement.down
+        player.controls.left = currentInputState.movement.left
+        player.controls.right = currentInputState.movement.right
+        player.controls.dash = currentInputState.actions.dash
+        player.controls.special = currentInputState.actions.special
+        player.controls.explosiveArrow = currentInputState.actions.explosiveArrow
+
+        // --- Handle Aiming & Charging ---
+        if (currentInputState.aiming.active) {
+          if (!player.isDrawingBow) {
+            // This is the "mousedown" event. It only happens once per charge.
+            player.isDrawingBow = true
+            player.drawStartTime = Date.now() / 1000
+            console.log(`[GameController] Charge started at ${player.drawStartTime}`)
+          }
+          // Continuously update aim angle
+          player.rotation = currentInputState.aiming.angle
+        }
+
+        // --- Handle Firing on Release ---
+        const wasAiming = previousInputState?.aiming.active ?? false
+        if (wasAiming && !currentInputState.aiming.active) {
+          // This is the "mouseup" event.
+          if (player.isDrawingBow) {
+            console.log("[GameController] Firing on joystick release.")
+            player.controls.shoot = true
+          }
+        } else {
+          // Ensure shoot is a single-frame pulse
+          player.controls.shoot = false
+        }
+
+        previousInputStateRef.current = JSON.parse(JSON.stringify(currentInputState))
+      }
+
+      gameInputHandler.setCallbacks({ onStateChange: handleMobileInput })
+      cleanupInputHandlers = () => gameInputHandler.destroy()
+    }
+
     const resumeAudio = () => !audioManager.isSoundMuted() && audioManager.resumeAudioContext()
     transitionDebugger.safeAddEventListener(
       document,
@@ -201,12 +246,15 @@ export default function GameController({
 
     return () => {
       if (requestAnimationFrameIdRef.current) cancelAnimationFrame(requestAnimationFrameIdRef.current)
+      if (cleanupInputHandlers) {
+        cleanupInputHandlers()
+      }
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
       stopBackgroundMusic()
       debugManager.logInfo("GAME", "Game cleanup completed")
       debugManager.trackComponentUnmount("GameController")
     }
-  }, [playerId, playerName, isHost, gameMode, onGameEnd])
+  }, [playerId, playerName, isHost, gameMode, onGameEnd, platformType])
 
   if (!gameInitializedRef.current) {
     return (
