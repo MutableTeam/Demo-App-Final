@@ -1,300 +1,258 @@
-"use client"
+import { debugManager } from "./debug-utils"
+import type React from "react"
+import transitionDebugger from "@/utils/transition-debug"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
 
-export interface GameInputState \{
-  movement: \{
-    up: boolean
-    down: boolean
-    left: boolean
-    right: boolean
-    vectorX: number
-    vectorY: number
-    magnitude: number
-\}
-  aiming: \
-{
+// --- Interfaces for Mobile Input ---
+export interface AimingState {
+  angle: number // radians
+  power: number // 0 to 1
   active: boolean
-  angle: number
-  power: number
-  \
 }
-actions:
-\
-{
-  shoot: boolean
-  dash: boolean
-  special: boolean
-  explosiveArrow: boolean
-  \
-}
-\}
 
-interface GameInputCallbacks \{
-  onStateChange?: (state: GameInputState) => void
-\}
+export interface MovementState {
+  up: boolean
+  down: boolean
+  left: boolean
+  right: boolean
+}
 
-class GameInputHandler \{\
-  private state: GameInputState = \{\
-    movement: \{\
-      up: false,\
-      down: false,\
-      left: false,\
-      right: false,\
-      vectorX: 0,\
-      vectorY: 0,\
-      magnitude: 0,\
-    \}
-,
-    aiming: \
-{
-  active: false,\
-  angle: 0,\
-  power: 0,\
-  \
+export interface GameInputState {
+  aiming: AimingState
+  movement: MovementState
+  actions: {
+    shoot: boolean // Added for joystick release shooting
+    dash: boolean
+    special: boolean
+    explosiveArrow: boolean
+  }
 }
-,
-    actions: \
-{
-  shoot: false,\
-  dash: false,\
-  special: false,\
-  explosiveArrow: false,\
-  \
-}
-,
-  \}
 
-  private callbacks: GameInputCallbacks = \
-{
-  \
-}
-\
+// --- Mobile Input Handler Class ---
+class GameInputHandler {
+  private state: GameInputState
+  private callbacks: {
+    onStateChange?: (state: GameInputState) => void
+  }
   private shootTimeout: NodeJS.Timeout | null = null
   private isChargingShot = false // Internal state to manage charge cycle
 
-  setCallbacks(callbacks: GameInputCallbacks) \
-{
-  this.callbacks = callbacks
-  \
-}
-\
-  private notifyStateChange() \
-{
-  if (this.callbacks.onStateChange)
-  \
-  // Deep copy to prevent mutation issues
-  this.callbacks.onStateChange(JSON.parse(JSON.stringify(this.state)))
-  \
-  \
-}
-\
-  handleMovementJoystick(event: any) \
-{
-  const deadzone = 0.15
-  const threshold = 0.3
+  constructor() {
+    this.state = {
+      aiming: { angle: 0, power: 0, active: false },
+      movement: { up: false, down: false, left: false, right: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+    }
+    this.callbacks = {}
+    debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
+  }
 
-  if (!event || event.distance < deadzone)
-  \
-  // Reset movement when joystick is released or in deadzone
-  if (this.state.movement.magnitude > 0)
-  \
-  \
-        this.state.movement = \
-  up: false,\
-  down: false,\
-  left: false,\
-  right: false,\
-  vectorX: 0,\
-  vectorY: 0,\
-  magnitude: 0,
-        \
-  this.notifyStateChange()
-  \
-  return
-  \
-  \
-  const \{ x, y, distance \} = event
-  const magnitude = Math.min(distance / 50, 1) // Assuming joystick size of 100 (radius 50)
-  \
-    this.state.movement = \
-  up: y > threshold,\
-  down: y < -threshold, left
-  : x < -threshold,
-      right: x > threshold,
-      vectorX: x / 50,
-      vectorY: y / 50,
-      magnitude: magnitude,
-    \
-  this.notifyStateChange()
-  \
-}
+  setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
+    this.callbacks = callbacks
+  }
 
-handleAimingJoystick(event: any)
-\
-{
-  const deadzone = 0.2
-  const distance = event ? event.distance : 0
+  // --- Joystick Handlers ---
+  handleMovementJoystick(event: IJoystickUpdateEvent) {
+    const { type, direction } = event
+    const newState: MovementState = { up: false, down: false, left: false, right: false }
 
-  if (distance >= deadzone)
-  \
-  // Joystick is pulled back
-  if (!this.isChargingShot)
-  \
-  // Start a new charge cycle
-  this.isChargingShot = true
-  this.state.aiming.active = true
-  console.log("[INPUT_HANDLER] Started charging shot.")
-  \
-  // Continuously update aiming details
-  this.state.aiming.angle = Math.atan2(event.y, event.x)
-  this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
-  \
-  else \
-  // Joystick is in the deadzone or released
-  if (this.isChargingShot)
-  \
-  // If we were charging, fire the shot
-  console.log("[INPUT_HANDLER] Joystick released. Firing shot.")
-  this.state.actions.shoot = true
+    if (type === "move" && direction) {
+      if (direction === "FORWARD") newState.up = true
+      if (direction === "BACKWARD") newState.down = true
+      if (direction === "LEFT") newState.left = true
+      if (direction === "RIGHT") newState.right = true
+    }
+    // On 'stop', newState remains all false, correctly stopping movement.
 
-  // Pulse the shoot action to be a single-frame event
-  if (this.shootTimeout) clearTimeout(this.shootTimeout)
-  this.shootTimeout = setTimeout(() => \{
-          if (this.state.actions.shoot) \{
+    this.state.movement = newState
+    this.notifyStateChange()
+  }
+
+  handleAimingJoystick(event: IJoystickUpdateEvent) {
+    const deadzone = 0.2
+    const distance = event ? event.distance : 0
+
+    if (distance >= deadzone) {
+      // Joystick is pulled back
+      if (!this.isChargingShot) {
+        // Start a new charge cycle
+        this.isChargingShot = true
+        this.state.aiming.active = true
+        console.log("[INPUT_HANDLER] Started charging shot.")
+      }
+      // Continuously update aiming details
+      this.state.aiming.angle = Math.atan2(event.y || 0, event.x || 0)
+      this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
+    } else {
+      // Joystick is in the deadzone or released
+      if (this.isChargingShot) {
+        // If we were charging, fire the shot
+        console.log("[INPUT_HANDLER] Joystick released. Firing shot.")
+        this.state.actions.shoot = true
+
+        // Pulse the shoot action to be a single-frame event
+        if (this.shootTimeout) clearTimeout(this.shootTimeout)
+        this.shootTimeout = setTimeout(() => {
+          if (this.state.actions.shoot) {
             this.state.actions.shoot = false
             this.notifyStateChange()
             console.log("[INPUT_HANDLER] Shoot action pulse reset.")
-          \}
-        \}, 50)
-  \
-  // Reset for the next charge cycle
-  this.isChargingShot = false
-  this.state.aiming.active = false
-  this.state.aiming.power = 0
-  \
+          }
+        }, 50)
+      }
+      // Reset for the next charge cycle
+      this.isChargingShot = false
+      this.state.aiming.active = false
+      this.state.aiming.power = 0
+    }
 
-  this.notifyStateChange()
-  \
-}
+    this.notifyStateChange()
+  }
 
-handleActionPress(action: keyof GameInputState["actions"], pressed: boolean)
-\
-{
-  if (this.state.actions[action] !== pressed)
-  \
-  this.state.actions[action] = pressed
-  this.notifyStateChange()
-  \
-  \
-}
+  // --- Action Button Handlers (Retained for other actions) ---
+  handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
+    if (this.state.actions[action] !== pressed) {
+      this.state.actions[action] = pressed
+      this.notifyStateChange()
+    }
+  }
 
-destroy()
-\
-{
-  if (this.shootTimeout)
-  \
-  clearTimeout(this.shootTimeout)
-  this.shootTimeout = null
-  \
-  this.callbacks = \
-  \
-  \
+  private notifyStateChange() {
+    if (this.callbacks.onStateChange) {
+      // Create a deep copy to avoid mutation issues in React state
+      const stateCopy = JSON.parse(JSON.stringify(this.state))
+      this.callbacks.onStateChange(stateCopy)
+    }
+  }
+
+  destroy() {
+    if (this.shootTimeout) {
+      clearTimeout(this.shootTimeout)
+      this.shootTimeout = null
+    }
+    this.state = {
+      aiming: { angle: 0, power: 0, active: false },
+      movement: { up: false, down: false, left: false, right: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+    }
+    this.callbacks = {}
+    debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
+  }
 }
-\}
 
 export const gameInputHandler = new GameInputHandler()
 
-// Desktop keyboard input setup function
-export function setupGameInputHandlers(\{
-  playerId,
-  gameStateRef,
-  componentIdRef,
-\}: \
-{
+// --- Desktop Input Handler Function (Retained for compatibility) ---
+export interface InputHandlerOptions {
   playerId: string
   gameStateRef: React.MutableRefObject<any>
   componentIdRef: React.MutableRefObject<string>
-  \
 }
-) \
-{
-  const handleKeyDown = (e: KeyboardEvent) => \{
-    const player = gameStateRef.current?.players?.[playerId]
-    if (!player) return
 
-    switch (e.code) \{
-      case "KeyW":
-      case "ArrowUp":
+export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef }: InputHandlerOptions) {
+  const getPlayer = () => gameStateRef.current?.players?.[playerId]
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const player = getPlayer()
+    const canvas = document.querySelector("canvas")
+    if (!player || !canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    player.rotation = Math.atan2(mouseY - player.position.y, mouseX - player.position.x)
+  }
+
+  const handleMouseDown = (e: MouseEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    if (e.button === 0) player.controls.shoot = true
+    else if (e.button === 2) player.controls.special = true
+  }
+
+  const handleMouseUp = (e: MouseEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    if (e.button === 0) player.controls.shoot = false
+    else if (e.button === 2) player.controls.special = false
+  }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    switch (e.key.toLowerCase()) {
+      case "w":
+      case "arrowup":
         player.controls.up = true
         break
-      case "KeyS":
-      case "ArrowDown":
+      case "s":
+      case "arrowdown":
         player.controls.down = true
         break
-      case "KeyA":
-      case "ArrowLeft":
+      case "a":
+      case "arrowleft":
         player.controls.left = true
         break
-      case "KeyD":
-      case "ArrowRight":
+      case "d":
+      case "arrowright":
         player.controls.right = true
         break
-      case "Space":
-        e.preventDefault()
-        player.controls.shoot = true
-        break
-      case "ShiftLeft":
+      case "shift":
         player.controls.dash = true
         break
-      case "KeyE":
-        player.controls.special = true
-        break
-      case "KeyQ":
+      case "e":
         player.controls.explosiveArrow = true
         break
-    \}
-  \}
+    }
+  }
 
-  const handleKeyUp = (e: KeyboardEvent) => \{
-    const player = gameStateRef.current?.players?.[playerId]
+  const handleKeyUp = (e: KeyboardEvent) => {
+    const player = getPlayer()
     if (!player) return
-
-    switch (e.code) \{
-      case "KeyW":
-      case "ArrowUp":
+    switch (e.key.toLowerCase()) {
+      case "w":
+      case "arrowup":
         player.controls.up = false
         break
-      case "KeyS":
-      case "ArrowDown":
+      case "s":
+      case "arrowdown":
         player.controls.down = false
         break
-      case "KeyA":
-      case "ArrowLeft":
+      case "a":
+      case "arrowleft":
         player.controls.left = false
         break
-      case "KeyD":
-      case "ArrowRight":
+      case "d":
+      case "arrowright":
         player.controls.right = false
         break
-      case "Space":
-        player.controls.shoot = false
-        break
-      case "ShiftLeft":
+      case "shift":
         player.controls.dash = false
         break
-      case "KeyE":
-        player.controls.special = false
-        break
-      case "KeyQ":
+      case "e":
         player.controls.explosiveArrow = false
         break
-    \}
-  \}
+    }
+  }
 
-  document.addEventListener("keydown", handleKeyDown)
-  document.addEventListener("keyup", handleKeyUp)
+  const handleContextMenu = (e: MouseEvent) => e.preventDefault()
 
-  return () => \{
-    document.removeEventListener("keydown", handleKeyDown)
-    document.removeEventListener("keyup", handleKeyUp)
-  \}
-\}
+  const eventMap = {
+    mousemove: handleMouseMove,
+    mousedown: handleMouseDown,
+    mouseup: handleMouseUp,
+    keydown: handleKeyDown,
+    keyup: handleKeyUp,
+    contextmenu: handleContextMenu,
+  }
+
+  Object.entries(eventMap).forEach(([event, handler]) => {
+    const target = event.includes("key") ? window : document
+    transitionDebugger.safeAddEventListener(target, event, handler, undefined, `${componentIdRef.current}-${event}`)
+  })
+
+  return () => {
+    Object.keys(eventMap).forEach((event) => {
+      transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-${event}`)
+    })
+  }
+}
