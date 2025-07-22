@@ -60,6 +60,7 @@ export interface Player extends GameObject {
     dash: boolean
     special: boolean
     explosiveArrow: boolean
+    aim: boolean // Add this new property
   }
   invulnerableTime: number // Time in seconds of invulnerability after being hit
   explosiveArrowCooldown: number
@@ -156,6 +157,7 @@ export const createPlayer = (id: string, name: string, position: Vector2D, color
       dash: false,
       special: false,
       explosiveArrow: false,
+      aim: false, // Initialize here
     },
     invulnerableTime: 0,
     explosiveArrowCooldown: 0,
@@ -564,48 +566,60 @@ export const updateGameState = (
         player.position.y += player.velocity.y * deltaTime
       }
 
-      // --- Refined Shooting Logic ---
-      // 1. Handle starting a bow draw
-      if (player.isDrawingBow && player.drawStartTime === null) {
+      // --- Unified Shooting Logic ---
+
+      // Determine player's intent based on controls
+      const isAiming = player.controls.aim // True when mobile joystick is active
+      const isShooting = player.controls.shoot // True when desktop button is held, or for one frame on mobile release
+
+      // 1. Start drawing the bow if the player intends to shoot and is not on cooldown.
+      if ((isAiming || isShooting) && !player.isDrawingBow && player.cooldown <= 0) {
+        player.isDrawingBow = true
         player.drawStartTime = Date.now() / 1000
       }
 
-      // 2. Handle firing the bow (works for mobile pulse and desktop key-up)
-      const desktopFire = !player.controls.shoot && player.drawStartTime !== null
-      const mobileFire = player.controls.shoot && player.drawStartTime !== null
+      // 2. Firing condition is the frame AFTER the shoot signal goes from true to false.
+      const fireSignal = !isShooting && player.wasShooting
 
-      if (mobileFire || (desktopFire && player.wasShooting)) {
+      if (fireSignal && player.isDrawingBow) {
         const currentTime = Date.now() / 1000
-        const drawTime = currentTime - player.drawStartTime
+        const drawTime = player.drawStartTime ? currentTime - player.drawStartTime : 0
 
         const isWeakShot = drawTime < player.minDrawTime
         const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
         const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
 
+        const fireAngle = player.rotation // This is updated by mouse (desktop) or joystick (mobile)
         const arrowVelocity = {
-          x: Math.cos(player.rotation) * arrowSpeed,
-          y: Math.sin(player.rotation) * arrowSpeed,
+          x: Math.cos(fireAngle) * arrowSpeed,
+          y: Math.sin(fireAngle) * arrowSpeed,
         }
         const arrowPosition = {
-          x: player.position.x + Math.cos(player.rotation) * (player.size + 5),
-          y: player.position.y + Math.sin(player.rotation) * (player.size + 5),
+          x: player.position.x + Math.cos(fireAngle) * (player.size + 5),
+          y: player.position.y + Math.sin(fireAngle) * (player.size + 5),
         }
 
-        const arrow = createArrow(arrowPosition, arrowVelocity, player.rotation, player.id, damage)
+        const arrow = createArrow(arrowPosition, arrowVelocity, fireAngle, player.id, damage)
+        if (isWeakShot) {
+          // @ts-ignore
+          arrow.isWeakShot = true
+        }
         newState.arrows.push(arrow)
 
         // Reset state after firing
         player.isDrawingBow = false
         player.drawStartTime = null
         player.cooldown = 0.2
-        player.controls.shoot = false // Consume the command
       }
 
-      // 3. Handle cancelling a draw
-      if (!player.isDrawingBow && player.drawStartTime !== null) {
+      // 3. Cancel the draw if the player stops aiming (mobile) or holding shoot (desktop) without firing.
+      if (!(isAiming || isShooting) && player.isDrawingBow) {
+        player.isDrawingBow = false
         player.drawStartTime = null
       }
-      player.wasShooting = player.controls.shoot
+
+      // 4. Keep track of the previous frame's shoot state to detect the release edge.
+      player.wasShooting = isShooting
 
       // Handle special attack charging
       if (player.controls.special) {

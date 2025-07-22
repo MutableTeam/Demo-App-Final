@@ -1,3 +1,5 @@
+"use client"
+
 import { debugManager } from "./debug-utils"
 import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
@@ -21,7 +23,7 @@ export interface GameInputState {
   aiming: AimingState
   movement: MovementState
   actions: {
-    shoot: boolean // Added for joystick release shooting
+    shoot: boolean // A one-frame pulse on joystick release
     dash: boolean
     special: boolean
     explosiveArrow: boolean
@@ -59,9 +61,9 @@ class GameInputHandler {
     const newState: MovementState = { up: false, down: false, left: false, right: false }
 
     if (type === "move" && x !== null && y !== null) {
-      // Note: react-joystick-component has y-axis with up as positive.
-      if (y > threshold) newState.up = true
-      if (y < -threshold) newState.down = true
+      // The joystick component inverts the Y-axis (up is negative).
+      if (y < -threshold) newState.up = true
+      if (y > threshold) newState.down = true
       if (x < -threshold) newState.left = true
       if (x > threshold) newState.right = true
     }
@@ -81,19 +83,17 @@ class GameInputHandler {
         // Start a new charge cycle
         this.isChargingShot = true
         this.state.aiming.active = true
-        console.log("[INPUT_HANDLER] Started charging shot.")
       }
       // Continuously update aiming details
-      // The angle is the direction the joystick is pulled.
-      const joystickAngle = Math.atan2(event.y, event.x)
+      // We use -event.y because the joystick's y-axis is inverted (positive is down).
+      const joystickAngle = Math.atan2(-event.y, event.x)
       // The firing angle is opposite to the pull direction (add 180 degrees / PI radians).
       this.state.aiming.angle = joystickAngle + Math.PI
       this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
     } else {
       // Joystick is in the deadzone or released
       if (this.isChargingShot) {
-        // If we were charging, fire the shot
-        console.log("[INPUT_HANDLER] Joystick released. Firing shot.")
+        // If we were charging, fire the shot by sending a pulse
         this.state.actions.shoot = true
 
         // Pulse the shoot action to be a single-frame event
@@ -102,7 +102,6 @@ class GameInputHandler {
           if (this.state.actions.shoot) {
             this.state.actions.shoot = false
             this.notifyStateChange()
-            console.log("[INPUT_HANDLER] Shoot action pulse reset.")
           }
         }, 50)
       }
@@ -148,7 +147,7 @@ class GameInputHandler {
 
 export const gameInputHandler = new GameInputHandler()
 
-// --- Desktop Input Handler Function (Retained for compatibility) ---
+// --- Desktop Input Handler Function ---
 export interface InputHandlerOptions {
   playerId: string
   gameStateRef: React.MutableRefObject<any>
