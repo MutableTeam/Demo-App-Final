@@ -6,7 +6,6 @@ import { debugManager } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import { audioManager } from "@/utils/audio-manager"
 import GameRenderer from "@/components/pvp-game/game-renderer"
-import DebugOverlay from "@/components/pvp-game/debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
 import { updateGameState } from "@/components/pvp-game/game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
@@ -397,10 +396,9 @@ export default function GameComponent({
   return (
     <div className="relative">
       <GameRenderer gameState={gameState} localPlayerId={playerId} />
-      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
       <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
       <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
-        Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor
+        Press M to toggle sound | F11 for resource monitor
       </div>
     </div>
   )
