@@ -53,16 +53,19 @@ class GameInputHandler {
 
   // --- Joystick Handlers ---
   handleMovementJoystick(event: IJoystickUpdateEvent) {
-    const { type, direction } = event
+    const { type, x, y } = event
+    const threshold = 0.3 // A deadzone for movement detection
+
     const newState: MovementState = { up: false, down: false, left: false, right: false }
 
-    if (type === "move" && direction) {
-      if (direction === "FORWARD") newState.up = true
-      if (direction === "BACKWARD") newState.down = true
-      if (direction === "LEFT") newState.left = true
-      if (direction === "RIGHT") newState.right = true
+    if (type === "move" && x !== null && y !== null) {
+      // Note: react-joystick-component has y-axis with up as positive.
+      if (y > threshold) newState.up = true
+      if (y < -threshold) newState.down = true
+      if (x < -threshold) newState.left = true
+      if (x > threshold) newState.right = true
     }
-    // On 'stop', newState remains all false, correctly stopping movement.
+    // On 'stop', type is 'stop', so newState remains all false, correctly stopping movement.
 
     this.state.movement = newState
     this.notifyStateChange()
@@ -72,7 +75,7 @@ class GameInputHandler {
     const deadzone = 0.2
     const distance = event ? event.distance : 0
 
-    if (distance >= deadzone) {
+    if (distance >= deadzone && event.x !== null && event.y !== null) {
       // Joystick is pulled back
       if (!this.isChargingShot) {
         // Start a new charge cycle
@@ -81,7 +84,10 @@ class GameInputHandler {
         console.log("[INPUT_HANDLER] Started charging shot.")
       }
       // Continuously update aiming details
-      this.state.aiming.angle = Math.atan2(event.y || 0, event.x || 0)
+      // The angle is the direction the joystick is pulled.
+      const joystickAngle = Math.atan2(event.y, event.x)
+      // The firing angle is opposite to the pull direction (add 180 degrees / PI radians).
+      this.state.aiming.angle = joystickAngle + Math.PI
       this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
     } else {
       // Joystick is in the deadzone or released
