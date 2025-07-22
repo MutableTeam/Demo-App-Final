@@ -612,8 +612,9 @@ export const updateGameState = (
         player.cooldown = 0.2
       }
 
-      // 3. Cancel the draw if the player stops aiming (mobile) or holding shoot (desktop) without firing.
-      if (!(isAiming || isShooting) && player.isDrawingBow) {
+      // 3. Cancel draw if the player stops aiming (mobile) or holding shoot (desktop) without firing.
+      // Corrected: Added !fireSignal to prevent cancelling on the same frame as firing.
+      if (!(isAiming || isShooting) && player.isDrawingBow && !fireSignal) {
         player.isDrawingBow = false
         player.drawStartTime = null
       }
