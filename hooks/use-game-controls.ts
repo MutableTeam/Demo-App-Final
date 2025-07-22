@@ -16,15 +16,17 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
   const componentIdRef = useRef(`use-game-controls-${Date.now()}`)
 
   useEffect(() => {
+    if (!isEnabled) return
+
     let cleanup: () => void = () => {}
 
-    if (isEnabled && platformType === "desktop") {
+    if (platformType === "desktop") {
       cleanup = setupGameInputHandlers({
         playerId,
         gameStateRef,
         componentIdRef,
       })
-    } else if (isEnabled && platformType !== "desktop") {
+    } else {
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current?.players?.[playerId]
         if (!player) return
