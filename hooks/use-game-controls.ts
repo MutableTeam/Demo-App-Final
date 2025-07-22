@@ -1,92 +1,79 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { gameInputHandler, type InputState } from "@/utils/game-input-handler"
-import { usePlatform } from "@/contexts/platform-context"
+import type React from "react"
+import { useEffect, useRef } from "react"
+import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
+import type { PlatformType } from "@/contexts/platform-context"
 
-export interface GameControls {
-  // Movement
-  moveUp: boolean
-  moveDown: boolean
-  moveLeft: boolean
-  moveRight: boolean
-  dash: boolean
-
-  // Aiming and shooting
-  isAiming: boolean
-  aimAngle: number
-  aimPower: number
-  shoot: boolean
-
-  // Actions
-  special: boolean
-  reload: boolean
-
-  // Utility
-  resetControls: () => void
+interface UseGameControlsProps {
+  playerId: string
+  gameStateRef: React.MutableRefObject<any> // Using `any` for reusability
+  platformType: PlatformType
+  isEnabled: boolean
 }
 
-export function useGameControls(): GameControls {
-  const { platform } = usePlatform()
-  const [inputState, setInputState] = useState<InputState>(gameInputHandler.getInputState())
+export function useGameControls({ playerId, gameStateRef, platformType, isEnabled }: UseGameControlsProps) {
+  const componentIdRef = useRef(`use-game-controls-${Date.now()}`)
 
   useEffect(() => {
-    // Subscribe to input state changes
-    const unsubscribe = gameInputHandler.subscribe(setInputState)
+    if (!isEnabled) return
 
-    // Set up keyboard listeners for desktop
-    if (platform === "desktop") {
-      const handleKeyDown = (event: KeyboardEvent) => {
-        // Prevent default for game keys to avoid browser shortcuts
-        if (
-          ["w", "a", "s", "d", " ", "shift", "r", "q"].includes(event.key.toLowerCase()) ||
-          ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
-        ) {
-          event.preventDefault()
+    let cleanup: () => void = () => {}
+
+    if (platformType === "desktop") {
+      cleanup = setupGameInputHandlers({
+        playerId,
+        gameStateRef,
+        componentIdRef,
+      })
+    } else {
+      const handleMobileInput = (inputState: GameInputState) => {
+        const player = gameStateRef.current?.players?.[playerId]
+        if (!player) return
+
+        // --- Direct State Mapping ---
+        // Movement
+        player.controls.up = inputState.movement.up
+        player.controls.down = inputState.movement.down
+        player.controls.left = inputState.movement.left
+        player.controls.right = inputState.movement.right
+
+        // Actions
+        player.controls.dash = inputState.actions.dash
+        player.controls.special = inputState.actions.special
+        player.controls.explosiveArrow = inputState.actions.explosiveArrow
+
+        // Aiming from Joystick
+        if (inputState.aiming.active) {
+          if (!player.isDrawingBow) {
+            player.isDrawingBow = true
+            player.drawStartTime = Date.now() / 1000
+          }
+          // The angle from the joystick is already in radians, pointing away from the center.
+          // We need to adjust it because the game engine expects rotation relative to the player's 'forward' direction.
+          // The joystick gives an angle where 0 is right. We'll use this directly for player rotation.
+          player.rotation = inputState.aiming.angle
+        } else {
+          // If aiming is not active, but the player was drawing, this signals a release.
+          if (player.isDrawingBow) {
+            player.isDrawingBow = false
+          }
         }
-        gameInputHandler.handleKeyDown(event.key)
+
+        // Shooting from Joystick
+        // The game engine will check for `player.controls.shoot` being true.
+        player.controls.shoot = inputState.actions.shoot
       }
 
-      const handleKeyUp = (event: KeyboardEvent) => {
-        gameInputHandler.handleKeyUp(event.key)
-      }
+      gameInputHandler.setCallbacks({
+        onStateChange: handleMobileInput,
+      })
 
-      window.addEventListener("keydown", handleKeyDown)
-      window.addEventListener("keyup", handleKeyUp)
-
-      return () => {
-        window.removeEventListener("keydown", handleKeyDown)
-        window.removeEventListener("keyup", handleKeyUp)
-        unsubscribe()
-      }
+      cleanup = () => gameInputHandler.destroy()
     }
 
-    return unsubscribe
-  }, [platform])
-
-  const resetControls = useCallback(() => {
-    gameInputHandler.reset()
-  }, [])
-
-  return {
-    // Movement
-    moveUp: inputState.movement.up,
-    moveDown: inputState.movement.down,
-    moveLeft: inputState.movement.left,
-    moveRight: inputState.movement.right,
-    dash: inputState.movement.dash,
-
-    // Aiming and shooting
-    isAiming: inputState.aiming.active,
-    aimAngle: inputState.aiming.angle,
-    aimPower: inputState.aiming.power,
-    shoot: inputState.actions.shoot,
-
-    // Actions
-    special: inputState.actions.special,
-    reload: inputState.actions.reload,
-
-    // Utility
-    resetControls,
-  }
+    return () => {
+      cleanup()
+    }
+  }, [platformType, playerId, gameStateRef, isEnabled])
 }

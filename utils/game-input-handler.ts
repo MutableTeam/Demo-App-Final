@@ -1,304 +1,239 @@
+import { debugManager } from "./debug-utils"
+import type React from "react"
+import transitionDebugger from "@/utils/transition-debug"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
+
+// --- Interfaces for Mobile Input ---
+export interface AimingState {
+  angle: number // radians
+  power: number // 0 to 1
+  active: boolean
+}
+
 export interface MovementState {
   up: boolean
   down: boolean
   left: boolean
   right: boolean
-  dash: boolean
 }
 
-export interface AimingState {
-  active: boolean
-  angle: number
-  power: number
-}
-
-export interface ActionState {
-  shoot: boolean
-  special: boolean
-  reload: boolean
-}
-
-export interface InputState {
-  movement: MovementState
+export interface GameInputState {
   aiming: AimingState
-  actions: ActionState
+  movement: MovementState
+  actions: {
+    shoot: boolean // Added for joystick release shooting
+    dash: boolean
+    special: boolean
+    explosiveArrow: boolean
+  }
 }
 
+// --- Mobile Input Handler Class ---
 class GameInputHandler {
-  private inputState: InputState = {
-    movement: {
-      up: false,
-      down: false,
-      left: false,
-      right: false,
-      dash: false,
-    },
-    aiming: {
-      active: false,
-      angle: 0,
-      power: 0,
-    },
-    actions: {
-      shoot: false,
-      special: false,
-      reload: false,
-    },
+  private state: GameInputState
+  private callbacks: {
+    onStateChange?: (state: GameInputState) => void
   }
 
-  private listeners: Array<(state: InputState) => void> = []
-
-  // Subscribe to input state changes
-  subscribe(callback: (state: InputState) => void) {
-    this.listeners.push(callback)
-    return () => {
-      this.listeners = this.listeners.filter((listener) => listener !== callback)
+  constructor() {
+    this.state = {
+      aiming: { angle: 0, power: 0, active: false },
+      movement: { up: false, down: false, left: false, right: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
+    this.callbacks = {}
+    debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
   }
 
-  // Notify all listeners of state changes
-  private notifyListeners() {
-    this.listeners.forEach((listener) => listener({ ...this.inputState }))
+  setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
+    this.callbacks = callbacks
   }
 
-  // Get current input state
-  getInputState(): InputState {
-    return { ...this.inputState }
+  // --- Joystick Handlers ---
+  handleMovementJoystick(event: IJoystickUpdateEvent) {
+    const { type, direction } = event
+    const newState: MovementState = { up: false, down: false, left: false, right: false }
+
+    if (type === "move" && direction) {
+      if (direction === "FORWARD") newState.up = true
+      if (direction === "BACKWARD") newState.down = true
+      if (direction === "LEFT") newState.left = true
+      if (direction === "RIGHT") newState.right = true
+    }
+    // On 'stop', newState remains all false, correctly stopping movement.
+
+    this.state.movement = newState
+    this.notifyStateChange()
   }
 
-  // Movement joystick handlers
-  handleMovementJoystick(data: { x: number; y: number; distance: number }) {
-    const threshold = 0.3 // Minimum distance to register movement
-    const normalizedDistance = Math.min(data.distance / 50, 1) // Normalize to 0-1
+  handleAimingJoystick(event: IJoystickUpdateEvent) {
+    const { type, x, y, distance } = event
 
-    if (normalizedDistance < threshold) {
-      // Joystick is in dead zone
-      this.inputState.movement.up = false
-      this.inputState.movement.down = false
-      this.inputState.movement.left = false
-      this.inputState.movement.right = false
-    } else {
-      // Convert joystick position to directional booleans
-      const angle = Math.atan2(-data.y, data.x) // Negative y because screen coordinates are inverted
-      const angleDegrees = ((angle * 180) / Math.PI + 360) % 360
+    if (type === "stop") {
+      // If the joystick was active, trigger a shot on release.
+      if (this.state.aiming.active) {
+        this.state.actions.shoot = true
+      }
+      this.state.aiming = { active: false, angle: 0, power: 0 }
+      this.notifyStateChange()
 
-      // Reset all directions
-      this.inputState.movement.up = false
-      this.inputState.movement.down = false
-      this.inputState.movement.left = false
-      this.inputState.movement.right = false
-
-      // Set directions based on angle (with 45-degree zones)
-      if (angleDegrees >= 315 || angleDegrees < 45) {
-        this.inputState.movement.right = true
-      }
-      if (angleDegrees >= 45 && angleDegrees < 135) {
-        this.inputState.movement.up = true
-      }
-      if (angleDegrees >= 135 && angleDegrees < 225) {
-        this.inputState.movement.left = true
-      }
-      if (angleDegrees >= 225 && angleDegrees < 315) {
-        this.inputState.movement.down = true
-      }
-
-      // Handle diagonal movement
-      if ((angleDegrees >= 315 || angleDegrees < 45) && (angleDegrees >= 315 || angleDegrees < 90)) {
-        if (angleDegrees > 315 || angleDegrees < 45) {
-          this.inputState.movement.right = true
-          if (angleDegrees > 315) this.inputState.movement.down = true
-          if (angleDegrees < 45) this.inputState.movement.up = true
+      // Reset the shoot action shortly after to prevent continuous firing.
+      setTimeout(() => {
+        if (this.state.actions.shoot) {
+          this.state.actions.shoot = false
+          this.notifyStateChange()
         }
-      }
-    }
-
-    this.notifyListeners()
-  }
-
-  handleMovementJoystickStop() {
-    this.inputState.movement.up = false
-    this.inputState.movement.down = false
-    this.inputState.movement.left = false
-    this.inputState.movement.right = false
-    this.notifyListeners()
-  }
-
-  // Aiming joystick handlers
-  handleAimingJoystick(data: { x: number; y: number; distance: number }) {
-    const normalizedDistance = Math.min(data.distance / 50, 1) // Normalize to 0-1
-    const angle = Math.atan2(-data.y, data.x) // Negative y because screen coordinates are inverted
-
-    this.inputState.aiming.active = true
-    this.inputState.aiming.angle = angle
-    this.inputState.aiming.power = normalizedDistance
-
-    this.notifyListeners()
-  }
-
-  handleAimingJoystickStart() {
-    this.inputState.aiming.active = true
-    this.notifyListeners()
-  }
-
-  handleAimingJoystickStop() {
-    // When aiming joystick is released, trigger a shot
-    if (this.inputState.aiming.active && this.inputState.aiming.power > 0.1) {
-      this.inputState.actions.shoot = true
-      // Reset shoot action after a brief moment
-      setTimeout(() => {
-        this.inputState.actions.shoot = false
-        this.notifyListeners()
       }, 50)
+    } else if (x != null && y != null && distance != null) {
+      // Joystick is being moved.
+      const angle = Math.atan2(y, x)
+      const power = Math.min(distance / 50, 1) // Assuming joystick size of 100, so radius is 50.
+
+      this.state.aiming = { active: true, angle, power }
+      this.notifyStateChange()
     }
-
-    this.inputState.aiming.active = false
-    this.inputState.aiming.power = 0
-    this.notifyListeners()
   }
 
-  // Action button handlers
-  handleActionPress(action: keyof ActionState) {
-    this.inputState.actions[action] = true
-    this.notifyListeners()
-  }
-
-  handleActionRelease(action: keyof ActionState) {
-    this.inputState.actions[action] = false
-    this.notifyListeners()
-  }
-
-  // Movement button handlers (for fallback/accessibility)
-  handleMovementPress(direction: keyof Omit<MovementState, "dash">) {
-    this.inputState.movement[direction] = true
-    this.notifyListeners()
-  }
-
-  handleMovementRelease(direction: keyof Omit<MovementState, "dash">) {
-    this.inputState.movement[direction] = false
-    this.notifyListeners()
-  }
-
-  // Keyboard handlers for desktop
-  handleKeyDown(key: string) {
-    switch (key.toLowerCase()) {
-      case "w":
-      case "arrowup":
-        this.inputState.movement.up = true
-        break
-      case "s":
-      case "arrowdown":
-        this.inputState.movement.down = true
-        break
-      case "a":
-      case "arrowleft":
-        this.inputState.movement.left = true
-        break
-      case "d":
-      case "arrowright":
-        this.inputState.movement.right = true
-        break
-      case " ":
-        this.inputState.actions.shoot = true
-        break
-      case "shift":
-        this.inputState.movement.dash = true
-        break
-      case "r":
-        this.inputState.actions.reload = true
-        break
-      case "q":
-        this.inputState.actions.special = true
-        break
+  // --- Action Button Handlers (Retained for other actions) ---
+  handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
+    if (this.state.actions[action] !== pressed) {
+      this.state.actions[action] = pressed
+      this.notifyStateChange()
     }
-    this.notifyListeners()
   }
 
-  handleKeyUp(key: string) {
-    switch (key.toLowerCase()) {
-      case "w":
-      case "arrowup":
-        this.inputState.movement.up = false
-        break
-      case "s":
-      case "arrowdown":
-        this.inputState.movement.down = false
-        break
-      case "a":
-      case "arrowleft":
-        this.inputState.movement.left = false
-        break
-      case "d":
-      case "arrowright":
-        this.inputState.movement.right = false
-        break
-      case " ":
-        this.inputState.actions.shoot = false
-        break
-      case "shift":
-        this.inputState.movement.dash = false
-        break
-      case "r":
-        this.inputState.actions.reload = false
-        break
-      case "q":
-        this.inputState.actions.special = false
-        break
+  private notifyStateChange() {
+    if (this.callbacks.onStateChange) {
+      // Create a deep copy to avoid mutation issues in React state
+      const stateCopy = JSON.parse(JSON.stringify(this.state))
+      this.callbacks.onStateChange(stateCopy)
     }
-    this.notifyListeners()
   }
 
-  // Mouse handlers for desktop aiming
-  handleMouseMove(x: number, y: number, canvasRect: DOMRect) {
-    const centerX = canvasRect.width / 2
-    const centerY = canvasRect.height / 2
-    const deltaX = x - centerX
-    const deltaY = y - centerY
-    const angle = Math.atan2(deltaY, deltaX)
-
-    this.inputState.aiming.angle = angle
-    this.notifyListeners()
-  }
-
-  handleMouseDown() {
-    this.inputState.aiming.active = true
-    this.notifyListeners()
-  }
-
-  handleMouseUp() {
-    if (this.inputState.aiming.active) {
-      this.inputState.actions.shoot = true
-      setTimeout(() => {
-        this.inputState.actions.shoot = false
-        this.notifyListeners()
-      }, 50)
+  destroy() {
+    this.state = {
+      aiming: { angle: 0, power: 0, active: false },
+      movement: { up: false, down: false, left: false, right: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
-    this.inputState.aiming.active = false
-    this.notifyListeners()
-  }
-
-  // Reset all input states
-  reset() {
-    this.inputState = {
-      movement: {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        dash: false,
-      },
-      aiming: {
-        active: false,
-        angle: 0,
-        power: 0,
-      },
-      actions: {
-        shoot: false,
-        special: false,
-        reload: false,
-      },
-    }
-    this.notifyListeners()
+    this.callbacks = {}
+    debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }
 
-// Export singleton instance
 export const gameInputHandler = new GameInputHandler()
+
+// --- Desktop Input Handler Function (Retained for compatibility) ---
+export interface InputHandlerOptions {
+  playerId: string
+  gameStateRef: React.MutableRefObject<any>
+  componentIdRef: React.MutableRefObject<string>
+}
+
+export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef }: InputHandlerOptions) {
+  const getPlayer = () => gameStateRef.current?.players?.[playerId]
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const player = getPlayer()
+    const canvas = document.querySelector("canvas")
+    if (!player || !canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    player.rotation = Math.atan2(mouseY - player.position.y, mouseX - player.position.x)
+  }
+
+  const handleMouseDown = (e: MouseEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    if (e.button === 0) player.controls.shoot = true
+    else if (e.button === 2) player.controls.special = true
+  }
+
+  const handleMouseUp = (e: MouseEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    if (e.button === 0) player.controls.shoot = false
+    else if (e.button === 2) player.controls.special = false
+  }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    switch (e.key.toLowerCase()) {
+      case "w":
+      case "arrowup":
+        player.controls.up = true
+        break
+      case "s":
+      case "arrowdown":
+        player.controls.down = true
+        break
+      case "a":
+      case "arrowleft":
+        player.controls.left = true
+        break
+      case "d":
+      case "arrowright":
+        player.controls.right = true
+        break
+      case "shift":
+        player.controls.dash = true
+        break
+      case "e":
+        player.controls.explosiveArrow = true
+        break
+    }
+  }
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+    const player = getPlayer()
+    if (!player) return
+    switch (e.key.toLowerCase()) {
+      case "w":
+      case "arrowup":
+        player.controls.up = false
+        break
+      case "s":
+      case "arrowdown":
+        player.controls.down = false
+        break
+      case "a":
+      case "arrowleft":
+        player.controls.left = false
+        break
+      case "d":
+      case "arrowright":
+        player.controls.right = false
+        break
+      case "shift":
+        player.controls.dash = false
+        break
+      case "e":
+        player.controls.explosiveArrow = false
+        break
+    }
+  }
+
+  const handleContextMenu = (e: MouseEvent) => e.preventDefault()
+
+  const eventMap = {
+    mousemove: handleMouseMove,
+    mousedown: handleMouseDown,
+    mouseup: handleMouseUp,
+    keydown: handleKeyDown,
+    keyup: handleKeyUp,
+    contextmenu: handleContextMenu,
+  }
+
+  Object.entries(eventMap).forEach(([event, handler]) => {
+    const target = event.includes("key") ? window : document
+    transitionDebugger.safeAddEventListener(target, event, handler, undefined, `${componentIdRef.current}-${event}`)
+  })
+
+  return () => {
+    Object.keys(eventMap).forEach((event) => {
+      transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-${event}`)
+    })
+  }
+}

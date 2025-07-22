@@ -1,357 +1,407 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useBaseGameController } from "@/utils/base-game-controller"
+import { debugManager } from "@/utils/debug-utils"
+import transitionDebugger from "@/utils/transition-debug"
+import { audioManager } from "@/utils/audio-manager"
+import GameRenderer from "@/components/pvp-game/game-renderer"
+import DebugOverlay from "@/components/pvp-game/debug-overlay"
+import ResourceMonitor from "@/components/resource-monitor"
+import { updateGameState } from "@/components/pvp-game/game-engine"
+import type { PlatformType } from "@/contexts/platform-context"
 import { useGameControls } from "@/hooks/use-game-controls"
-import { usePlatform } from "@/contexts/platform-context"
-import MobileGameContainer from "@/components/mobile-game-container"
 
-interface TopDownShooterProps {
-  onGameEnd?: (result: any) => void
-  className?: string
-}
-
-interface Player {
-  x: number
-  y: number
-  angle: number
-  health: number
-  maxHealth: number
-  speed: number
-}
-
-interface Enemy {
-  id: string
-  x: number
-  y: number
-  health: number
-  speed: number
-  lastAttack: number
-}
-
-interface Bullet {
-  id: string
-  x: number
-  y: number
-  vx: number
-  vy: number
-  damage: number
-}
-
-interface GameState {
-  player: Player
-  enemies: Enemy[]
-  bullets: Bullet[]
-  score: number
-  gameStatus: "playing" | "paused" | "ended"
-  wave: number
-}
-
-export default function TopDownShooterComponent({ onGameEnd, className = "" }: TopDownShooterProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationFrameRef = useRef<number>()
-  const lastEnemySpawn = useRef<number>(0)
-  const { platform } = usePlatform()
-
-  // Use the unified game controls
-  const controls = useGameControls()
-
-  const [gameState, setGameState] = useState<GameState>({
-    player: {
-      x: 400,
-      y: 300,
-      angle: 0,
-      health: 100,
-      maxHealth: 100,
-      speed: 4,
-    },
-    enemies: [],
-    bullets: [],
-    score: 0,
-    gameStatus: "playing",
-    wave: 1,
+export default function GameComponent({
+  playerId,
+  playerName,
+  isHost,
+  gameMode,
+  initialGameState,
+  onGameEnd,
+  platformType,
+}: {
+  playerId: string
+  playerName: string
+  isHost: boolean
+  gameMode: string
+  initialGameState: any
+  onGameEnd: (winner: string | null) => void
+  platformType: PlatformType
+}) {
+  // Use the base game controller
+  const {
+    gameState,
+    setGameState,
+    gameStateRef,
+    lastUpdateTimeRef,
+    requestAnimationFrameIdRef,
+    audioInitializedRef,
+    gameInitializedRef,
+    showDebug,
+    setShowDebug,
+    showResourceMonitor,
+    setShowResourceMonitor,
+    componentIdRef,
+  } = useBaseGameController({
+    playerId,
+    playerName,
+    isHost,
+    gameMode,
+    initialGameState,
+    onGameEnd,
   })
 
-  // Spawn enemies
-  const spawnEnemy = useCallback(() => {
-    const now = Date.now()
-    if (now - lastEnemySpawn.current < 2000) return // Spawn every 2 seconds
+  const bowSoundPlayedRef = useRef(false)
+  const fullDrawSoundPlayedRef = useRef(false)
+  const specialSoundPlayedRef = useRef(false)
+  const minDrawSoundPlayedRef = useRef(false)
+  const [showTutorial, setShowTutorial] = useState(true)
 
-    const side = Math.floor(Math.random() * 4)
-    let x, y
-
-    switch (side) {
-      case 0: // Top
-        x = Math.random() * 800
-        y = -20
-        break
-      case 1: // Right
-        x = 820
-        y = Math.random() * 600
-        break
-      case 2: // Bottom
-        x = Math.random() * 800
-        y = 620
-        break
-      default: // Left
-        x = -20
-        y = Math.random() * 600
-        break
-    }
-
-    const enemy: Enemy = {
-      id: `enemy_${now}`,
-      x,
-      y,
-      health: 30,
-      speed: 1 + Math.random(),
-      lastAttack: 0,
-    }
-
-    setGameState((prev) => ({
-      ...prev,
-      enemies: [...prev.enemies, enemy],
-    }))
-
-    lastEnemySpawn.current = now
-  }, [])
-
-  // Game loop
-  const gameLoop = useCallback(() => {
-    if (gameState.gameStatus !== "playing") return
-
-    setGameState((prevState) => {
-      const newState = { ...prevState }
-      const { player } = newState
-
-      // Handle movement
-      if (controls.moveUp) player.y -= player.speed
-      if (controls.moveDown) player.y += player.speed
-      if (controls.moveLeft) player.x -= player.speed
-      if (controls.moveRight) player.x += player.speed
-
-      // Handle dash
-      if (controls.dash) {
-        const dashMultiplier = 2
-        if (controls.moveUp) player.y -= player.speed * dashMultiplier
-        if (controls.moveDown) player.y += player.speed * dashMultiplier
-        if (controls.moveLeft) player.x -= player.speed * dashMultiplier
-        if (controls.moveRight) player.x += player.speed * dashMultiplier
-      }
-
-      // Handle aiming
-      if (controls.isAiming) {
-        player.angle = controls.aimAngle
-      }
-
-      // Handle shooting
-      if (controls.shoot) {
-        const bullet: Bullet = {
-          id: `bullet_${Date.now()}_${Math.random()}`,
-          x: player.x,
-          y: player.y,
-          vx: Math.cos(player.angle) * 8,
-          vy: Math.sin(player.angle) * 8,
-          damage: 25,
-        }
-        newState.bullets.push(bullet)
-      }
-
-      // Update bullets
-      newState.bullets = newState.bullets.filter((bullet) => {
-        bullet.x += bullet.vx
-        bullet.y += bullet.vy
-
-        // Remove bullets that are off-screen
-        return bullet.x > -50 && bullet.x < 850 && bullet.y > -50 && bullet.y < 650
-      })
-
-      // Update enemies
-      newState.enemies = newState.enemies.filter((enemy) => {
-        // Move towards player
-        const dx = player.x - enemy.x
-        const dy = player.y - enemy.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-
-        if (distance > 0) {
-          enemy.x += (dx / distance) * enemy.speed
-          enemy.y += (dy / distance) * enemy.speed
-        }
-
-        // Check collision with bullets
-        for (let i = newState.bullets.length - 1; i >= 0; i--) {
-          const bullet = newState.bullets[i]
-          const bulletDistance = Math.sqrt((bullet.x - enemy.x) ** 2 + (bullet.y - enemy.y) ** 2)
-
-          if (bulletDistance < 20) {
-            enemy.health -= bullet.damage
-            newState.bullets.splice(i, 1)
-
-            if (enemy.health <= 0) {
-              newState.score += 10
-              return false // Remove enemy
-            }
-          }
-        }
-
-        // Check collision with player
-        const playerDistance = Math.sqrt((player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2)
-
-        if (playerDistance < 25) {
-          const now = Date.now()
-          if (now - enemy.lastAttack > 1000) {
-            player.health -= 10
-            enemy.lastAttack = now
-          }
-        }
-
-        return enemy.health > 0
-      })
-
-      // Keep player in bounds
-      player.x = Math.max(20, Math.min(780, player.x))
-      player.y = Math.max(20, Math.min(580, player.y))
-
-      // Check game over
-      if (player.health <= 0) {
-        newState.gameStatus = "ended"
-        if (onGameEnd) {
-          onGameEnd({ score: newState.score, wave: newState.wave })
-        }
-      }
-
-      return newState
-    })
-
-    // Spawn enemies
-    spawnEnemy()
-
-    animationFrameRef.current = requestAnimationFrame(gameLoop)
-  }, [controls, gameState.gameStatus, spawnEnemy, onGameEnd])
-
-  // Render game
-  const render = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.fillStyle = "#0a0a0a"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Draw player
-    const { player } = gameState
-    ctx.save()
-    ctx.translate(player.x, player.y)
-    ctx.rotate(player.angle)
-
-    // Player body
-    ctx.fillStyle = "#00ff00"
-    ctx.fillRect(-12, -8, 24, 16)
-
-    // Player weapon
-    ctx.fillStyle = "#666666"
-    ctx.fillRect(12, -2, 15, 4)
-
-    ctx.restore()
-
-    // Draw enemies
-    gameState.enemies.forEach((enemy) => {
-      ctx.fillStyle = "#ff0000"
-      ctx.fillRect(enemy.x - 10, enemy.y - 10, 20, 20)
-
-      // Enemy health bar
-      ctx.fillStyle = "#ff0000"
-      ctx.fillRect(enemy.x - 12, enemy.y - 18, 24, 4)
-      ctx.fillStyle = "#00ff00"
-      ctx.fillRect(enemy.x - 12, enemy.y - 18, (enemy.health / 30) * 24, 4)
-    })
-
-    // Draw bullets
-    gameState.bullets.forEach((bullet) => {
-      ctx.fillStyle = "#ffff00"
-      ctx.fillRect(bullet.x - 2, bullet.y - 2, 4, 4)
-    })
-
-    // Draw UI
-    ctx.fillStyle = "#ffffff"
-    ctx.font = "16px monospace"
-    ctx.fillText(`Health: ${player.health}`, 10, 30)
-    ctx.fillText(`Score: ${gameState.score}`, 10, 50)
-    ctx.fillText(`Wave: ${gameState.wave}`, 10, 70)
-    ctx.fillText(`Enemies: ${gameState.enemies.length}`, 10, 90)
-
-    // Draw aiming indicator
-    if (controls.isAiming) {
-      ctx.strokeStyle = "#ffff00"
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(player.x, player.y)
-      ctx.lineTo(player.x + Math.cos(player.angle) * 50, player.y + Math.sin(player.angle) * 50)
-      ctx.stroke()
-    }
-  }, [gameState, controls])
+  // Use the new unified game controls hook
+  useGameControls({
+    playerId,
+    gameStateRef,
+    platformType,
+    isEnabled: !gameState?.isGameOver,
+  })
 
   // Initialize game
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    // Prevent multiple initializations
+    if (gameInitializedRef.current) return
 
-    // Set canvas size
-    canvas.width = 800
-    canvas.height = 600
+    // Enable global error tracking
+    debugManager.setupGlobalErrorTracking()
+
+    // Track component mount
+    debugManager.trackComponentMount("GameComponent", {
+      playerId,
+      playerName,
+      isHost,
+      gameMode,
+      platformType,
+    })
+
+    transitionDebugger.trackTransition("initialized", "mounting", "GameComponent")
+
+    // Make game state available globally for debugging
+    if (typeof window !== "undefined") {
+      ;(window as any).__gameStateRef = gameStateRef
+    }
+
+    gameInitializedRef.current = true
+
+    debugManager.logInfo("GAME", `Initializing game with mode: ${gameMode} on platform: ${platformType}`)
+
+    // Initialize audio system
+    try {
+      audioManager.init()
+      audioInitializedRef.current = true
+      debugManager.logInfo("AUDIO", "Audio system initialized")
+    } catch (err) {
+      debugManager.logError("AUDIO", "Failed to initialize audio", err)
+    }
+
+    // Set initial game state
+    setGameState(initialGameState)
+    gameStateRef.current = initialGameState
+
+    // Capture initial state
+    debugManager.captureState(initialGameState, "Initial State")
+
+    transitionDebugger.trackTransition("mounting", "mounted", "GameComponent")
+
+    // Set up crash detection timer
+    const crashDetectionTimer = transitionDebugger.safeSetInterval(
+      () => {
+        const gameTime = gameStateRef.current?.gameTime || 0
+        if (gameTime > 0 && gameTime < 5) {
+          debugManager.logInfo("CRASH_DETECTION", "Game is in early stage, monitoring for crashes")
+          debugManager.captureState(gameStateRef.current, "Early Game State")
+        }
+      },
+      1000,
+      `${componentIdRef.current}-crash-detection`,
+    )
+
+    // Hide tutorial after 10 seconds
+    const tutorialTimer = setTimeout(() => {
+      setShowTutorial(false)
+    }, 10000)
 
     // Start game loop
-    gameLoop()
+    const gameLoop = (timestamp) => {
+      try {
+        debugManager.startFrame()
 
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+        const now = Date.now()
+        const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1) // Cap delta time
+        lastUpdateTimeRef.current = now
+
+        if (gameStateRef.current) {
+          const entityCounts = {
+            players: Object.keys(gameStateRef.current.players).length,
+            arrows: gameStateRef.current.arrows?.length || 0,
+            walls: gameStateRef.current.walls?.length || 0,
+            pickups: gameStateRef.current.pickups?.length || 0,
+          }
+          debugManager.trackEntities(entityCounts)
+
+          if (gameStateRef.current.arrows && gameStateRef.current.arrows.length > 100) {
+            debugManager.logWarning("GAME_LOOP", "Possible memory leak: Too many arrows", {
+              arrowCount: gameStateRef.current.arrows.length,
+            })
+            if (gameStateRef.current.arrows.length > 200) {
+              gameStateRef.current.arrows = gameStateRef.current.arrows.slice(-100)
+              debugManager.logInfo("GAME_LOOP", "Performed safety cleanup of arrows")
+            }
+          }
+
+          let newState = gameStateRef.current
+
+          const updateWithTimeout = () => {
+            return new Promise((resolve, reject) => {
+              const timeoutId = setTimeout(() => {
+                reject(new Error("Game update timed out - possible infinite loop"))
+              }, 500)
+
+              try {
+                const result = updateGameState(gameStateRef.current, deltaTime, handlePlayerDeath)
+                clearTimeout(timeoutId)
+                resolve(result)
+              } catch (error) {
+                clearTimeout(timeoutId)
+                reject(error)
+              }
+            })
+          }
+
+          updateWithTimeout()
+            .then((result) => {
+              newState = result
+              continueGameLoop(newState)
+            })
+            .catch((error) => {
+              debugManager.logError("GAME_LOOP", "Error in game update", error)
+              debugManager.captureState(gameStateRef.current, "Update Error State")
+              continueGameLoop(gameStateRef.current)
+            })
+        }
+
+        function continueGameLoop(state) {
+          const localPlayer = state.players[playerId]
+          if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
+            try {
+              if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
+                audioManager.playSound("bow-draw")
+                bowSoundPlayedRef.current = true
+              }
+
+              if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
+                const currentTime = Date.now() / 1000
+                const drawTime = currentTime - localPlayer.drawStartTime
+                if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
+                  audioManager.playSound("bow-full-draw")
+                  fullDrawSoundPlayedRef.current = true
+                }
+                const minDrawTime = localPlayer.maxDrawTime * 0.3
+                if (drawTime >= minDrawTime && !minDrawSoundPlayedRef.current) {
+                  audioManager.playSound("bow-min-draw")
+                  minDrawSoundPlayedRef.current = true
+                }
+              }
+
+              if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
+                const prevPlayer = gameStateRef.current.players[playerId]
+                if (prevPlayer.drawStartTime) {
+                  const currentTime = Date.now() / 1000
+                  const drawTime = currentTime - prevPlayer.drawStartTime
+                  const minDrawTime = prevPlayer.maxDrawTime * 0.3
+                  if (drawTime < minDrawTime) {
+                    audioManager.playSound("bow-weak-release")
+                  } else {
+                    audioManager.playSound("bow-release")
+                  }
+                } else {
+                  audioManager.playSound("bow-release")
+                }
+                bowSoundPlayedRef.current = false
+                fullDrawSoundPlayedRef.current = false
+                minDrawSoundPlayedRef.current = false
+              }
+
+              if (localPlayer.isChargingSpecial && !specialSoundPlayedRef.current) {
+                specialSoundPlayedRef.current = true
+              }
+              if (!localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
+                audioManager.playSound("special-attack")
+                specialSoundPlayedRef.current = false
+              }
+              if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
+                audioManager.playSound("dash")
+              }
+              if (
+                localPlayer.animationState === "hit" &&
+                gameStateRef.current.players[playerId]?.animationState !== "hit"
+              ) {
+                audioManager.playSound("hit")
+              }
+              if (
+                localPlayer.animationState === "death" &&
+                gameStateRef.current.players[playerId]?.animationState !== "death"
+              ) {
+                audioManager.playSound("death")
+              }
+            } catch (error) {
+              debugManager.logError("AUDIO", "Error playing game sounds", error)
+            }
+          }
+
+          gameStateRef.current = state
+          setGameState(state)
+
+          if (state.isGameOver) {
+            if (!audioManager.isSoundMuted()) {
+              if (state.winner === playerId) {
+                audioManager.playSound("victory")
+              } else {
+                audioManager.playSound("game-over")
+              }
+            }
+            audioManager.stopBackgroundMusic()
+            transitionDebugger.trackTransition("playing", "game-over", "GameComponent")
+            if (onGameEnd) {
+              onGameEnd(state.winner)
+            }
+            debugManager.logInfo("GAME", "Game ended", {
+              winner: state.winner,
+              gameTime: state.gameTime,
+              playerCount: Object.keys(state.players).length,
+            })
+          } else {
+            requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+              gameLoop,
+              `${componentIdRef.current}-game-loop`,
+            )
+          }
+          debugManager.endFrame()
+        }
+      } catch (error) {
+        debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
+        debugManager.captureState(gameStateRef.current, "Critical Error State")
+        setTimeout(() => {
+          requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+            gameLoop,
+            `${componentIdRef.current}-game-loop`,
+          )
+        }, 1000)
       }
     }
-  }, [gameLoop])
 
-  // Render loop
-  useEffect(() => {
-    const renderLoop = () => {
-      render()
-      requestAnimationFrame(renderLoop)
+    const handlePlayerDeath = (playerId) => {
+      if (!gameStateRef.current) return
+      const player = gameStateRef.current.players[playerId]
+      if (!player) return
+      player.lives -= 1
+      if (player.lives <= 0) {
+        player.health = 0
+        player.animationState = "death"
+        if (gameStateRef.current.gameMode === "duel") {
+          const winner =
+            Object.values(gameStateRef.current.players).find((p) => p.id !== playerId && p.lives > 0)?.id || null
+          setGameState((prev) => ({ ...prev, isGameOver: true, winner }))
+          if (onGameEnd) onGameEnd(winner)
+          return
+        }
+        player.deaths += 1
+        player.respawnTimer = 3
+        if (player.lastDamageFrom && player.lastDamageFrom !== playerId) {
+          const killer = gameStateRef.current.players[player.lastDamageFrom]
+          if (killer) {
+            killer.kills += 1
+            killer.score += 10
+          }
+        }
+      }
+      if (player.lives > 0) {
+        player.health = 100
+        player.velocity = { x: 0, y: 0 }
+        player.isDrawingBow = false
+        player.drawStartTime = null
+        player.isChargingSpecial = false
+        player.specialChargeStartTime = null
+        player.specialAttackCooldown = 0
+        player.hitAnimationTimer = 0
+      }
+      const topPlayer = Object.values(gameStateRef.current.players).reduce(
+        (top, p) => (p.kills > top.kills ? p : top),
+        { kills: -1 },
+      )
+      if (topPlayer.kills >= 10) {
+        setGameState((prev) => ({ ...prev, isGameOver: true, winner: topPlayer.id }))
+        if (onGameEnd) onGameEnd(topPlayer.id)
+      }
     }
-    renderLoop()
-  }, [render])
 
-  const gameContent = (
-    <div className={`relative w-full h-full ${className}`}>
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full object-contain bg-gray-900"
-        style={{ imageRendering: "pixelated" }}
-      />
+    requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+      gameLoop,
+      `${componentIdRef.current}-game-loop`,
+    )
 
-      {/* Game UI Overlay */}
-      <div className="absolute top-4 left-4 text-white font-mono text-sm">
-        <div>Top-Down Shooter</div>
-        <div>Platform: {platform}</div>
-        <div>Status: {gameState.gameStatus}</div>
-      </div>
+    if (!audioManager.isSoundMuted()) {
+      try {
+        audioManager.startBackgroundMusic()
+      } catch (err) {
+        debugManager.logWarning("AUDIO", "Error starting background music", err)
+      }
+    }
 
-      {gameState.gameStatus === "ended" && (
-        <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-          <div className="text-white text-center">
-            <h2 className="text-2xl font-bold mb-4">Game Over</h2>
-            <p className="text-lg mb-2">Final Score: {gameState.score}</p>
-            <p className="text-lg mb-4">Wave Reached: {gameState.wave}</p>
-          </div>
+    return () => {
+      transitionDebugger.trackTransition("any", "unmounting", "GameComponent")
+      if (requestAnimationFrameIdRef.current !== null) {
+        transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
+        requestAnimationFrameIdRef.current = null
+        transitionDebugger.trackCleanup("GameComponent", "Animation Frame", true)
+      }
+      transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
+      clearTimeout(tutorialTimer)
+      try {
+        audioManager.stopBackgroundMusic()
+        transitionDebugger.trackCleanup("GameComponent", "Background Music", true)
+      } catch (err) {
+        debugManager.logWarning("AUDIO", "Error stopping background music", err)
+        transitionDebugger.trackCleanup("GameComponent", "Background Music", false, err)
+      }
+      debugManager.logInfo("GAME", "Game cleanup completed")
+      transitionDebugger.trackTransition("unmounting", "unmounted", "GameComponent")
+      debugManager.trackComponentUnmount("GameComponent")
+    }
+  }, [playerId, playerName, isHost, gameMode, initialGameState, onGameEnd, setGameState, platformType])
+
+  useEffect(() => {
+    debugManager.trackComponentRender("GameComponent")
+  })
+
+  if (!gameState) {
+    return (
+      <div className="flex items-center justify-center h-[600px] bg-gray-800 rounded-lg">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl font-bold">Loading Game...</p>
         </div>
-      )}
-    </div>
-  )
-
-  // Wrap in mobile container if on mobile platform
-  if (platform === "mobile") {
-    return <MobileGameContainer gameId="top-down-shooter">{gameContent}</MobileGameContainer>
+      </div>
+    )
   }
 
-  return gameContent
+  return (
+    <div className="relative">
+      <GameRenderer gameState={gameState} localPlayerId={playerId} />
+      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
+      <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
+      <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
+        Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor
+      </div>
+    </div>
+  )
 }
