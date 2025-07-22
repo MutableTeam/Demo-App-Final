@@ -23,7 +23,7 @@ export interface GameInputState {
   aiming: AimingState
   movement: MovementState
   actions: {
-    shoot: boolean // A one-frame pulse on joystick release
+    shoot: boolean // Added for joystick release shooting
     dash: boolean
     special: boolean
     explosiveArrow: boolean
@@ -35,6 +35,7 @@ class GameInputHandler {
   private state: GameInputState
   private callbacks: {
     onStateChange?: (state: GameInputState) => void
+    onShoot?: (angle: number, power: number) => void
   }
   private shootTimeout: NodeJS.Timeout | null = null
   private isChargingShot = false // Internal state to manage charge cycle
@@ -49,7 +50,10 @@ class GameInputHandler {
     debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
   }
 
-  setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
+  setCallbacks(callbacks: {
+    onStateChange?: (state: GameInputState) => void
+    onShoot?: (angle: number, power: number) => void
+  }) {
     this.callbacks = callbacks
   }
 
@@ -61,9 +65,9 @@ class GameInputHandler {
     const newState: MovementState = { up: false, down: false, left: false, right: false }
 
     if (type === "move" && x !== null && y !== null) {
-      // Corrected: The joystick component's Y-axis is inverted (negative is up).
-      if (y < -threshold) newState.up = true
-      if (y > threshold) newState.down = true
+      // Note: react-joystick-component has y-axis with up as positive.
+      if (y > threshold) newState.up = true
+      if (y < -threshold) newState.down = true
       if (x < -threshold) newState.left = true
       if (x > threshold) newState.right = true
     }
@@ -78,33 +82,29 @@ class GameInputHandler {
     const distance = event ? event.distance : 0
 
     if (distance >= deadzone && event.x !== null && event.y !== null) {
-      // Joystick is pulled back, so aiming is active.
-      this.state.aiming.active = true
-
+      // Joystick is pulled back
       if (!this.isChargingShot) {
-        // Start a new charge cycle only once.
+        // Start a new charge cycle
         this.isChargingShot = true
+        this.state.aiming.active = true
+        console.log("[INPUT_HANDLER] Started charging shot.")
       }
       // Continuously update aiming details
-      // Corrected: Use -event.y to account for inverted Y-axis.
-      const joystickAngle = Math.atan2(-event.y, event.x)
+      // The angle is the direction the joystick is pulled.
+      const joystickAngle = Math.atan2(event.y, event.x)
       // The firing angle is opposite to the pull direction (add 180 degrees / PI radians).
       this.state.aiming.angle = joystickAngle + Math.PI
       this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
     } else {
       // Joystick is in the deadzone or released
       if (this.isChargingShot) {
-        // If we were charging, fire the shot by sending a pulse
-        this.state.actions.shoot = true
+        // If we were charging, fire the shot
+        console.log("[INPUT_HANDLER] Joystick released. Firing shot.")
 
-        // Pulse the shoot action to be a single-frame event
-        if (this.shootTimeout) clearTimeout(this.shootTimeout)
-        this.shootTimeout = setTimeout(() => {
-          if (this.state.actions.shoot) {
-            this.state.actions.shoot = false
-            this.notifyStateChange()
-          }
-        }, 50)
+        // Call the shoot callback directly instead of using state
+        if (this.callbacks.onShoot) {
+          this.callbacks.onShoot(this.state.aiming.angle, this.state.aiming.power)
+        }
       }
       // Reset for the next charge cycle
       this.isChargingShot = false
@@ -148,7 +148,7 @@ class GameInputHandler {
 
 export const gameInputHandler = new GameInputHandler()
 
-// --- Desktop Input Handler Function ---
+// --- Desktop Input Handler Function (Retained for compatibility) ---
 export interface InputHandlerOptions {
   playerId: string
   gameStateRef: React.MutableRefObject<any>
@@ -171,15 +171,26 @@ export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef 
   const handleMouseDown = (e: MouseEvent) => {
     const player = getPlayer()
     if (!player) return
-    if (e.button === 0) player.controls.shoot = true
-    else if (e.button === 2) player.controls.special = true
+    if (e.button === 0) {
+      player.controls.shoot = true
+      // Start drawing bow immediately for desktop
+      if (!player.isDrawingBow && player.cooldown <= 0) {
+        player.isDrawingBow = true
+        player.drawStartTime = Date.now() / 1000
+      }
+    } else if (e.button === 2) {
+      player.controls.special = true
+    }
   }
 
   const handleMouseUp = (e: MouseEvent) => {
     const player = getPlayer()
     if (!player) return
-    if (e.button === 0) player.controls.shoot = false
-    else if (e.button === 2) player.controls.special = false
+    if (e.button === 0) {
+      player.controls.shoot = false
+    } else if (e.button === 2) {
+      player.controls.special = false
+    }
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {

@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
+import {
+  createInitialGameState,
+  createPlayer,
+  type GameState,
+  updateGameState,
+  createArrow,
+  calculateArrowDamage,
+  calculateArrowSpeed,
+} from "./game-engine"
 import GameRenderer from "./game-renderer"
 import DebugOverlay from "./debug-overlay"
 import {
@@ -185,35 +193,83 @@ export default function GameController({
     let cleanupInputHandlers: (() => void) | null = null
 
     if (platformType === "desktop") {
-      debugManager.logInfo("INPUT", "Initializing DESKTOP controls.")
+      console.log("[InputDebug] Initializing DESKTOP controls.")
       cleanupInputHandlers = setupGameInputHandlers({
         playerId,
         gameStateRef,
         componentIdRef,
       })
     } else {
-      debugManager.logInfo("INPUT", "Initializing MOBILE controls.")
+      console.log("[InputDebug] Initializing MOBILE controls.")
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current.players[playerId]
         if (!player) return
 
-        // Update controls from mobile input handler
+        // Update movement controls only
         player.controls.up = inputState.movement.up
         player.controls.down = inputState.movement.down
         player.controls.left = inputState.movement.left
         player.controls.right = inputState.movement.right
-        player.controls.shoot = inputState.actions.shoot // This is the pulse
-        player.controls.dash = inputState.actions.dash
-        player.controls.aim = inputState.aiming.active // Set the new aim control
 
-        // Update rotation directly if aiming
+        // Update other action controls (but not shoot - that's handled by onShoot callback)
+        player.controls.dash = inputState.actions.dash
+        player.controls.special = inputState.actions.special
+        player.controls.explosiveArrow = inputState.actions.explosiveArrow
+
+        // Handle aiming state
         if (inputState.aiming.active) {
+          if (!player.isDrawingBow && player.cooldown <= 0) {
+            player.isDrawingBow = true
+            player.drawStartTime = Date.now() / 1000
+          }
           player.rotation = inputState.aiming.angle
+        } else if (player.isDrawingBow && !inputState.aiming.active) {
+          // Cancel draw if aiming stops without shooting
+          player.isDrawingBow = false
+          player.drawStartTime = null
         }
+      }
+
+      const handleMobileShoot = (angle: number, power: number) => {
+        const player = gameStateRef.current.players[playerId]
+        if (!player || !player.isDrawingBow) return
+
+        const drawTime = player.drawStartTime ? Date.now() / 1000 - player.drawStartTime : 0
+        const isWeakShot = power < 0.3 || drawTime < player.minDrawTime
+        const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
+        const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
+        const arrowVelocity = { x: Math.cos(angle) * arrowSpeed, y: Math.sin(angle) * arrowSpeed }
+        const arrowPosition = {
+          x: player.position.x + Math.cos(angle) * (player.size + 5),
+          y: player.position.y + Math.sin(angle) * (player.size + 5),
+        }
+        const arrow = createArrow(arrowPosition, arrowVelocity, angle, player.id, damage)
+        if (isWeakShot) {
+          arrow.color = "#5D4037"
+          // @ts-ignore
+          arrow.isWeakShot = true
+        }
+        gameStateRef.current.arrows.push(arrow)
+
+        player.isDrawingBow = false
+        player.drawStartTime = null
+        player.cooldown = 0.2
+        player.animationState = "fire"
+        player.lastAnimationChange = Date.now()
+
+        setTimeout(() => {
+          const p = gameStateRef.current.players[playerId]
+          if (p?.animationState === "fire") {
+            const isMoving = p.controls.up || p.controls.down || p.controls.left || p.controls.right
+            p.animationState = isMoving ? "run" : "idle"
+            p.lastAnimationChange = Date.now()
+          }
+        }, 300)
       }
 
       gameInputHandler.setCallbacks({
         onStateChange: handleMobileInput,
+        onShoot: handleMobileShoot,
       })
       cleanupInputHandlers = () => gameInputHandler.destroy()
     }
@@ -230,7 +286,7 @@ export default function GameController({
     return () => {
       if (requestAnimationFrameIdRef.current) cancelAnimationFrame(requestAnimationFrameIdRef.current)
       if (cleanupInputHandlers) {
-        debugManager.logInfo("INPUT", "Cleaning up input handlers.")
+        console.log("[InputDebug] Cleaning up input handlers.")
         cleanupInputHandlers()
       }
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
