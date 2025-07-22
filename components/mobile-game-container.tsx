@@ -1,12 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useRef, useEffect, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import { gameInputHandler } from "@/utils/game-input-handler"
-import { cn } from "@/lib/utils"
-import { useMobile } from "@/hooks/use-mobile"
+import { logger } from "@/utils/logger"
+import { useMediaQuery } from "@/hooks/use-responsive"
 import { Orbitron } from "next/font/google"
-import type { GameInputState } from "@/types/game-input-state" // Declare or import GameInputState
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -15,211 +14,193 @@ const orbitron = Orbitron({
 
 interface MobileGameContainerProps {
   children: React.ReactNode
-  className?: string
 }
 
-interface ActionButtonProps {
-  label: string
-  action: keyof GameInputState["actions"]
-  className?: string
-  title?: string
-}
-
-function ActionButton({ label, action, className, title }: ActionButtonProps) {
-  const handleInteractionStart = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleActionPress(action, true)
-    },
-    [action],
-  )
-
-  const handleInteractionEnd = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleActionPress(action, false)
-    },
-    [action],
-  )
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <button
-        className={cn(
-          "w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-75",
-          "touch-none select-none active:scale-95 active:brightness-125",
-          "bg-gray-800/80 border-cyan-400/50 text-cyan-300 shadow-[0_0_8px_rgba(0,255,255,0.3)] backdrop-blur-sm",
-          "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
-          orbitron.className,
-          className,
-        )}
-        onTouchStart={handleInteractionStart}
-        onTouchEnd={handleInteractionEnd}
-        onTouchCancel={handleInteractionEnd}
-        onMouseDown={handleInteractionStart}
-        onMouseUp={handleInteractionEnd}
-        onMouseLeave={handleInteractionEnd}
-        style={{
-          WebkitUserSelect: "none",
-          userSelect: "none",
-          WebkitTouchCallout: "none",
-          WebkitTapHighlightColor: "transparent",
-        }}
-        data-action-button="true"
-        data-action={action}
-      >
-        {label}
-      </button>
-      {title && <span className="text-xs text-cyan-400/80 font-semibold tracking-wider">{title}</span>}
-    </div>
-  )
-}
-
-export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
-  const { isMobile, isPortrait } = useMobile()
-  const [debugInfo, setDebugInfo] = useState<string>("")
-  const debugEnabled = useRef(true)
-
-  // References for the joystick elements
+export function MobileGameContainer({ children }: MobileGameContainerProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const movementJoystickRef = useRef<HTMLDivElement>(null)
-  const movementKnobRef = useRef<HTMLDivElement>(null)
   const aimingJoystickRef = useRef<HTMLDivElement>(null)
-  const aimingKnobRef = useRef<HTMLDivElement>(null)
+  const isPortrait = useMediaQuery("(orientation: portrait)")
 
-  // Track touch identifiers to handle multi-touch
-  const touchIdentifiers = useRef<Record<string, number>>({
-    movement: -1,
-    aiming: -1,
+  // Track active touches
+  const movementTouchId = useRef<number | null>(null)
+  const aimingTouchId = useRef<number | null>(null)
+
+  // Joystick state
+  const movementCenter = useRef({ x: 0, y: 0 })
+  const aimingCenter = useRef({ x: 0, y: 0 })
+
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState({
+    movement: { x: 0, y: 0, angle: 0 },
+    aiming: { x: 0, y: 0, angle: 0, active: false },
+    actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
   })
 
-  // Simple debug logger
-  const logDebug = (message: string) => {
-    if (debugEnabled.current) {
-      setDebugInfo((prev) => `${message}\n${prev.split("\n").slice(0, 5).join("\n")}`)
-    }
-  }
+  // Initialize joystick positions
+  useEffect(() => {
+    if (!containerRef.current || !movementJoystickRef.current || !aimingJoystickRef.current) return
 
-  // Handle joystick movement
-  const handleJoystickMove = (
-    type: "movement" | "aiming",
-    joystickEl: HTMLDivElement | null,
-    knobEl: HTMLDivElement | null,
-    clientX: number,
-    clientY: number,
-    isActive: boolean,
-  ) => {
-    if (!joystickEl || !knobEl) return
+    const updateJoystickPositions = () => {
+      if (!containerRef.current || !movementJoystickRef.current || !aimingJoystickRef.current) return
 
-    const rect = joystickEl.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const movementRect = movementJoystickRef.current.getBoundingClientRect()
+      const aimingRect = aimingJoystickRef.current.getBoundingClientRect()
 
-    // Calculate the distance from center
-    const deltaX = clientX - centerX
-    const deltaY = clientY - centerY
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-    const maxDistance = rect.width / 2 - knobEl.offsetWidth / 2
+      movementCenter.current = {
+        x: movementRect.left + movementRect.width / 2 - containerRect.left,
+        y: movementRect.top + movementRect.height / 2 - containerRect.top,
+      }
 
-    // Normalize the distance (0 to 1)
-    const normalizedDistance = Math.min(distance / maxDistance, 1)
-
-    // Calculate the normalized position (-1 to 1)
-    const normalizedX = deltaX / maxDistance
-    const normalizedY = deltaY / maxDistance
-
-    // Position the knob
-    if (isActive) {
-      // Constrain the knob within the joystick
-      const angle = Math.atan2(deltaY, deltaX)
-      const constrainedDistance = Math.min(distance, maxDistance)
-      const knobX = Math.cos(angle) * constrainedDistance
-      const knobY = Math.sin(angle) * constrainedDistance
-
-      knobEl.style.transform = `translate(${knobX}px, ${knobY}px)`
-    } else {
-      // Reset the knob position
-      knobEl.style.transform = "translate(0px, 0px)"
-    }
-
-    // Update the input state based on joystick type
-    if (type === "movement") {
-      gameInputHandler.processMovementJoystick(normalizedX, normalizedY, isActive)
-    } else {
-      gameInputHandler.processAimingJoystick(normalizedX, normalizedY, isActive)
-
-      // Debug aiming
-      if (isActive) {
-        const angle = Math.atan2(normalizedY, normalizedX) * (180 / Math.PI)
-        logDebug(`Aim: ${angle.toFixed(0)}° Power: ${normalizedDistance.toFixed(2)}`)
+      aimingCenter.current = {
+        x: aimingRect.left + aimingRect.width / 2 - containerRect.left,
+        y: aimingRect.top + aimingRect.height / 2 - containerRect.top,
       }
     }
-  }
+
+    // Initial position
+    updateJoystickPositions()
+
+    // Update on resize
+    window.addEventListener("resize", updateJoystickPositions)
+
+    return () => {
+      window.removeEventListener("resize", updateJoystickPositions)
+    }
+  }, [isPortrait])
 
   // Handle touch events
   useEffect(() => {
-    if (!isMobile) return
+    const container = containerRef.current
+    if (!container) return
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Prevent default to avoid scrolling
       e.preventDefault()
 
-      // Process each touch
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i]
-        const { clientX, clientY, identifier } = touch
+      const containerRect = container.getBoundingClientRect()
+      const touchX = e.touches[0].clientX - containerRect.left
+      const touchY = e.touches[0].clientY - containerRect.top
 
-        // Check if touch is in movement joystick area
-        if (movementJoystickRef.current && touchIdentifiers.current.movement === -1) {
-          const rect = movementJoystickRef.current.getBoundingClientRect()
-          if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-            touchIdentifiers.current.movement = identifier
-            handleJoystickMove("movement", movementJoystickRef.current, movementKnobRef.current, clientX, clientY, true)
-            continue
-          }
+      // Check if touch is on left or right side of screen
+      const isLeftSide = touchX < containerRect.width / 2
+
+      if (isLeftSide && movementTouchId.current === null) {
+        // Left side - movement joystick
+        movementTouchId.current = e.touches[0].identifier
+
+        // Update movement joystick position to touch point
+        const movementJoystick = movementJoystickRef.current
+        if (movementJoystick) {
+          movementCenter.current = { x: touchX, y: touchY }
+          movementJoystick.style.left = `${touchX}px`
+          movementJoystick.style.top = `${touchY}px`
+        }
+      } else if (!isLeftSide && aimingTouchId.current === null) {
+        // Right side - aiming joystick
+        aimingTouchId.current = e.touches[0].identifier
+
+        // Update aiming joystick position to touch point
+        const aimingJoystick = aimingJoystickRef.current
+        if (aimingJoystick) {
+          aimingCenter.current = { x: touchX, y: touchY }
+          aimingJoystick.style.left = `${touchX}px`
+          aimingJoystick.style.top = `${touchY}px`
         }
 
-        // Check if touch is in aiming joystick area
-        if (aimingJoystickRef.current && touchIdentifiers.current.aiming === -1) {
-          const rect = aimingJoystickRef.current.getBoundingClientRect()
-          if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-            touchIdentifiers.current.aiming = identifier
-            handleJoystickMove("aiming", aimingJoystickRef.current, aimingKnobRef.current, clientX, clientY, true)
-            continue
-          }
-        }
-
-        // Check if touch is on action buttons
-        const actionButtons = document.querySelectorAll('[data-action-button="true"]')
-        actionButtons.forEach((button) => {
-          const rect = button.getBoundingClientRect()
-          if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-            const action = button.getAttribute("data-action")
-            if (action) {
-              gameInputHandler.setActionButton(action as any, true)
-            }
-          }
-        })
+        // Start aiming
+        gameInputHandler.updateAiming(true, 0, 0)
+        logger.info("Aiming started", "TOUCH")
       }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault()
 
-      // Process each touch
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i]
-        const { clientX, clientY, identifier } = touch
+      const containerRect = container.getBoundingClientRect()
 
-        // Update movement joystick
-        if (identifier === touchIdentifiers.current.movement) {
-          handleJoystickMove("movement", movementJoystickRef.current, movementKnobRef.current, clientX, clientY, true)
+      // Process all touches
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i]
+        const touchX = touch.clientX - containerRect.left
+        const touchY = touch.clientY - containerRect.top
+
+        // Movement joystick
+        if (touch.identifier === movementTouchId.current) {
+          const dx = touchX - movementCenter.current.x
+          const dy = touchY - movementCenter.current.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          const maxDistance = 50 // Maximum joystick movement
+
+          // Normalize direction vector
+          const normalizedDx = dx / (distance || 1)
+          const normalizedDy = dy / (distance || 1)
+
+          // Calculate movement direction
+          const threshold = 0.3
+          const up = normalizedDy < -threshold
+          const down = normalizedDy > threshold
+          const left = normalizedDx < -threshold
+          const right = normalizedDx > threshold
+
+          // Update game input state
+          gameInputHandler.updateMovement(
+            up,
+            down,
+            left,
+            right,
+            normalizedDx,
+            normalizedDy,
+            Math.min(distance / maxDistance, 1),
+          )
+
+          // Update debug info
+          setDebugInfo((prev) => ({
+            ...prev,
+            movement: {
+              x: normalizedDx,
+              y: normalizedDy,
+              angle: Math.atan2(normalizedDy, normalizedDx),
+            },
+          }))
         }
 
-        // Update aiming joystick
-        if (identifier === touchIdentifiers.current.aiming) {
-          handleJoystickMove("aiming", aimingJoystickRef.current, aimingKnobRef.current, clientX, clientY, true)
+        // Aiming joystick
+        if (touch.identifier === aimingTouchId.current) {
+          const dx = touchX - aimingCenter.current.x
+          const dy = touchY - aimingCenter.current.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          const maxDistance = 50 // Maximum joystick movement
+
+          // Calculate angle (in radians)
+          const angle = Math.atan2(dy, dx)
+
+          // Calculate power (0-1)
+          const power = Math.min(distance / maxDistance, 1)
+
+          // Update game input state
+          gameInputHandler.updateAiming(true, angle, power)
+
+          // Update debug info
+          setDebugInfo((prev) => ({
+            ...prev,
+            aiming: {
+              x: dx / maxDistance,
+              y: dy / maxDistance,
+              angle,
+              active: true,
+            },
+          }))
+
+          // If distance exceeds minimum threshold, trigger shoot
+          // This prevents accidental shots from small movements
+          if (distance > 5) {
+            gameInputHandler.triggerShoot()
+            setDebugInfo((prev) => ({
+              ...prev,
+              actions: { ...prev.actions, shoot: true },
+            }))
+          }
         }
       }
     }
@@ -227,114 +208,163 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault()
 
-      // Process each touch
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i]
-        const { identifier } = touch
+      // Check if the movement touch ended
+      if (movementTouchId.current !== null) {
+        let movementTouchEnded = true
 
-        // Reset movement joystick
-        if (identifier === touchIdentifiers.current.movement) {
-          touchIdentifiers.current.movement = -1
-          handleJoystickMove("movement", movementJoystickRef.current, movementKnobRef.current, 0, 0, false)
-        }
-
-        // Reset aiming joystick
-        if (identifier === touchIdentifiers.current.aiming) {
-          touchIdentifiers.current.aiming = -1
-          handleJoystickMove("aiming", aimingJoystickRef.current, aimingKnobRef.current, 0, 0, false)
-        }
-
-        // Reset action buttons
-        const actionButtons = document.querySelectorAll('[data-action-button="true"]')
-        actionButtons.forEach((button) => {
-          const action = button.getAttribute("data-action")
-          if (action) {
-            gameInputHandler.setActionButton(action as any, false)
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === movementTouchId.current) {
+            movementTouchEnded = false
+            break
           }
-        })
+        }
+
+        if (movementTouchEnded) {
+          movementTouchId.current = null
+          gameInputHandler.updateMovement(false, false, false, false, 0, 0, 0)
+
+          // Update debug info
+          setDebugInfo((prev) => ({
+            ...prev,
+            movement: { x: 0, y: 0, angle: 0 },
+          }))
+        }
+      }
+
+      // Check if the aiming touch ended
+      if (aimingTouchId.current !== null) {
+        let aimingTouchEnded = true
+
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === aimingTouchId.current) {
+            aimingTouchEnded = false
+            break
+          }
+        }
+
+        if (aimingTouchEnded) {
+          aimingTouchId.current = null
+          gameInputHandler.updateAiming(false, 0, 0)
+
+          // Update debug info
+          setDebugInfo((prev) => ({
+            ...prev,
+            aiming: { x: 0, y: 0, angle: 0, active: false },
+            actions: { ...prev.actions, shoot: false },
+          }))
+
+          logger.info("Aiming ended", "TOUCH")
+        }
       }
     }
 
     // Add event listeners
-    document.addEventListener("touchstart", handleTouchStart, {
-      passive: false,
-    })
-    document.addEventListener("touchmove", handleTouchMove, { passive: false })
-    document.addEventListener("touchend", handleTouchEnd, { passive: false })
+    container.addEventListener("touchstart", handleTouchStart, { passive: false })
+    container.addEventListener("touchmove", handleTouchMove, { passive: false })
+    container.addEventListener("touchend", handleTouchEnd, { passive: false })
+    container.addEventListener("touchcancel", handleTouchEnd, { passive: false })
 
-    // Clean up
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart)
-      document.removeEventListener("touchmove", handleTouchMove)
-      document.removeEventListener("touchend", handleTouchEnd)
+      // Remove event listeners
+      container.removeEventListener("touchstart", handleTouchStart)
+      container.removeEventListener("touchmove", handleTouchMove)
+      container.removeEventListener("touchend", handleTouchEnd)
+      container.removeEventListener("touchcancel", handleTouchEnd)
     }
-  }, [isMobile])
+  }, [])
 
-  // If not mobile, just render the children
-  if (!isMobile) {
-    return <div className={className}>{children}</div>
+  // Handle action button clicks
+  const handleActionButton = (action: "dash" | "special" | "explosiveArrow") => {
+    gameInputHandler.updateAction(action, true)
+
+    // Reset after a short delay
+    setTimeout(() => {
+      gameInputHandler.updateAction(action, false)
+    }, 200)
+
+    // Update debug info
+    setDebugInfo((prev) => ({
+      ...prev,
+      actions: { ...prev.actions, [action]: true },
+    }))
+
+    setTimeout(() => {
+      setDebugInfo((prev) => ({
+        ...prev,
+        actions: { ...prev.actions, [action]: false },
+      }))
+    }, 200)
   }
 
   return (
-    <div className={cn("relative w-full h-full", className)}>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full overflow-hidden touch-none"
+      style={{ touchAction: "none" }}
+    >
       {/* Game content */}
       <div className="w-full h-full">{children}</div>
 
-      {/* Mobile controls overlay */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Movement joystick (left side) */}
-        <div
-          ref={movementJoystickRef}
-          className="absolute bottom-8 left-8 w-32 h-32 rounded-full bg-black/20 border-2 border-white/30 pointer-events-auto"
-        >
-          <div
-            ref={movementKnobRef}
-            className="absolute top-1/2 left-1/2 w-16 h-16 -mt-8 -ml-8 rounded-full bg-white/30 border-2 border-white/50"
-          />
-        </div>
-
-        {/* Action buttons (right side in landscape, bottom in portrait) */}
-        <div
-          className={cn(
-            "absolute flex gap-2",
-            isPortrait
-              ? "bottom-8 right-8 flex-col" // Vertical in portrait
-              : "bottom-8 right-8 flex-row", // Horizontal in landscape
-          )}
-        >
-          {/* X Button */}
-          <ActionButton label="X" action="dash" title="Dash" />
-
-          {/* Y Button */}
-          <ActionButton label="Y" action="special" title="Special" />
-
-          {/* B Button */}
-          <ActionButton label="B" action="explosiveArrow" title="Explode" />
-        </div>
-
-        {/* Aiming joystick (right side) */}
-        <div
-          ref={aimingJoystickRef}
-          className={cn(
-            "absolute w-32 h-32 rounded-full bg-black/20 border-2 border-white/30 pointer-events-auto",
-            isPortrait
-              ? "bottom-44 right-8" // Position above action buttons in portrait
-              : "top-8 right-8", // Position at top-right in landscape
-          )}
-        >
-          <div
-            ref={aimingKnobRef}
-            className="absolute top-1/2 left-1/2 w-16 h-16 -mt-8 -ml-8 rounded-full bg-white/30 border-2 border-white/50"
-          />
-        </div>
-
-        {/* Debug info */}
-        {debugEnabled.current && (
-          <div className="absolute top-2 left-2 bg-black/50 text-white p-2 text-xs max-w-[200px] whitespace-pre-wrap">
-            {debugInfo}
-          </div>
-        )}
+      {/* Movement joystick */}
+      <div
+        ref={movementJoystickRef}
+        className="absolute left-16 bottom-32 w-32 h-32 rounded-full border-2 border-white/30 bg-black/20 pointer-events-none"
+        style={{ transform: "translate(-50%, -50%)" }}
+      >
+        <div className="absolute left-1/2 top-1/2 w-16 h-16 rounded-full bg-white/30 -translate-x-1/2 -translate-y-1/2"></div>
       </div>
+
+      {/* Aiming joystick */}
+      <div
+        ref={aimingJoystickRef}
+        className="absolute right-16 bottom-32 w-32 h-32 rounded-full border-2 border-white/30 bg-black/20 pointer-events-none"
+        style={{ transform: "translate(50%, -50%)" }}
+      >
+        <div className="absolute left-1/2 top-1/2 w-16 h-16 rounded-full bg-white/30 -translate-x-1/2 -translate-y-1/2"></div>
+      </div>
+
+      {/* Action buttons */}
+      <div
+        className={`absolute ${isPortrait ? "right-4 bottom-64 flex flex-col gap-2" : "right-32 top-32 flex flex-row gap-2"}`}
+      >
+        <button
+          className="w-12 h-12 rounded-full bg-red-500/80 text-white text-sm font-bold shadow-lg"
+          onClick={() => handleActionButton("dash")}
+        >
+          X
+        </button>
+        <button
+          className="w-12 h-12 rounded-full bg-green-500/80 text-white text-sm font-bold shadow-lg"
+          onClick={() => handleActionButton("special")}
+        >
+          Y
+        </button>
+        <button
+          className="w-12 h-12 rounded-full bg-blue-500/80 text-white text-sm font-bold shadow-lg"
+          onClick={() => handleActionButton("explosiveArrow")}
+        >
+          B
+        </button>
+      </div>
+
+      {/* Debug overlay - only shown in development */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="absolute top-2 left-2 bg-black/50 text-white p-2 text-xs rounded">
+          <div>
+            Movement: x={debugInfo.movement.x.toFixed(2)} y={debugInfo.movement.y.toFixed(2)}
+          </div>
+          <div>
+            Aiming: {debugInfo.aiming.active ? "active" : "inactive"} angle={debugInfo.aiming.angle.toFixed(2)}
+          </div>
+          <div>
+            Actions:
+            {debugInfo.actions.shoot ? " SHOOT" : ""}
+            {debugInfo.actions.dash ? " DASH" : ""}
+            {debugInfo.actions.special ? " SPECIAL" : ""}
+            {debugInfo.actions.explosiveArrow ? " EXPLOSIVE" : ""}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useRef } from "react"
 import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
 import type { PlatformType } from "@/contexts/platform-context"
+import { logger } from "@/utils/logger"
 
 interface UseGameControlsProps {
   playerId: string
@@ -14,14 +15,7 @@ interface UseGameControlsProps {
 
 export function useGameControls({ playerId, gameStateRef, platformType, isEnabled }: UseGameControlsProps) {
   const componentIdRef = useRef(`use-game-controls-${Date.now()}`)
-  const debugEnabled = useRef(true) // Toggle this to enable/disable debug logs
-
-  // Simple debug logger function
-  const logDebug = (category: string, message: string) => {
-    if (debugEnabled.current) {
-      console.log(`[${category}] ${message}`)
-    }
-  }
+  const prevShootState = useRef(false)
 
   useEffect(() => {
     if (!isEnabled) return
@@ -40,8 +34,9 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         if (!player) return
 
         // Add debugging for shooting
-        if (inputState.actions.shoot !== player.controls.shoot) {
-          logDebug("MOBILE_INPUT", `Shoot state changed: ${inputState.actions.shoot}`)
+        if (inputState.actions.shoot !== prevShootState.current) {
+          logger.info(`Shoot state changed: ${inputState.actions.shoot}`, "MOBILE_INPUT")
+          prevShootState.current = inputState.actions.shoot
         }
 
         // --- Direct State Mapping ---
@@ -61,7 +56,7 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
           if (!player.isDrawingBow) {
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            logDebug("MOBILE_INPUT", "Started drawing bow")
+            logger.info("Started drawing bow", "MOBILE_INPUT")
           }
           // The angle from the joystick is already in radians, pointing away from the center.
           // We need to adjust it because the game engine expects rotation relative to the player's 'forward' direction.
@@ -71,7 +66,7 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
           // If aiming is not active, but the player was drawing, this signals a release.
           if (player.isDrawingBow) {
             player.isDrawingBow = false
-            logDebug("MOBILE_INPUT", "Stopped drawing bow")
+            logger.info("Stopped drawing bow", "MOBILE_INPUT")
           }
         }
 
