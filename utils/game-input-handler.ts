@@ -76,29 +76,40 @@ class GameInputHandler {
         magnitude: 0,
       }
     } else if (type === "move" && x !== null && y !== null && distance !== null) {
-      // Calculate precise movement vectors
+      // Calculate precise movement vectors for 8-directional movement
       const maxDistance = 50 // Assuming joystick size of 100, so radius is 50
       const normalizedX = x / maxDistance
       const normalizedY = -y / maxDistance // Invert Y because screen coordinates are inverted
       const normalizedMagnitude = Math.min(distance / maxDistance, 1)
 
       // Apply deadzone
-      const deadzone = 0.1
-      const adjustedMagnitude = normalizedMagnitude < deadzone ? 0 : (normalizedMagnitude - deadzone) / (1 - deadzone)
+      const deadzone = 0.2
+      if (normalizedMagnitude < deadzone) {
+        this.state.movement = {
+          up: false,
+          down: false,
+          left: false,
+          right: false,
+          vectorX: 0,
+          vectorY: 0,
+          magnitude: 0,
+        }
+      } else {
+        // Use a lower threshold for 8-directional movement to allow diagonals
+        const threshold = 0.2
 
-      // Calculate directional booleans for compatibility
-      const threshold = 0.3
-      const newState: MovementState = {
-        up: normalizedY > threshold,
-        down: normalizedY < -threshold,
-        left: normalizedX < -threshold,
-        right: normalizedX > threshold,
-        vectorX: adjustedMagnitude > 0 ? normalizedX : 0,
-        vectorY: adjustedMagnitude > 0 ? normalizedY : 0,
-        magnitude: adjustedMagnitude,
+        const newState: MovementState = {
+          up: normalizedY > threshold,
+          down: normalizedY < -threshold,
+          left: normalizedX < -threshold,
+          right: normalizedX > threshold,
+          vectorX: normalizedX,
+          vectorY: normalizedY,
+          magnitude: normalizedMagnitude,
+        }
+
+        this.state.movement = newState
       }
-
-      this.state.movement = newState
     }
 
     this.notifyStateChange()
