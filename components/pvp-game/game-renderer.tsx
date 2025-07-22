@@ -1,1063 +1,224 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect, useRef, useState } from "react"
-import type { GameObject, GameState, Player } from "./game-engine"
-import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
-import {
-  generateArcherSprite,
-  generatePickupSprite,
-  generateWallSprite,
-  generateParticle,
-  generateDeathEffect,
-} from "@/utils/sprite-generator"
+import { useEffect, useRef, useCallback } from "react"
+import type { GameState, Player, Arrow } from "./game-engine"
 
 interface GameRendererProps {
   gameState: GameState
   localPlayerId: string
+  onClick?: (event: React.MouseEvent<HTMLCanvasElement>) => void
 }
 
-// Particle system interface
-interface Particle {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  size: number
-  color: string
-  type: string
-  frame: number
-  maxFrames: number
-}
-
-// Map game engine animation states to sprite animation states
-const mapAnimationState = (state: string): string => {
-  const stateMap: Record<string, string> = {
-    idle: "idle",
-    run: "run",
-    fire: "fire",
-    walk: "walk",
-    attack: "attack",
-    hit: "hit",
-    death: "death",
-    dash: "dash",
-    special: "special",
-  }
-
-  const result = stateMap[state] || "idle"
-  return result
-}
-
-export function GameRenderer({ gameState, localPlayerId }: GameRendererProps) {
+export default function GameRenderer({ gameState, localPlayerId, onClick }: GameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animatorsRef = useRef<Record<string, SpriteAnimator>>({})
-  const lastUpdateTimeRef = useRef<number>(Date.now())
-  const frameCountRef = useRef<number>(0)
-  const [particles, setParticles] = useState<Particle[]>([])
-  const particlesRef = useRef<Particle[]>([])
-  const [debugMode, setDebugMode] = useState<boolean>(false)
+  const contextRef = useRef<CanvasRenderingContext2D | null>(null)
 
-  // Draw background with tiles
-  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    // Draw simple static background
-    ctx.fillStyle = "#1a3300"
-    ctx.fillRect(0, 0, width, height)
-
-    // Add a simple grid pattern
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)"
-    ctx.lineWidth = 1
-
-    const gridSize = 40
-
-    // Draw vertical lines
-    for (let x = 0; x < width; x += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
-      ctx.stroke()
-    }
-
-    // Draw horizontal lines
-    for (let y = 0; y < height; y += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
-      ctx.stroke()
-    }
-  }
-
-  const drawWall = (ctx: CanvasRenderingContext2D, wall: GameObject) => {
-    generateWallSprite(ctx, wall.position.x, wall.position.y, wall.size)
-  }
-
-  const drawArrow = (ctx: CanvasRenderingContext2D, arrow: any) => {
-    ctx.save()
-
-    // Translate to arrow position
-    ctx.translate(arrow.position.x, arrow.position.y)
-
-    // Rotate to arrow direction
-    ctx.rotate(arrow.rotation)
-
-    // Draw arrow body
-    ctx.fillStyle = arrow.isWeakShot ? "#996633" : "#D3A973"
-
-    // Special visual for weak shots
-    if (arrow.isWeakShot) {
-      const pulseIntensity = Math.sin(frameCountRef.current * 0.2) * 0.3 + 0.7
-      ctx.globalAlpha = pulseIntensity
-
-      const breakProgress = Math.min(1, (arrow.distanceTraveled || 0) / 100)
-      const splitDistance = breakProgress * 5
-      const rotationVariance = breakProgress * 0.4
-
-      // Draw upper half of the arrow
-      ctx.save()
-      ctx.rotate(-rotationVariance)
-      ctx.translate(0, -splitDistance)
-
-      ctx.fillStyle = "#996633"
-      ctx.fillRect(-arrow.size * 1.5, -arrow.size / 4, arrow.size * 1.5, arrow.size / 4)
-
-      ctx.beginPath()
-      ctx.moveTo(0, -arrow.size / 4)
-      ctx.lineTo(-arrow.size * 0.5, -arrow.size / 2)
-      ctx.lineTo(arrow.size * 0, -arrow.size / 8)
-      ctx.closePath()
-      ctx.fill()
-      ctx.restore()
-
-      // Draw lower half of the arrow
-      ctx.save()
-      ctx.rotate(rotationVariance)
-      ctx.translate(0, splitDistance)
-
-      ctx.fillStyle = "#996633"
-      ctx.fillRect(-arrow.size * 1.5, 0, arrow.size * 1.5, arrow.size / 4)
-
-      ctx.beginPath()
-      ctx.moveTo(0, arrow.size / 4)
-      ctx.lineTo(-arrow.size * 0.5, arrow.size / 2)
-      ctx.lineTo(arrow.size * 0, arrow.size / 8)
-      ctx.closePath()
-      ctx.fill()
-      ctx.restore()
-
-      ctx.globalAlpha = 1.0
-    } else {
-      // Regular arrow drawing
-      ctx.fillRect(-arrow.size * 1.5, -arrow.size / 4, arrow.size * 3, arrow.size / 2)
-
-      // Draw arrow head
-      ctx.beginPath()
-      ctx.moveTo(arrow.size * 1.5, 0)
-      ctx.lineTo(arrow.size * 1, -arrow.size)
-      ctx.lineTo(arrow.size * 2, 0)
-      ctx.lineTo(arrow.size * 1, arrow.size)
-      ctx.closePath()
-      ctx.fill()
-
-      // Draw feathers
-      ctx.fillStyle = "#AA8866"
-      ctx.beginPath()
-      ctx.moveTo(-arrow.size * 1.5, 0)
-      ctx.lineTo(-arrow.size * 2, -arrow.size)
-      ctx.lineTo(-arrow.size * 1.2, 0)
-      ctx.closePath()
-      ctx.fill()
-
-      ctx.beginPath()
-      ctx.moveTo(-arrow.size * 1.5, 0)
-      ctx.lineTo(-arrow.size * 2, arrow.size)
-      ctx.lineTo(-arrow.size * 1.2, 0)
-      ctx.closePath()
-      ctx.fill()
-    }
-
-    ctx.restore()
-  }
-
-  const drawPlayer = (ctx: CanvasRenderingContext2D, player: Player, isLocal: boolean) => {
-    ctx.save()
-
-    const animator = animatorsRef.current[player.id]
-    const animationState = mapAnimationState(player.animationState)
-    const frame = frameCountRef.current
-
-    // Flip based on direction
-    let flipX = false
-    if (player.rotation > Math.PI / 2 || player.rotation < -Math.PI / 2) {
-      flipX = true
-    }
-
-    // Draw the player using enhanced sprite
-    if (flipX) {
-      ctx.translate(player.position.x, player.position.y)
-      ctx.scale(-1, 1)
-      generateArcherSprite(ctx, 0, 0, player.size, player.color, animationState, frame, player.isDrawingBow)
-    } else {
-      generateArcherSprite(
-        ctx,
-        player.position.x,
-        player.position.y,
-        player.size,
-        player.color,
-        animationState,
-        frame,
-        player.isDrawingBow,
-      )
-    }
-
-    ctx.restore()
-
-    // Draw health bar and name
-    drawPlayerUI(ctx, player, isLocal)
-
-    // Draw AI targeting line for debugging
-    if (!isLocal && debugMode) {
-      drawAITargetingLine(ctx, player, gameState)
-    }
-  }
-
-  const drawAITargetingLine = (ctx: CanvasRenderingContext2D, aiPlayer: Player, gameState: GameState) => {
-    // Find the target this AI is aiming at
-    const humanPlayer = gameState.players[localPlayerId]
-    if (!humanPlayer) return
-
-    // Draw targeting line
-    ctx.save()
-    ctx.strokeStyle = "rgba(255, 0, 0, 0.3)"
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 5])
-
-    ctx.beginPath()
-    ctx.moveTo(aiPlayer.position.x, aiPlayer.position.y)
-    ctx.lineTo(humanPlayer.position.x, humanPlayer.position.y)
-    ctx.stroke()
-
-    // Draw aim direction
-    ctx.strokeStyle = "rgba(255, 255, 0, 0.5)"
-    ctx.lineWidth = 3
-    ctx.setLineDash([])
-
-    const aimLength = 50
-    const aimEndX = aiPlayer.position.x + Math.cos(aiPlayer.rotation) * aimLength
-    const aimEndY = aiPlayer.position.y + Math.sin(aiPlayer.rotation) * aimLength
-
-    ctx.beginPath()
-    ctx.moveTo(aiPlayer.position.x, aiPlayer.position.y)
-    ctx.lineTo(aimEndX, aimEndY)
-    ctx.stroke()
-
-    // Draw arrow head for aim direction
-    ctx.fillStyle = "rgba(255, 255, 0, 0.7)"
-    ctx.beginPath()
-    ctx.moveTo(aimEndX, aimEndY)
-    ctx.lineTo(aimEndX - 10 * Math.cos(aiPlayer.rotation - 0.3), aimEndY - 10 * Math.sin(aiPlayer.rotation - 0.3))
-    ctx.lineTo(aimEndX - 10 * Math.cos(aiPlayer.rotation + 0.3), aimEndY - 10 * Math.sin(aiPlayer.rotation + 0.3))
-    ctx.closePath()
-    ctx.fill()
-
-    ctx.restore()
-  }
-
-  const drawPlayerUI = (ctx: CanvasRenderingContext2D, player: Player, isLocal: boolean) => {
-    ctx.save()
-    ctx.translate(player.position.x, player.position.y)
-
-    // Health bar
-    const healthBarWidth = 40
-    const healthBarHeight = 4
-    const healthPercentage = player.health / 100
-
-    const healthBarX = -healthBarWidth / 2
-    const healthBarY = -48
-
-    // Health bar background
-    ctx.fillStyle = "#333333"
-    ctx.fillRect(healthBarX - 1, healthBarY - 1, healthBarWidth + 2, healthBarHeight + 2)
-
-    // Health bar fill
-    const filledWidth = Math.floor(healthBarWidth * healthPercentage)
-    ctx.fillStyle = healthPercentage > 0.5 ? "#00ff00" : healthPercentage > 0.25 ? "#ffff00" : "#ff0000"
-
-    const segmentWidth = 4
-    const segments = Math.floor(filledWidth / segmentWidth)
-    for (let i = 0; i < segments; i++) {
-      ctx.fillRect(healthBarX + i * segmentWidth, healthBarY, segmentWidth - 1, healthBarHeight)
-    }
-
-    // Draw player name
-    ctx.fillStyle = "#000000"
-    ctx.font = "12px Arial"
-    ctx.textAlign = "center"
-    ctx.fillText(player.name, 1, -51)
-
-    ctx.fillStyle = "#ffffff"
-    ctx.fillText(player.name, 0, -52)
-
-    // Highlight local player
-    if (isLocal) {
-      const arrowSize = 10
-      const arrowY = -player.size - 15
-
-      ctx.fillStyle = "#FFFFFF"
-      ctx.beginPath()
-      ctx.moveTo(0, arrowY)
-      ctx.lineTo(-arrowSize / 2, arrowY - arrowSize)
-      ctx.lineTo(arrowSize / 2, arrowY - arrowSize)
-      ctx.closePath()
-      ctx.fill()
-
-      const pulseSize = player.size + 5 + Math.sin(frameCountRef.current * 0.1) * 2
-      ctx.strokeStyle = "#FFFFFF"
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(0, 0, pulseSize, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-
-    // Draw bow draw indicator
-    if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = gameState.gameTime
-      const drawTime = currentTime - player.drawStartTime
-      const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
-      const minDrawPercentage = player.minDrawTime / player.maxDrawTime
-
-      const indicatorWidth = 30
-      const indicatorHeight = 4
-      const indicatorY = player.size + 10
-
-      ctx.fillStyle = "#333333"
-      ctx.fillRect(-indicatorWidth / 2, indicatorY, indicatorWidth, indicatorHeight)
-
-      ctx.fillStyle = drawPercentage < minDrawPercentage ? "#ff3333" : drawPercentage < 0.7 ? "#ffcc33" : "#33ff33"
-      ctx.fillRect(-indicatorWidth / 2, indicatorY, indicatorWidth * drawPercentage, indicatorHeight)
-
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(-indicatorWidth / 2 + indicatorWidth * minDrawPercentage - 1, indicatorY - 1, 2, indicatorHeight + 2)
-    }
-
-    ctx.restore()
-  }
-
-  const drawPickup = (ctx: CanvasRenderingContext2D, pickup: GameObject) => {
-    generatePickupSprite(ctx, pickup.position.x, pickup.position.y, pickup.size, pickup.color, frameCountRef.current)
-  }
-
-  const drawUI = (ctx: CanvasRenderingContext2D, gameState: GameState, localPlayerId: string) => {
-    const player = gameState.players[localPlayerId]
-    if (!player) return
-
-    // Draw bow charge indicator
-    if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = Date.now() / 1000
-      const drawTime = currentTime - player.drawStartTime
-      const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
-      const minDrawPercentage = player.minDrawTime / player.maxDrawTime
-
-      const bowChargeWidth = 240
-      const bowChargeHeight = 12
-      const bowChargeX = (gameState.arenaSize.width - bowChargeWidth) / 2
-      const bowChargeY = gameState.arenaSize.height - 40
-
-      // Background
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX - 15, bowChargeY - 8, bowChargeWidth + 30, bowChargeHeight + 16, 10)
-      ctx.fill()
-
-      // Border
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX - 15, bowChargeY - 8, bowChargeWidth + 30, bowChargeHeight + 16, 10)
-      ctx.stroke()
-
-      // Charge bar background
-      ctx.fillStyle = "#333333"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX, bowChargeY, bowChargeWidth, bowChargeHeight, 6)
-      ctx.fill()
-
-      // Charge bar fill
-      const chargeColor =
-        drawPercentage < minDrawPercentage
-          ? "rgba(255, 77, 77, 0.8)"
-          : drawPercentage < 0.7
-            ? "rgba(255, 204, 51, 0.8)"
-            : "rgba(51, 255, 51, 0.8)"
-
-      const fillWidth = bowChargeWidth * drawPercentage
-      ctx.fillStyle = chargeColor
-      ctx.beginPath()
-      if (fillWidth >= bowChargeWidth) {
-        ctx.roundRect(bowChargeX, bowChargeY, fillWidth, bowChargeHeight, 6)
-      } else {
-        const radius = 6
-        ctx.moveTo(bowChargeX + radius, bowChargeY)
-        ctx.lineTo(bowChargeX + fillWidth, bowChargeY)
-        ctx.lineTo(bowChargeX + fillWidth, bowChargeY + bowChargeHeight)
-        ctx.lineTo(bowChargeX + radius, bowChargeY + bowChargeHeight)
-        ctx.arcTo(bowChargeX, bowChargeY + bowChargeHeight, bowChargeX, bowChargeY + bowChargeHeight - radius, radius)
-        ctx.lineTo(bowChargeX, bowChargeY + radius)
-        ctx.arcTo(bowChargeX, bowChargeY, bowChargeX + radius, bowChargeY, radius)
-      }
-      ctx.fill()
-
-      // Minimum threshold marker
-      ctx.fillStyle = "#ffffff"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX + bowChargeWidth * minDrawPercentage - 1, bowChargeY - 2, 2, bowChargeHeight + 4, 1)
-      ctx.fill()
-
-      // Label
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-      ctx.font = "bold 12px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText("BOW CHARGE", bowChargeX + bowChargeWidth / 2 + 1, bowChargeY - 10 + 1)
-
-      ctx.fillStyle = "#ffffff"
-      ctx.fillText("BOW CHARGE", bowChargeX + bowChargeWidth / 2, bowChargeY - 10)
-    }
-
-    // Draw remaining time
-    const remainingTime = Math.max(0, gameState.maxGameTime - gameState.gameTime)
-    const minutes = Math.floor(remainingTime / 60)
-    const seconds = Math.floor(remainingTime % 60)
-
-    const timeWidth = 110
-    const timeHeight = 36
-    const timeX = (gameState.arenaSize.width - timeWidth) / 2
-    const timeY = 10
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)"
-    ctx.beginPath()
-    ctx.roundRect(timeX, timeY, timeWidth, timeHeight, 10)
-    ctx.fill()
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.roundRect(timeX, timeY, timeWidth, timeHeight, 10)
-    ctx.stroke()
-
-    ctx.textAlign = "center"
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-    ctx.font = "bold 20px Arial"
-    ctx.fillText(
-      `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
-      gameState.arenaSize.width / 2 + 1,
-      timeY + 24 + 1,
-    )
-
-    ctx.fillStyle = "#FFFFFF"
-    ctx.fillText(
-      `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
-      gameState.arenaSize.width / 2,
-      timeY + 24,
-    )
-
-    // Draw enhanced scoreboard
-    drawEnhancedScoreboard(ctx, gameState, localPlayerId)
-
-    // Draw game over message
-    if (gameState.isGameOver) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)"
-      ctx.fillRect(0, 0, gameState.arenaSize.width, gameState.arenaSize.height)
-
-      const gameOverWidth = 360
-      const gameOverHeight = 220
-      const gameOverX = (gameState.arenaSize.width - gameOverWidth) / 2
-      const gameOverY = (gameState.arenaSize.height - gameOverHeight) / 2
-
-      ctx.fillStyle = "rgba(0, 0, 0, 0.85)"
-      ctx.beginPath()
-      ctx.roundRect(gameOverX, gameOverY, gameOverWidth, gameOverHeight, 20)
-      ctx.fill()
-
-      const gradient = ctx.createLinearGradient(
-        gameOverX,
-        gameOverY,
-        gameOverX + gameOverWidth,
-        gameOverY + gameOverHeight,
-      )
-      gradient.addColorStop(0, "rgba(255, 215, 0, 0.7)")
-      gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.7)")
-      gradient.addColorStop(1, "rgba(255, 215, 0, 0.7)")
-
-      ctx.strokeStyle = gradient
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.roundRect(gameOverX, gameOverY, gameOverWidth, gameOverHeight, 20)
-      ctx.stroke()
-
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-      ctx.font = "bold 32px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText("GAME OVER", gameState.arenaSize.width / 2 + 2, gameOverY + 50 + 2)
-
-      ctx.fillStyle = "#FFD700"
-      ctx.fillText("GAME OVER", gameState.arenaSize.width / 2, gameOverY + 50)
-
-      if (gameState.winner) {
-        const winnerName = gameState.players[gameState.winner]?.name || "Unknown"
-
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-        ctx.font = "bold 24px Arial"
-        ctx.fillText(`${winnerName} WINS!`, gameState.arenaSize.width / 2 + 2, gameOverY + 100 + 2)
-
-        ctx.fillStyle = "#FFFFFF"
-        ctx.fillText(`${winnerName} WINS!`, gameState.arenaSize.width / 2, gameOverY + 100)
-
-        const winner = gameState.players[gameState.winner]
-        if (winner) {
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-          ctx.font = "18px Arial"
-          ctx.fillText(
-            `Kills: ${winner.kills} | Score: ${winner.score}`,
-            gameState.arenaSize.width / 2 + 1,
-            gameOverY + 140 + 1,
-          )
-
-          ctx.fillStyle = "#CCCCCC"
-          ctx.fillText(
-            `Kills: ${winner.kills} | Score: ${winner.score}`,
-            gameState.arenaSize.width / 2,
-            gameOverY + 140,
-          )
-
-          drawTrophy(ctx, gameState.arenaSize.width / 2 - 15, gameOverY + 180, 30)
-        }
-      } else {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-        ctx.font = "bold 24px Arial"
-        ctx.fillText("DRAW!", gameState.arenaSize.width / 2 + 2, gameOverY + 100 + 2)
-
-        ctx.fillStyle = "#FFFFFF"
-        ctx.fillText("DRAW!", gameState.arenaSize.width / 2, gameOverY + 100)
-      }
-    }
-  }
-
-  const drawTrophy = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-    ctx.fillStyle = "#FFD700"
-
-    // Cup body
-    ctx.beginPath()
-    ctx.moveTo(x - size / 3, y - size / 2)
-    ctx.lineTo(x + size / 3, y - size / 2)
-    ctx.lineTo(x + size / 4, y)
-    ctx.lineTo(x - size / 4, y)
-    ctx.closePath()
-    ctx.fill()
-
-    // Cup handles
-    ctx.beginPath()
-    ctx.arc(x - size / 3, y - size / 3, size / 6, Math.PI / 2, (3 * Math.PI) / 2, false)
-    ctx.fill()
-
-    ctx.beginPath()
-    ctx.arc(x + size / 3, y - size / 3, size / 6, -Math.PI / 2, Math.PI / 2, false)
-    ctx.fill()
-
-    // Base
-    ctx.fillStyle = "#FFD700"
-    ctx.beginPath()
-    ctx.moveTo(x - size / 6, y)
-    ctx.lineTo(x + size / 6, y)
-    ctx.lineTo(x + size / 8, y + size / 3)
-    ctx.lineTo(x - size / 8, y + size / 3)
-    ctx.closePath()
-    ctx.fill()
-
-    // Stand
-    ctx.fillStyle = "#FFD700"
-    ctx.beginPath()
-    ctx.moveTo(x - size / 4, y + size / 3)
-    ctx.lineTo(x + size / 4, y + size / 3)
-    ctx.lineTo(x + size / 4, y + size / 2.5)
-    ctx.lineTo(x - size / 4, y + size / 2.5)
-    ctx.closePath()
-    ctx.fill()
-  }
-
-  const drawExplosions = (ctx: CanvasRenderingContext2D) => {
-    if (!gameState.explosions) return
-
-    gameState.explosions.forEach((explosion) => {
-      const progress = explosion.time / explosion.maxTime
-      const radius = explosion.radius * (1 - Math.pow(progress - 1, 2))
-
-      const gradient = ctx.createRadialGradient(
-        explosion.position.x,
-        explosion.position.y,
-        0,
-        explosion.position.x,
-        explosion.position.y,
-        radius,
-      )
-
-      const alpha = 1 - progress
-      gradient.addColorStop(0, `rgba(255, 200, 50, ${alpha})`)
-      gradient.addColorStop(0.4, `rgba(255, 100, 50, ${alpha * 0.8})`)
-      gradient.addColorStop(1, `rgba(100, 0, 0, ${alpha * 0.1})`)
-
-      ctx.fillStyle = gradient
-      ctx.beginPath()
-      ctx.arc(explosion.position.x, explosion.position.y, radius, 0, Math.PI * 2)
-      ctx.fill()
-
-      if (frameCountRef.current % 2 === 0) {
-        const particleCount = Math.floor(10 * (1 - progress))
-        for (let i = 0; i < particleCount; i++) {
-          const angle = Math.random() * Math.PI * 2
-          const distance = Math.random() * radius * 0.8
-          const particleX = explosion.position.x + Math.cos(angle) * distance
-          const particleY = explosion.position.y + Math.sin(angle) * distance
-
-          addParticle(particleX, particleY, "explosion", "#FF5722", 1, 3 + Math.random() * 3)
-        }
-      }
-    })
-  }
-
-  const drawEnhancedScoreboard = (ctx: CanvasRenderingContext2D, gameState: GameState, localPlayerId: string) => {
-    const players = Object.values(gameState.players)
-    if (players.length === 0) return
-
-    const sortedPlayers = [...players].sort((a, b) => b.kills - a.kills)
-
-    const scoreboardWidth = 200
-    const headerHeight = 40
-    const rowHeight = 30
-    const scoreboardHeight = headerHeight + sortedPlayers.length * rowHeight
-    const scoreboardX = gameState.arenaSize.width - scoreboardWidth - 15
-    const scoreboardY = 15
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-    ctx.beginPath()
-    ctx.roundRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight, 12)
-    ctx.fill()
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.roundRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight, 12)
-    ctx.stroke()
-
-    const gradient = ctx.createLinearGradient(
-      scoreboardX,
-      scoreboardY,
-      scoreboardX + scoreboardWidth,
-      scoreboardY + headerHeight,
-    )
-    gradient.addColorStop(0, "rgba(30, 30, 30, 0.9)")
-    gradient.addColorStop(1, "rgba(60, 60, 60, 0.9)")
-
-    ctx.fillStyle = gradient
-    ctx.beginPath()
-    ctx.roundRect(scoreboardX, scoreboardY, scoreboardWidth, headerHeight, {
-      upperLeft: 12,
-      upperRight: 12,
-      lowerLeft: 0,
-      lowerRight: 0,
-    })
-    ctx.fill()
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-    ctx.font = "bold 18px Arial"
-    ctx.textAlign = "center"
-    ctx.fillText("SCOREBOARD", scoreboardX + scoreboardWidth / 2 + 1, scoreboardY + 25 + 1)
-
-    ctx.fillStyle = "#FFFFFF"
-    ctx.fillText("SCOREBOARD", scoreboardX + scoreboardWidth / 2, scoreboardY + 25)
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"
-    ctx.beginPath()
-    ctx.moveTo(scoreboardX, scoreboardY + headerHeight)
-    ctx.lineTo(scoreboardX + scoreboardWidth, scoreboardY + headerHeight)
-    ctx.stroke()
-
-    sortedPlayers.forEach((player, index) => {
-      const isLocalPlayer = player.id === localPlayerId
-      const rowY = scoreboardY + headerHeight + index * rowHeight
-
-      if (isLocalPlayer) {
-        ctx.fillStyle = "rgba(255, 255, 100, 0.2)"
-      } else {
-        ctx.fillStyle = index % 2 === 0 ? "rgba(40, 40, 40, 0.4)" : "rgba(60, 60, 60, 0.4)"
-      }
-
-      ctx.beginPath()
-      if (index === sortedPlayers.length - 1) {
-        ctx.roundRect(scoreboardX, rowY, scoreboardWidth, rowHeight, {
-          upperLeft: 0,
-          upperRight: 0,
-          lowerLeft: 12,
-          lowerRight: 12,
-        })
-      } else {
-        ctx.rect(scoreboardX, rowY, scoreboardWidth, rowHeight)
-      }
-      ctx.fill()
-
-      ctx.fillStyle = index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : index === 2 ? "#CD7F32" : "#FFFFFF"
-      ctx.font = "bold 14px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText(`${index + 1}`, scoreboardX + 20, rowY + rowHeight / 2 + 5)
-
-      ctx.fillStyle = player.color
-      ctx.beginPath()
-      ctx.arc(scoreboardX + 40, rowY + rowHeight / 2, 8, 0, Math.PI * 2)
-      ctx.fill()
-
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"
-      ctx.lineWidth = 1
-      ctx.stroke()
-
-      ctx.fillStyle = isLocalPlayer ? "#FFFF77" : "#FFFFFF"
-      ctx.font = isLocalPlayer ? "bold 14px Arial" : "14px Arial"
-      ctx.textAlign = "left"
-
-      let displayName = player.name
-      if (ctx.measureText(displayName).width > 90) {
-        while (ctx.measureText(displayName + "...").width > 90 && displayName.length > 0) {
-          displayName = displayName.slice(0, -1)
-        }
-        displayName += "..."
-      }
-
-      ctx.fillText(displayName, scoreboardX + 55, rowY + rowHeight / 2 + 5)
-
-      const killsText = `${player.kills}`
-      const killsWidth = ctx.measureText(killsText).width + 16
-
-      ctx.fillStyle = "rgba(80, 80, 80, 0.6)"
-      ctx.beginPath()
-      ctx.roundRect(scoreboardX + scoreboardWidth - 40 - killsWidth / 2, rowY + rowHeight / 2 - 10, killsWidth, 20, 10)
-      ctx.fill()
-
-      ctx.fillStyle = "#FFFFFF"
-      ctx.textAlign = "center"
-      ctx.fillText(killsText, scoreboardX + scoreboardWidth - 40, rowY + rowHeight / 2 + 5)
-    })
-  }
-
-  const drawDebugInfo = (ctx: CanvasRenderingContext2D, gameState: GameState) => {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-    ctx.beginPath()
-    ctx.roundRect(10, gameState.arenaSize.height - 100, 250, 90, 8)
-    ctx.fill()
-
-    ctx.fillStyle = "#FFFFFF"
-    ctx.font = "12px Arial"
-    ctx.textAlign = "left"
-
-    const now = Date.now()
-    const fps = Math.round(1000 / (now - lastUpdateTimeRef.current))
-    ctx.fillText(`Frame: ${frameCountRef.current} | FPS: ${fps}`, 20, gameState.arenaSize.height - 80)
-
-    ctx.fillText(`Particles: ${particles.length}`, 20, gameState.arenaSize.height - 60)
-
-    const player = gameState.players[localPlayerId]
-    if (player) {
-      ctx.fillText(
-        `Position: (${Math.round(player.position.x)}, ${Math.round(player.position.y)})`,
-        20,
-        gameState.arenaSize.height - 40,
-      )
-      ctx.fillText(
-        `Animation: ${player.animationState} | Rotation: ${player.rotation.toFixed(2)}`,
-        20,
-        gameState.arenaSize.height - 20,
-      )
-    }
-  }
-
-  // Initialize animators for each player
+  // Initialize canvas context
   useEffect(() => {
-    const animationSet = createArcherAnimationSet()
-
-    Object.values(gameState.players).forEach((player) => {
-      if (!animatorsRef.current[player.id]) {
-        animatorsRef.current[player.id] = new SpriteAnimator(animationSet)
-      }
-
-      const animator = animatorsRef.current[player.id]
-
-      if (animator.getCurrentAnimationName() !== player.animationState) {
-        animator.play(player.animationState)
-
-        if (player.animationState === "death" && !animator.isDeathEffectStarted()) {
-          animator.setDeathEffectStarted(true)
-          addParticle(player.position.x, player.position.y, "hit", "#FF5252", 20, 15)
-        }
-      }
-    })
-
-    Object.keys(animatorsRef.current).forEach((playerId) => {
-      if (!gameState.players[playerId]) {
-        delete animatorsRef.current[playerId]
-      }
-    })
-  }, [gameState.players])
-
-  // Animation loop
-  useEffect(() => {
-    const updateAnimations = () => {
-      const now = Date.now()
-      const deltaTime = (now - lastUpdateTimeRef.current) / 1000
-      lastUpdateTimeRef.current = now
-      frameCountRef.current++
-
-      Object.values(animatorsRef.current).forEach((animator) => {
-        animator.update(deltaTime)
-      })
-
-      updateParticles(deltaTime)
-    }
-
-    const animationInterval = setInterval(updateAnimations, 1000 / 60)
-
-    return () => clearInterval(animationInterval)
-  }, [])
-
-  // Handle container resizing
-  useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const container = canvas.parentElement
-      if (!container) return
-
-      const containerWidth = container.clientWidth
-      const containerHeight = container.clientHeight
-
-      canvas.style.width = "100%"
-      canvas.style.height = "100%"
-      canvas.style.maxWidth = `${gameState.arenaSize.width}px`
-      canvas.style.maxHeight = `${gameState.arenaSize.height}px`
-      canvas.style.objectFit = "contain"
-    }
-
-    handleResize()
-
-    window.addEventListener("resize", handleResize)
-
-    return () => window.removeEventListener("resize", handleResize)
-  }, [gameState.arenaSize.width, gameState.arenaSize.height])
-
-  const addParticle = (x: number, y: number, type: string, color: string, count = 1, size = 5) => {
-    const newParticles: Particle[] = []
-
-    for (let i = 0; i < count; i++) {
-      const speed = 20 + Math.random() * 30
-      const angle = Math.random() * Math.PI * 2
-
-      newParticles.push({
-        x: x + (Math.random() * 10 - 5),
-        y: y + (Math.random() * 10 - 5),
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        size: size * (0.8 + Math.random() * 0.4),
-        color,
-        type,
-        frame: 0,
-        maxFrames: 25 + Math.floor(Math.random() * 5),
-      })
-    }
-
-    particlesRef.current = [...particlesRef.current, ...newParticles]
-    setParticles(particlesRef.current)
-  }
-
-  const updateParticles = (deltaTime: number) => {
-    if (particlesRef.current.length === 0) return
-
-    const updatedParticles = particlesRef.current
-      .map((particle) => {
-        const newX = particle.x + particle.vx * deltaTime
-        const newY = particle.y + particle.vy * deltaTime
-
-        let newVx = particle.vx
-        let newVy = particle.vy
-
-        if (particle.type === "hit") {
-          newVx *= 0.95
-          newVy *= 0.95
-        } else if (particle.type === "trail") {
-          newVx *= 0.9
-          newVy *= 0.9
-        }
-
-        const newFrame = particle.frame + 1
-
-        return {
-          ...particle,
-          x: newX,
-          y: newY,
-          vx: newVx,
-          vy: newVy,
-          frame: newFrame,
-        }
-      })
-      .filter((particle) => particle.frame < particle.maxFrames && particle.frame < 29)
-
-    particlesRef.current = updatedParticles
-    setParticles(updatedParticles)
-  }
-
-  // Check for events that should trigger particles
-  useEffect(() => {
-    Object.values(gameState.players).forEach((player) => {
-      if (player.animationState === "hit") {
-        addParticle(player.position.x, player.position.y, "hit", "#FF5252", 10, 10)
-      } else if (player.animationState === "death") {
-        addParticle(player.position.x, player.position.y, "hit", "#FF5252", 20, 15)
-      }
-
-      if (player.isDashing && frameCountRef.current % 3 === 0) {
-        addParticle(player.position.x, player.position.y, "trail", player.color, 3, 8)
-      }
-    })
-
-    gameState.arrows.forEach((arrow) => {
-      if (frameCountRef.current % 5 === 0) {
-        addParticle(arrow.position.x, arrow.position.y, "trail", "#D3A973", 1, 3)
-      }
-    })
-  }, [gameState])
-
-  // Main render function
-  useEffect(() => {
-    try {
-      const canvas = canvasRef.current
-      if (!canvas) {
-        console.error("RENDERER", "Canvas reference is null")
-        return
-      }
-
-      try {
-        canvas.width = gameState.arenaSize.width
-        canvas.height = gameState.arenaSize.height
-      } catch (error) {
-        console.error("RENDERER", "Error setting canvas dimensions", error)
-        return
-      }
-
-      let ctx
-      try {
-        ctx = canvas.getContext("2d")
-        if (!ctx) {
-          console.error("RENDERER", "Failed to get 2D context from canvas")
-          return
-        }
-      } catch (error) {
-        console.error("RENDERER", "Error getting canvas context", error)
-        return
-      }
-
-      // Draw background
-      drawBackground(ctx, gameState.arenaSize.width, gameState.arenaSize.height)
-
-      // Draw walls
-      gameState.walls.forEach((wall) => {
-        drawWall(ctx, wall)
-      })
-
-      // Draw pickups
-      gameState.pickups.forEach((pickup) => {
-        drawPickup(ctx, pickup)
-      })
-
-      // Draw death effects
-      Object.values(gameState.players).forEach((player) => {
-        const animator = animatorsRef.current[player.id]
-        if (animator && animator.getCurrentAnimationName() === "death" && animator.isDeathEffectStarted()) {
-          generateDeathEffect(
-            ctx,
-            player.position.x,
-            player.position.y,
-            player.size,
-            player.color,
-            frameCountRef.current,
-          )
-        }
-      })
-
-      // Draw arrows
-      gameState.arrows.forEach((arrow) => {
-        drawArrow(ctx, arrow)
-      })
-
-      // Draw explosions
-      drawExplosions(ctx)
-
-      // Draw particles
-      particles.forEach((particle) => {
-        try {
-          if (particle.type === "explosion") {
-            ctx.fillStyle = particle.color
-            const size = particle.size * (1 - particle.frame / particle.maxFrames)
-            ctx.beginPath()
-            ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2)
-            ctx.fill()
-          } else {
-            generateParticle(ctx, particle.x, particle.y, particle.size, particle.color, particle.type, particle.frame)
-          }
-        } catch (error) {
-          console.error("Error generating particle:", error)
-          particlesRef.current = particlesRef.current.filter((p) => p !== particle)
-        }
-      })
-
-      // Draw players
-      Object.values(gameState.players).forEach((player) => {
-        drawPlayer(ctx, player, player.id === localPlayerId)
-      })
-
-      // Draw UI
-      drawUI(ctx, gameState, localPlayerId)
-
-      // Draw debug info if enabled
-      if (debugMode) {
-        drawDebugInfo(ctx, gameState)
-      }
-    } catch (error) {
-      console.error("RENDERER", "Critical error in renderer setup", error)
-    }
-  }, [gameState, localPlayerId, particles, debugMode])
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const context = canvas.getContext("2d")
+    if (!context) return
 
-    if (
-      x >= gameState.arenaSize.width - 110 &&
-      x <= gameState.arenaSize.width - 10 &&
-      y >= gameState.arenaSize.height - 40 &&
-      y <= gameState.arenaSize.height - 10
-    ) {
-      setDebugMode(!debugMode)
+    contextRef.current = context
+
+    // Set canvas size
+    const resizeCanvas = () => {
+      const container = canvas.parentElement
+      if (container) {
+        canvas.width = container.clientWidth
+        canvas.height = container.clientHeight
+      }
     }
-  }
+
+    resizeCanvas()
+    window.addEventListener("resize", resizeCanvas)
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas)
+    }
+  }, [])
+
+  // Render game state
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const context = contextRef.current
+    if (!canvas || !context) return
+
+    // Clear canvas
+    context.fillStyle = "#1a1a2e"
+    context.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Draw arena bounds
+    context.strokeStyle = "#16213e"
+    context.lineWidth = 2
+    context.strokeRect(50, 50, canvas.width - 100, canvas.height - 100)
+
+    // Draw players
+    Object.values(gameState.players).forEach((player) => {
+      drawPlayer(context, player, player.id === localPlayerId)
+    })
+
+    // Draw arrows
+    gameState.arrows.forEach((arrow) => {
+      drawArrow(context, arrow)
+    })
+
+    // Draw UI elements
+    drawUI(context, canvas, gameState, localPlayerId)
+  }, [gameState, localPlayerId])
+
+  const drawPlayer = useCallback((context: CanvasRenderingContext2D, player: Player, isLocal: boolean) => {
+    const { position, rotation, health, isDrawingBow, animationState } = player
+
+    // Player body
+    context.save()
+    context.translate(position.x, position.y)
+    context.rotate(rotation)
+
+    // Body color based on player type
+    if (isLocal) {
+      context.fillStyle = "#4ade80" // Green for local player
+    } else if (player.id.startsWith("ai_")) {
+      context.fillStyle = "#ef4444" // Red for AI
+    } else {
+      context.fillStyle = "#3b82f6" // Blue for other players
+    }
+
+    // Draw player body (circle)
+    context.beginPath()
+    context.arc(0, 0, 15, 0, Math.PI * 2)
+    context.fill()
+
+    // Draw direction indicator
+    context.strokeStyle = "#ffffff"
+    context.lineWidth = 2
+    context.beginPath()
+    context.moveTo(0, 0)
+    context.lineTo(20, 0)
+    context.stroke()
+
+    // Draw bow if drawing
+    if (isDrawingBow) {
+      context.strokeStyle = "#8b4513"
+      context.lineWidth = 3
+      context.beginPath()
+      context.arc(0, 0, 25, -0.5, 0.5)
+      context.stroke()
+    }
+
+    context.restore()
+
+    // Health bar
+    const barWidth = 30
+    const barHeight = 4
+    context.fillStyle = "#333"
+    context.fillRect(position.x - barWidth / 2, position.y - 25, barWidth, barHeight)
+
+    context.fillStyle = health > 50 ? "#4ade80" : health > 25 ? "#fbbf24" : "#ef4444"
+    context.fillRect(position.x - barWidth / 2, position.y - 25, (barWidth * health) / 100, barHeight)
+
+    // Player name
+    context.fillStyle = "#ffffff"
+    context.font = "12px Arial"
+    context.textAlign = "center"
+    context.fillText(player.name, position.x, position.y - 30)
+  }, [])
+
+  const drawArrow = useCallback((context: CanvasRenderingContext2D, arrow: Arrow) => {
+    context.save()
+    context.translate(arrow.position.x, arrow.position.y)
+    context.rotate(Math.atan2(arrow.velocity.y, arrow.velocity.x))
+
+    // Arrow shaft
+    context.strokeStyle = "#8b4513"
+    context.lineWidth = 2
+    context.beginPath()
+    context.moveTo(-10, 0)
+    context.lineTo(10, 0)
+    context.stroke()
+
+    // Arrow head
+    context.fillStyle = "#666"
+    context.beginPath()
+    context.moveTo(10, 0)
+    context.lineTo(5, -3)
+    context.lineTo(5, 3)
+    context.closePath()
+    context.fill()
+
+    context.restore()
+  }, [])
+
+  const drawUI = useCallback(
+    (context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, gameState: GameState, localPlayerId: string) => {
+      const localPlayer = gameState.players[localPlayerId]
+      if (!localPlayer) return
+
+      // Game timer
+      context.fillStyle = "#ffffff"
+      context.font = "20px Arial"
+      context.textAlign = "center"
+      const timeLeft = Math.max(0, gameState.maxGameTime - gameState.gameTime)
+      context.fillText(`Time: ${Math.ceil(timeLeft)}s`, canvas.width / 2, 30)
+
+      // Player stats
+      context.textAlign = "left"
+      context.font = "16px Arial"
+      context.fillText(`Health: ${localPlayer.health}`, 20, canvas.height - 60)
+      context.fillText(`Lives: ${localPlayer.lives}`, 20, canvas.height - 40)
+
+      // Special attack cooldown
+      if (localPlayer.specialAttackCooldown > 0) {
+        context.fillText(`Special: ${localPlayer.specialAttackCooldown.toFixed(1)}s`, 20, canvas.height - 20)
+      } else {
+        context.fillStyle = "#4ade80"
+        context.fillText("Special: READY", 20, canvas.height - 20)
+      }
+
+      // Bow charge indicator
+      if (localPlayer.isDrawingBow) {
+        const chargeWidth = 100
+        const chargeHeight = 10
+        const chargeX = canvas.width / 2 - chargeWidth / 2
+        const chargeY = canvas.height - 30
+
+        context.fillStyle = "#333"
+        context.fillRect(chargeX, chargeY, chargeWidth, chargeHeight)
+
+        context.fillStyle = "#fbbf24"
+        const charge = Math.min(1, (Date.now() - (localPlayer as any).bowDrawStartTime || 0) / 1000)
+        context.fillRect(chargeX, chargeY, chargeWidth * charge, chargeHeight)
+      }
+
+      // Game over screen
+      if (gameState.isGameOver) {
+        context.fillStyle = "rgba(0, 0, 0, 0.8)"
+        context.fillRect(0, 0, canvas.width, canvas.height)
+
+        context.fillStyle = "#ffffff"
+        context.font = "48px Arial"
+        context.textAlign = "center"
+        context.fillText("GAME OVER", canvas.width / 2, canvas.height / 2)
+
+        const alivePlayers = Object.values(gameState.players).filter((p) => p.health > 0)
+        if (alivePlayers.length === 1) {
+          context.font = "24px Arial"
+          context.fillText(`Winner: ${alivePlayers[0].name}`, canvas.width / 2, canvas.height / 2 + 60)
+        }
+      }
+    },
+    [],
+  )
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center">
-      <canvas
-        ref={canvasRef}
-        className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] game-canvas"
-        width={gameState.arenaSize.width}
-        height={gameState.arenaSize.height}
-        onClick={handleCanvasClick}
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      onClick={onClick}
+      className="w-full h-full cursor-crosshair"
+      style={{ minHeight: "400px" }}
+    />
   )
 }
