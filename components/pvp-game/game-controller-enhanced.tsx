@@ -20,7 +20,7 @@ import {
 } from "@/utils/audio-manager"
 import { debugManager, DebugLevel } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
-import { createAIController, AIDifficulty } from "../../utils/game-ai"
+import { createAIController } from "@/utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -162,8 +162,6 @@ export default function GameControllerEnhanced({
       aiCount = 3
     }
 
-    const difficulties = [AIDifficulty.EASY, AIDifficulty.MEDIUM, AIDifficulty.HARD, AIDifficulty.EXPERT]
-
     for (let i = 1; i <= aiCount; i++) {
       const aiId = `ai-${i}`
       const aiPlayer = createPlayer(
@@ -191,12 +189,9 @@ export default function GameControllerEnhanced({
       aiPlayer.isChargingSpecial = false
 
       initialState.players[aiId] = aiPlayer
-      aiControllersRef.current[aiId] = createAIController(difficulties[i % difficulties.length])
+      aiControllersRef.current[aiId] = createAIController()
 
-      debugManager.logInfo(
-        "GAME",
-        `Created AI player ${aiId} with difficulty: ${difficulties[i % difficulties.length]}`,
-      )
+      debugManager.logInfo("GAME", `Created AI player ${aiId}`)
     }
 
     setGameState(initialState)

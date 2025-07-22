@@ -17,10 +17,7 @@ export interface AIController {
 }
 
 export function createAIController(): AIController {
-  const lastTargetId: string | null = null
   let lastShootTime = 0
-  const lastMoveTime = 0
-  const moveDirection = { x: 0, y: 0 }
   let behaviorState = "seek" // seek, attack, evade
   let stateTimer = 0
 
