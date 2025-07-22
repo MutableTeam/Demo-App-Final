@@ -1,66 +1,76 @@
 "use client"
-
-import { useState, useEffect } from "react"
 import type { GameState } from "./game-engine"
 
 interface DebugOverlayProps {
   gameState: GameState
   localPlayerId: string
-  visible: boolean
+  aiControllers: Record<string, any>
 }
 
-export default function DebugOverlay({ gameState, localPlayerId, visible }: DebugOverlayProps) {
-  const [fps, setFps] = useState<number>(0)
-  const [lastFrameTime, setLastFrameTime] = useState<number>(Date.now())
-  const [frameCount, setFrameCount] = useState<number>(0)
-
-  // Update FPS counter
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now()
-      const elapsed = now - lastFrameTime
-      if (elapsed > 0) {
-        setFps(Math.round(frameCount / (elapsed / 1000)))
-        setLastFrameTime(now)
-        setFrameCount(0)
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [frameCount, lastFrameTime])
-
-  // Increment frame counter
-  useEffect(() => {
-    setFrameCount((prev) => prev + 1)
-  }, [gameState])
-
-  if (!visible) return null
-
-  const player = gameState.players[localPlayerId]
+export function DebugOverlay({ gameState, localPlayerId, aiControllers }: DebugOverlayProps) {
+  const aiPlayers = Object.values(gameState.players).filter((p) => p.id !== localPlayerId)
 
   return (
-    <div className="absolute top-0 left-0 p-2 bg-black/70 text-white text-xs font-mono w-64 z-10">
-      <h3 className="font-bold mb-1">Debug Information</h3>
-      <div className="space-y-1">
-        <p>FPS: {fps}</p>
-        <p>
-          Game Time: {gameState.gameTime.toFixed(1)}s / {gameState.maxGameTime}s
-        </p>
-        <p>Players: {Object.keys(gameState.players).length}</p>
-        <p>Arrows: {gameState.arrows.length}</p>
+    <div className="bg-black bg-opacity-80 text-white p-4 rounded-lg text-xs max-w-md">
+      <h3 className="text-sm font-bold mb-2">Debug Information</h3>
 
-        {player && (
-          <>
-            <h4 className="font-bold mt-2">Local Player</h4>
-            <p>
-              Position: ({Math.round(player.position.x)}, {Math.round(player.position.y)})
-            </p>
-            <p>Health: {player.health}/100</p>
-            <p>Animation: {player.animationState}</p>
-            <p>Bow Drawing: {player.isDrawingBow ? "Yes" : "No"}</p>
-            <p>Special Ready: {player.specialAttackCooldown <= 0 ? "Yes" : "No"}</p>
-          </>
-        )}
+      {/* Game State */}
+      <div className="mb-3">
+        <h4 className="font-semibold">Game State:</h4>
+        <div>Time: {gameState.gameTime.toFixed(1)}s</div>
+        <div>Players: {Object.keys(gameState.players).length}</div>
+        <div>Arrows: {gameState.arrows?.length || 0}</div>
+        <div>Game Over: {gameState.isGameOver ? "Yes" : "No"}</div>
+      </div>
+
+      {/* Local Player */}
+      {gameState.players[localPlayerId] && (
+        <div className="mb-3">
+          <h4 className="font-semibold">Local Player:</h4>
+          <div>Health: {gameState.players[localPlayerId].health}</div>
+          <div>
+            Position: ({Math.round(gameState.players[localPlayerId].position.x)},{" "}
+            {Math.round(gameState.players[localPlayerId].position.y)})
+          </div>
+          <div>Rotation: {gameState.players[localPlayerId].rotation.toFixed(2)}</div>
+          <div>Animation: {gameState.players[localPlayerId].animationState}</div>
+        </div>
+      )}
+
+      {/* AI Players */}
+      <div className="mb-3">
+        <h4 className="font-semibold">AI Players:</h4>
+        {aiPlayers.map((player) => {
+          const controller = aiControllers[player.id]
+          return (
+            <div key={player.id} className="ml-2 mb-2 border-l border-gray-600 pl-2">
+              <div className="font-medium">{player.name}</div>
+              <div>
+                Health: {player.health} | Lives: {player.lives}
+              </div>
+              <div>
+                Pos: ({Math.round(player.position.x)}, {Math.round(player.position.y)})
+              </div>
+              <div>Rot: {player.rotation.toFixed(2)}</div>
+              <div>Animation: {player.animationState}</div>
+              <div>Drawing Bow: {player.isDrawingBow ? "Yes" : "No"}</div>
+              {controller && (
+                <div className="text-gray-300">
+                  <div>Target: {controller.state?.targetId || "None"}</div>
+                  <div>Behavior: {controller.state?.currentBehavior || "Unknown"}</div>
+                  <div>Controls: {JSON.stringify(player.controls)}</div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Performance */}
+      <div>
+        <h4 className="font-semibold">Performance:</h4>
+        <div>FPS: {Math.round(1000 / 16)} (estimated)</div>
+        <div>AI Controllers: {Object.keys(aiControllers).length}</div>
       </div>
     </div>
   )
