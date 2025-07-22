@@ -10,7 +10,8 @@ import DebugOverlay from "@/components/pvp-game/debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
 import { updateGameState } from "@/components/pvp-game/game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
-import { useGameControls } from "@/hooks/use-game-controls"
+import { setupGameInputHandlers } from "@/utils/game-input-handler"
+import GameController from "@/components/pvp-game/game-controller"
 
 export default function GameComponent({
   playerId,
@@ -58,13 +59,17 @@ export default function GameComponent({
   const minDrawSoundPlayedRef = useRef(false)
   const [showTutorial, setShowTutorial] = useState(true)
 
-  // Use the new unified game controls hook
-  useGameControls({
-    playerId,
-    gameStateRef,
-    platformType,
-    isEnabled: !gameState?.isGameOver,
-  })
+  // Setup desktop keyboard controls
+  useEffect(() => {
+    if (platformType === "desktop" && !gameState?.isGameOver) {
+      const cleanup = setupGameInputHandlers({
+        playerId,
+        gameStateRef,
+        componentIdRef,
+      })
+      return cleanup
+    }
+  }, [platformType, playerId, gameStateRef, gameState?.isGameOver, componentIdRef])
 
   // Initialize game
   useEffect(() => {
@@ -397,6 +402,9 @@ export default function GameComponent({
   return (
     <div className="relative">
       <GameRenderer gameState={gameState} localPlayerId={playerId} />
+      {platformType !== "desktop" && !gameState.isGameOver && (
+        <GameController playerId={playerId} gameStateRef={gameStateRef} isEnabled={!gameState.isGameOver} />
+      )}
       <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
       <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
       <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
