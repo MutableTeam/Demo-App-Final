@@ -65,6 +65,7 @@ export interface Player extends GameObject {
   explosiveArrowCooldown: number
   isUsingExplosiveArrow: boolean
   lastHitByWeakShot?: boolean // Flag to track if player was hit by a weak shot
+  wasShooting?: boolean
 }
 
 // Update the GameState interface to include maxGameTime and gameMode
@@ -466,11 +467,9 @@ export const updateGameState = (
         player.lastAnimationChange = now
         // Set respawn timer
         player.respawnTimer = 1.0 // 1 second
-      } else if (player.isDrawingBow || player.controls.shoot) {
-        if (player.animationState !== "fire") {
-          player.animationState = "fire"
-          player.lastAnimationChange = now
-        }
+      } else if (player.isDrawingBow && player.animationState !== "fire") {
+        player.animationState = "fire"
+        player.lastAnimationChange = now
       } else if (player.isDashing && player.animationState !== "dash") {
         player.animationState = "dash"
         player.lastAnimationChange = now
@@ -565,68 +564,48 @@ export const updateGameState = (
         player.position.y += player.velocity.y * deltaTime
       }
 
-      // Handle bow drawing (Desktop only)
-      if (player.controls.shoot) {
-        if (!player.isDrawingBow) {
-          player.isDrawingBow = true
-          player.drawStartTime = Date.now() / 1000 // Convert to seconds
+      // --- Refined Shooting Logic ---
+      // 1. Handle starting a bow draw
+      if (player.isDrawingBow && player.drawStartTime === null) {
+        player.drawStartTime = Date.now() / 1000
+      }
 
-          // Set animation to fire when starting to draw bow
-          player.animationState = "fire"
-          player.lastAnimationChange = Date.now()
-        }
-      } else if (player.isDrawingBow && player.drawStartTime !== null) {
-        // Release arrow only if we were actually drawing the bow
+      // 2. Handle firing the bow (works for mobile pulse and desktop key-up)
+      const desktopFire = !player.controls.shoot && player.drawStartTime !== null
+      const mobileFire = player.controls.shoot && player.drawStartTime !== null
+
+      if (mobileFire || (desktopFire && player.wasShooting)) {
         const currentTime = Date.now() / 1000
         const drawTime = currentTime - player.drawStartTime
 
-        // Check if this is a weak shot (less than 30% draw)
-        const minDrawTime = player.maxDrawTime * 0.3
-        const isWeakShot = drawTime < minDrawTime
-
-        // Calculate damage and speed based on draw time
+        const isWeakShot = drawTime < player.minDrawTime
         const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
         const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
 
-        // Adjust arrow properties based on draw strength
-        let finalArrowSpeed = arrowSpeed
-        let arrowRange = 800 // Default range
-
-        if (isWeakShot) {
-          // Weak shots move slower and fall to ground quickly
-          finalArrowSpeed = arrowSpeed * 0.3
-          arrowRange = 200 // Much shorter range
-        }
-
         const arrowVelocity = {
-          x: Math.cos(player.rotation) * finalArrowSpeed,
-          y: Math.sin(player.rotation) * finalArrowSpeed,
+          x: Math.cos(player.rotation) * arrowSpeed,
+          y: Math.sin(player.rotation) * arrowSpeed,
         }
-
         const arrowPosition = {
           x: player.position.x + Math.cos(player.rotation) * (player.size + 5),
           y: player.position.y + Math.sin(player.rotation) * (player.size + 5),
         }
 
-        // Create the arrow with additional properties
         const arrow = createArrow(arrowPosition, arrowVelocity, player.rotation, player.id, damage)
-
-        // Add custom properties for weak shots
-        if (isWeakShot) {
-          arrow.color = "#5D4037" // Darker brown for weak shots
-          // @ts-ignore - Adding custom property
-          arrow.isWeakShot = true
-          // @ts-ignore - Adding custom property
-          arrow.range = arrowRange
-        }
-
         newState.arrows.push(arrow)
 
-        // Reset bow state
+        // Reset state after firing
         player.isDrawingBow = false
         player.drawStartTime = null
-        player.cooldown = 0.2 // Small cooldown between shots
+        player.cooldown = 0.2
+        player.controls.shoot = false // Consume the command
       }
+
+      // 3. Handle cancelling a draw
+      if (!player.isDrawingBow && player.drawStartTime !== null) {
+        player.drawStartTime = null
+      }
+      player.wasShooting = player.controls.shoot
 
       // Handle special attack charging
       if (player.controls.special) {

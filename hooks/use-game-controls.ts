@@ -31,42 +31,30 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         const player = gameStateRef.current?.players?.[playerId]
         if (!player) return
 
-        // --- Direct State Mapping for movement and actions ---
+        // --- Map standard controls ---
         player.controls.up = inputState.movement.up
         player.controls.down = inputState.movement.down
         player.controls.left = inputState.movement.left
         player.controls.right = inputState.movement.right
         player.controls.dash = inputState.actions.dash
         player.controls.special = inputState.actions.special
+        player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
-        // --- Aiming Logic ---
+        // --- Map aiming and shooting logic ---
+        player.rotation = inputState.aiming.angle
+        player.controls.shoot = inputState.actions.shoot
+
+        // Manage the `isDrawingBow` state carefully.
+        // If the input handler says we are aiming, then we are drawing.
         if (inputState.aiming.active) {
-          // Update aim angle continuously while the joystick is active
-          player.rotation = inputState.aiming.angle
-        }
-
-        // --- Shooting Logic ---
-        // Handle charging (button press)
-        if (inputState.actions.shootCharging && !player.isDrawingBow) {
           player.isDrawingBow = true
-          player.drawStartTime = Date.now() / 1000
-          console.log(`[GAME_CONTROLS] Charge started at ${player.drawStartTime}`)
         }
-
-        // Handle release (button up)
-        if (inputState.actions.shoot && player.isDrawingBow) {
-          player.controls.shoot = true
-          console.log("[GAME_CONTROLS] Shoot command sent to game engine.")
-        } else if (!inputState.actions.shootCharging && player.isDrawingBow && !player.controls.shoot) {
-          // If the shoot button is released but we haven't fired yet, fire now
-          player.controls.shoot = true
-          console.log("[GAME_CONTROLS] Shoot command sent from button release.")
-        } else if (!inputState.actions.shootCharging && !inputState.actions.shoot) {
-          // Reset shooting state when neither charging nor shooting
-          player.controls.shoot = false
-          if (!player.isDrawingBow) {
-            player.drawStartTime = null
-          }
+        // If a shoot command is issued, it implies a release, but we must keep
+        // `isDrawingBow` true for this frame so the engine can process the shot.
+        // The game engine will be responsible for setting `isDrawingBow` to false after firing.
+        // Only set `isDrawingBow` to false if we are explicitly not aiming AND not shooting.
+        else if (!inputState.actions.shoot) {
+          player.isDrawingBow = false
         }
       }
 

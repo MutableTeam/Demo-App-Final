@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
+import {
+  createInitialGameState,
+  createPlayer,
+  type GameState,
+  updateGameState,
+  createArrow,
+  calculateArrowDamage,
+  calculateArrowSpeed,
+} from "./game-engine"
 import GameRenderer from "./game-renderer"
 import DebugOverlay from "./debug-overlay"
 import {
@@ -22,7 +30,7 @@ import transitionDebugger from "@/utils/transition-debug"
 import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
-import { useGameControls } from "@/hooks/use-game-controls"
+import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
 
 interface GameControllerProps {
   playerId: string
@@ -53,14 +61,6 @@ export default function GameController({
   const [showDebug, setShowDebug] = useState<boolean>(false)
   const [showResourceMonitor, setShowDebugResourceMonitor] = useState<boolean>(false)
   const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
-
-  // Centralized game controls hook for both desktop and mobile
-  useGameControls({
-    playerId,
-    gameStateRef,
-    platformType,
-    isEnabled: !gameState.isGameOver && gameInitializedRef.current,
-  })
 
   useEffect(() => {
     debugManager.updateConfig({ enabled: true, level: DebugLevel.DEBUG, capturePerformance: true })
@@ -190,6 +190,81 @@ export default function GameController({
     if (!audioManager.isSoundMuted())
       startBackgroundMusic().catch((err) => debugManager.logWarning("AUDIO", "Failed to start BGM", err))
 
+    let cleanupInputHandlers: (() => void) | null = null
+
+    if (platformType === "desktop") {
+      console.log("[InputDebug] Initializing DESKTOP controls.")
+      cleanupInputHandlers = setupGameInputHandlers({
+        playerId,
+        gameStateRef,
+        componentIdRef,
+      })
+    } else {
+      console.log("[InputDebug] Initializing MOBILE controls.")
+      const handleMobileInput = (inputState: GameInputState) => {
+        const player = gameStateRef.current.players[playerId]
+        if (!player) return
+
+        // Combine movement and actions into player controls
+        player.controls = {
+          ...player.controls,
+          ...inputState.movement,
+          ...inputState.actions,
+        }
+
+        if (inputState.aiming.active) {
+          if (!player.isDrawingBow) {
+            player.isDrawingBow = true
+            player.drawStartTime = Date.now() / 1000
+          }
+          player.rotation = inputState.aiming.angle
+        }
+      }
+
+      const handleMobileShoot = (angle: number, power: number) => {
+        const player = gameStateRef.current.players[playerId]
+        if (!player) return
+
+        const drawTime = player.maxDrawTime * power
+        const isWeakShot = power < 0.3
+        const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
+        const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
+        const arrowVelocity = { x: Math.cos(angle) * arrowSpeed, y: Math.sin(angle) * arrowSpeed }
+        const arrowPosition = {
+          x: player.position.x + Math.cos(angle) * (player.size + 5),
+          y: player.position.y + Math.sin(angle) * (player.size + 5),
+        }
+        const arrow = createArrow(arrowPosition, arrowVelocity, angle, player.id, damage)
+        if (isWeakShot) {
+          arrow.color = "#5D4037"
+          // @ts-ignore
+          arrow.isWeakShot = true
+        }
+        gameStateRef.current.arrows.push(arrow)
+
+        player.isDrawingBow = false
+        player.drawStartTime = null
+        player.cooldown = 0.2
+        player.animationState = "fire"
+        player.lastAnimationChange = Date.now()
+
+        setTimeout(() => {
+          const p = gameStateRef.current.players[playerId]
+          if (p?.animationState === "fire") {
+            const isMoving = p.controls.up || p.controls.down || p.controls.left || p.controls.right
+            p.animationState = isMoving ? "run" : "idle"
+            p.lastAnimationChange = Date.now()
+          }
+        }, 300)
+      }
+
+      gameInputHandler.setCallbacks({
+        onStateChange: handleMobileInput,
+        onShoot: handleMobileShoot,
+      })
+      cleanupInputHandlers = () => gameInputHandler.destroy()
+    }
+
     const resumeAudio = () => !audioManager.isSoundMuted() && audioManager.resumeAudioContext()
     transitionDebugger.safeAddEventListener(
       document,
@@ -201,12 +276,16 @@ export default function GameController({
 
     return () => {
       if (requestAnimationFrameIdRef.current) cancelAnimationFrame(requestAnimationFrameIdRef.current)
+      if (cleanupInputHandlers) {
+        console.log("[InputDebug] Cleaning up input handlers.")
+        cleanupInputHandlers()
+      }
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
       stopBackgroundMusic()
       debugManager.logInfo("GAME", "Game cleanup completed")
       debugManager.trackComponentUnmount("GameController")
     }
-  }, [playerId, playerName, isHost, gameMode, onGameEnd])
+  }, [playerId, playerName, isHost, gameMode, onGameEnd, platformType])
 
   if (!gameInitializedRef.current) {
     return (

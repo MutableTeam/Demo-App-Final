@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react"
 import type { GameState } from "./game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
 import { cn } from "@/lib/utils"
-import BowDrawIndicator from "@/components/bow-draw-indicator"
 
 interface EnhancedGameRendererProps {
   gameState: GameState
@@ -71,29 +70,6 @@ export default function EnhancedGameRenderer({
         ctx.moveTo(0, 0)
         ctx.lineTo(player.size, 0)
         ctx.stroke()
-
-        // Draw bow charging indicator if player is drawing bow
-        if (player.isDrawingBow && player.drawStartTime) {
-          const currentTime = Date.now() / 1000
-          const drawTime = currentTime - player.drawStartTime
-          const chargePercentage = Math.min(drawTime / player.maxDrawTime, 1)
-
-          // Draw a charge indicator above the player
-          const indicatorWidth = player.size * 1.2
-          const indicatorHeight = 4
-
-          // Background
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-          ctx.fillRect(-indicatorWidth / 2, -player.size / 2 - 10, indicatorWidth, indicatorHeight)
-
-          // Charge level
-          let chargeColor = "#4CAF50" // Green for low charge
-          if (chargePercentage > 0.6) chargeColor = "#FFC107" // Yellow for medium charge
-          if (chargePercentage > 0.9) chargeColor = "#F44336" // Red for high charge
-
-          ctx.fillStyle = chargeColor
-          ctx.fillRect(-indicatorWidth / 2, -player.size / 2 - 10, indicatorWidth * chargePercentage, indicatorHeight)
-        }
 
         ctx.restore()
 
@@ -237,31 +213,13 @@ export default function EnhancedGameRenderer({
     return () => resizeObserver.disconnect()
   }, [])
 
-  // Get the local player for bow draw indicator
-  const localPlayer = gameState.players[localPlayerId]
-  const isDrawingBow = localPlayer?.isDrawingBow || false
-  const drawStartTime = localPlayer?.drawStartTime || null
-  const maxDrawTime = localPlayer?.maxDrawTime || 1.5
-
   return (
-    <div className="relative w-full h-full">
-      <canvas
-        ref={canvasRef}
-        width={canvasSize.width}
-        height={canvasSize.height}
-        className={cn("absolute top-0 left-0 w-full h-full bg-transparent")}
-        style={{ imageRendering: "pixelated", touchAction: "none" }}
-      />
-
-      {/* Bow draw indicator for mobile */}
-      {platformType === "mobile" && (
-        <BowDrawIndicator
-          isDrawing={isDrawingBow}
-          drawStartTime={drawStartTime}
-          maxDrawTime={maxDrawTime}
-          className="bottom-24 right-24"
-        />
-      )}
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={canvasSize.width}
+      height={canvasSize.height}
+      className={cn("absolute top-0 left-0 w-full h-full bg-transparent")}
+      style={{ imageRendering: "pixelated", touchAction: "none" }}
+    />
   )
 }
