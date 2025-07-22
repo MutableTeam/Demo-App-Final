@@ -62,6 +62,9 @@ export default function GameController({
   const [showResourceMonitor, setShowDebugResourceMonitor] = useState<boolean>(false)
   const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
 
+  // Mobile-specific state tracking
+  const mobileChargingStateRef = useRef<boolean>(false)
+
   useEffect(() => {
     debugManager.updateConfig({ enabled: true, level: DebugLevel.DEBUG, capturePerformance: true })
     debugManager.logInfo("GAME", "Debug system initialized for game controller")
@@ -146,22 +149,39 @@ export default function GameController({
 
       const localPlayer = newState.players[playerId]
       if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
-        if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
-          playBowDrawSound()
-          bowSoundPlayedRef.current = true
-        }
-        if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
-          const drawTime = Date.now() / 1000 - localPlayer.drawStartTime
-          if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
-            playBowFullDrawSound()
-            fullDrawSoundPlayedRef.current = true
+        // Handle bow draw sound for mobile charging
+        if (platformType === "mobile") {
+          if (mobileChargingStateRef.current && !bowSoundPlayedRef.current) {
+            playBowDrawSound()
+            bowSoundPlayedRef.current = true
+            console.log("[AUDIO] Mobile bow draw sound started")
+          }
+          if (!mobileChargingStateRef.current && bowSoundPlayedRef.current) {
+            playBowReleaseSound()
+            bowSoundPlayedRef.current = false
+            fullDrawSoundPlayedRef.current = false
+            console.log("[AUDIO] Mobile bow release sound played")
+          }
+        } else {
+          // Desktop audio handling
+          if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
+            playBowDrawSound()
+            bowSoundPlayedRef.current = true
+          }
+          if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
+            const drawTime = Date.now() / 1000 - localPlayer.drawStartTime
+            if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
+              playBowFullDrawSound()
+              fullDrawSoundPlayedRef.current = true
+            }
+          }
+          if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
+            playBowReleaseSound()
+            bowSoundPlayedRef.current = false
+            fullDrawSoundPlayedRef.current = false
           }
         }
-        if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
-          playBowReleaseSound()
-          bowSoundPlayedRef.current = false
-          fullDrawSoundPlayedRef.current = false
-        }
+
         if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) playDashSound()
         if (localPlayer.animationState === "hit" && gameStateRef.current.players[playerId]?.animationState !== "hit")
           playHitSound()
@@ -201,37 +221,49 @@ export default function GameController({
       })
     } else {
       console.log("[InputDebug] Initializing MOBILE controls.")
+
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current.players[playerId]
         if (!player) return
 
-        // Update movement controls only
+        // Update movement controls
         player.controls.up = inputState.movement.up
         player.controls.down = inputState.movement.down
         player.controls.left = inputState.movement.left
         player.controls.right = inputState.movement.right
 
-        // Update other action controls (but not shoot - that's handled by onShoot callback)
+        // Update other action controls
         player.controls.dash = inputState.actions.dash
         player.controls.special = inputState.actions.special
         player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
-        // Handle aiming state - only start drawing if we have sufficient power
-        if (inputState.aiming.active && inputState.aiming.power > 0.2) {
+        // Handle charging state for mobile
+        const wasCharging = mobileChargingStateRef.current
+        mobileChargingStateRef.current = inputState.aiming.isCharging
+
+        console.log(
+          "[MOBILE_INPUT] Charging state - Was:",
+          wasCharging,
+          "Now:",
+          mobileChargingStateRef.current,
+          "Power:",
+          inputState.aiming.power.toFixed(3),
+          "Active:",
+          inputState.aiming.active,
+        )
+
+        // Handle bow drawing state based on charging
+        if (inputState.aiming.isCharging && inputState.aiming.active) {
           if (!player.isDrawingBow && player.cooldown <= 0) {
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
             console.log("[MOBILE_INPUT] Started drawing bow - Power:", inputState.aiming.power.toFixed(3))
           }
+          // Update rotation while charging
           player.rotation = inputState.aiming.angle
-        } else if (player.isDrawingBow && (!inputState.aiming.active || inputState.aiming.power <= 0.2)) {
-          // Cancel draw if aiming stops or power drops too low without shooting
-          console.log(
-            "[MOBILE_INPUT] Cancelled bow draw - Active:",
-            inputState.aiming.active,
-            "Power:",
-            inputState.aiming.power.toFixed(3),
-          )
+        } else if (!inputState.aiming.isCharging && player.isDrawingBow) {
+          // Stop drawing if not charging anymore
+          console.log("[MOBILE_INPUT] Stopped drawing bow - charging ended")
           player.isDrawingBow = false
           player.drawStartTime = null
         }
@@ -245,34 +277,36 @@ export default function GameController({
         }
 
         console.log(
-          "[MOBILE_SHOOT] Attempting to shoot - Angle:",
+          "[MOBILE_SHOOT] Firing arrow - Angle:",
           angle.toFixed(3),
           "Power:",
           power.toFixed(3),
-          "IsDrawing:",
-          player.isDrawingBow,
           "Cooldown:",
           player.cooldown.toFixed(3),
         )
 
-        // Force start drawing if not already drawing (safety measure)
+        // Ensure player is in drawing state
         if (!player.isDrawingBow) {
           player.isDrawingBow = true
           player.drawStartTime = Date.now() / 1000
-          console.log("[MOBILE_SHOOT] Force started bow draw")
         }
 
-        // Calculate draw time based on power or actual time
+        // Calculate draw time based on power
         const currentTime = Date.now() / 1000
         const actualDrawTime = player.drawStartTime ? currentTime - player.drawStartTime : 0
-        // Use power to simulate draw time (power 0.2-1.0 maps to minDrawTime-maxDrawTime)
-        const simulatedDrawTime = player.minDrawTime + ((power - 0.2) * (player.maxDrawTime - player.minDrawTime)) / 0.8
+        // Map power (0.2-1.0) to draw time (minDrawTime-maxDrawTime)
+        const powerRatio = Math.max(0, (power - 0.2) / 0.8) // Normalize power from 0.2-1.0 to 0-1
+        const simulatedDrawTime = player.minDrawTime + powerRatio * (player.maxDrawTime - player.minDrawTime)
         const drawTime = Math.max(actualDrawTime, simulatedDrawTime)
 
         const isWeakShot = power < 0.3 || drawTime < player.minDrawTime
         const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
         const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
-        const arrowVelocity = { x: Math.cos(angle) * arrowSpeed, y: Math.sin(angle) * arrowSpeed }
+
+        const arrowVelocity = {
+          x: Math.cos(angle) * arrowSpeed,
+          y: Math.sin(angle) * arrowSpeed,
+        }
         const arrowPosition = {
           x: player.position.x + Math.cos(angle) * (player.size + 5),
           y: player.position.y + Math.sin(angle) * (player.size + 5),
@@ -286,13 +320,26 @@ export default function GameController({
         }
         gameStateRef.current.arrows.push(arrow)
 
-        console.log("[MOBILE_SHOOT] Arrow created - Damage:", damage, "Speed:", arrowSpeed, "IsWeak:", isWeakShot)
+        console.log(
+          "[MOBILE_SHOOT] Arrow created - Damage:",
+          damage,
+          "Speed:",
+          arrowSpeed,
+          "DrawTime:",
+          drawTime.toFixed(3),
+          "IsWeak:",
+          isWeakShot,
+        )
 
+        // Reset player state after firing
         player.isDrawingBow = false
         player.drawStartTime = null
         player.cooldown = 0.2
         player.animationState = "fire"
         player.lastAnimationChange = Date.now()
+
+        // Reset mobile charging state
+        mobileChargingStateRef.current = false
 
         setTimeout(() => {
           const p = gameStateRef.current.players[playerId]

@@ -10,6 +10,7 @@ export interface AimingState {
   angle: number // radians
   power: number // 0 to 1
   active: boolean
+  isCharging: boolean // New charging state
 }
 
 export interface MovementState {
@@ -23,7 +24,7 @@ export interface GameInputState {
   aiming: AimingState
   movement: MovementState
   actions: {
-    shoot: boolean // Added for joystick release shooting
+    shoot: boolean
     dash: boolean
     special: boolean
     explosiveArrow: boolean
@@ -38,12 +39,12 @@ class GameInputHandler {
     onShoot?: (angle: number, power: number) => void
   }
   private shootTimeout: NodeJS.Timeout | null = null
-  private isChargingShot = false // Internal state to manage charge cycle
-  private lastPower = 0 // Track the last power value
+  private maxPowerAchieved = 0 // Track the maximum power during charging
+  private hasStartedCharging = false // Track if we've started a charging cycle
 
   constructor() {
     this.state = {
-      aiming: { angle: 0, power: 0, active: false },
+      aiming: { angle: 0, power: 0, active: false, isCharging: false },
       movement: { up: false, down: false, left: false, right: false },
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
@@ -79,72 +80,73 @@ class GameInputHandler {
   }
 
   handleAimingJoystick(event: IJoystickUpdateEvent) {
-    const chargingThreshold = 0.2 // Power threshold to start charging
+    const chargingThreshold = 0.2 // Power threshold to start/stop charging
     const distance = event ? event.distance : 0
 
     // Calculate power based on distance (normalize to 0-1 range)
-    // Assuming max joystick distance is around 50-100 pixels
-    const maxDistance = 50
-    let currentPower = Math.min(distance / maxDistance, 1)
+    const maxDistance = 50 // Assuming max joystick distance
+    const currentPower = Math.min(distance / maxDistance, 1)
 
-    console.log(
-      `[INPUT_HANDLER] Distance: ${distance}, Power: ${currentPower.toFixed(3)}, Charging: ${this.isChargingShot}`,
-    )
-
+    // Update angle if we have valid coordinates
     if (event.x !== null && event.y !== null && distance > 0) {
       // Calculate the firing angle (opposite to joystick pull direction)
       const joystickAngle = Math.atan2(event.y, event.x)
       this.state.aiming.angle = joystickAngle + Math.PI
-      this.state.aiming.power = currentPower
+    }
 
-      // Check if we should start charging
-      if (currentPower > chargingThreshold && !this.isChargingShot) {
-        // Start charging
-        this.isChargingShot = true
+    // Update power
+    this.state.aiming.power = currentPower
+
+    console.log(
+      `[INPUT_HANDLER] Power: ${currentPower.toFixed(3)}, IsCharging: ${this.state.aiming.isCharging}, HasStarted: ${this.hasStartedCharging}, MaxPower: ${this.maxPowerAchieved.toFixed(3)}`,
+    )
+
+    // Charging Logic
+    if (currentPower > chargingThreshold) {
+      // Power is above threshold
+      if (!this.state.aiming.isCharging && !this.hasStartedCharging) {
+        // Start charging for the first time
+        this.state.aiming.isCharging = true
         this.state.aiming.active = true
-        console.log("[INPUT_HANDLER] Started charging shot - Power:", currentPower.toFixed(3))
-      }
-
-      // If we're charging, keep updating the aiming state
-      if (this.isChargingShot) {
+        this.hasStartedCharging = true
+        this.maxPowerAchieved = currentPower
+        console.log("[INPUT_HANDLER] Started charging - Power:", currentPower.toFixed(3))
+      } else if (this.state.aiming.isCharging) {
+        // Continue charging - update max power achieved
+        this.maxPowerAchieved = Math.max(this.maxPowerAchieved, currentPower)
         this.state.aiming.active = true
       }
     } else {
-      // Joystick is released or at center
-      currentPower = 0
-      this.state.aiming.power = 0
-    }
+      // Power is below threshold
+      if (this.state.aiming.isCharging && this.hasStartedCharging) {
+        // We were charging and now power dropped - FIRE!
+        console.log(
+          "[INPUT_HANDLER] Firing shot - MaxPower:",
+          this.maxPowerAchieved.toFixed(3),
+          "Angle:",
+          this.state.aiming.angle.toFixed(3),
+        )
 
-    // Check if we should fire (power dropped below threshold while charging)
-    if (this.isChargingShot && currentPower <= chargingThreshold) {
-      // Fire the shot with the last recorded power and angle
-      console.log(
-        "[INPUT_HANDLER] Firing shot - Power:",
-        this.lastPower.toFixed(3),
-        "Angle:",
-        this.state.aiming.angle.toFixed(3),
-      )
+        if (this.callbacks.onShoot) {
+          this.callbacks.onShoot(this.state.aiming.angle, this.maxPowerAchieved)
+        }
 
-      if (this.callbacks.onShoot) {
-        // Use the last power value that was above threshold
-        this.callbacks.onShoot(this.state.aiming.angle, Math.max(this.lastPower, chargingThreshold))
+        // Reset all charging states
+        this.state.aiming.isCharging = false
+        this.state.aiming.active = false
+        this.hasStartedCharging = false
+        this.maxPowerAchieved = 0
+      } else if (!this.hasStartedCharging) {
+        // Power is low and we haven't started charging yet - just update states
+        this.state.aiming.isCharging = false
+        this.state.aiming.active = false
       }
-
-      // Reset charging state
-      this.isChargingShot = false
-      this.state.aiming.active = false
-      this.state.aiming.power = 0
-    }
-
-    // Update last power if we're above threshold
-    if (currentPower > chargingThreshold) {
-      this.lastPower = currentPower
     }
 
     this.notifyStateChange()
   }
 
-  // --- Action Button Handlers (Retained for other actions) ---
+  // --- Action Button Handlers ---
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
     if (this.state.actions[action] !== pressed) {
       this.state.actions[action] = pressed
@@ -166,20 +168,20 @@ class GameInputHandler {
       this.shootTimeout = null
     }
     this.state = {
-      aiming: { angle: 0, power: 0, active: false },
+      aiming: { angle: 0, power: 0, active: false, isCharging: false },
       movement: { up: false, down: false, left: false, right: false },
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
-    this.isChargingShot = false
-    this.lastPower = 0
+    this.maxPowerAchieved = 0
+    this.hasStartedCharging = false
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }
 
 export const gameInputHandler = new GameInputHandler()
 
-// --- Desktop Input Handler Function (Retained for compatibility) ---
+// --- Desktop Input Handler Function ---
 export interface InputHandlerOptions {
   playerId: string
   gameStateRef: React.MutableRefObject<any>
