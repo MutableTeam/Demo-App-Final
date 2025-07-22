@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
-import nipplejs from "nipplejs"
+import type nipplejs from "nipplejs"
 import { cn } from "@/lib/utils"
 import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
@@ -91,29 +91,32 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
   // Initialize nipplejs
   useEffect(() => {
-    const joystickZone = document.getElementById("joystick-zone")
-    if (joystickZone && !joystickManagerRef.current) {
-      console.log("[InputDebug] Initializing NippleJS on zone:", joystickZone)
-      const manager = nipplejs.create({
-        zone: joystickZone,
-        mode: "static",
-        position: { left: "50%", top: "50%" },
-        color: "cyan",
-        size: 140,
-        restOpacity: 0.7,
-        fadeTime: 0,
-      })
+    // Dynamically import nipplejs only on the client
+    import("nipplejs").then((nipplejs) => {
+      const joystickZone = document.getElementById("joystick-zone")
+      if (joystickZone && !joystickManagerRef.current) {
+        console.log("[InputDebug] Initializing NippleJS on zone:", joystickZone)
+        const manager = nipplejs.default.create({
+          zone: joystickZone,
+          mode: "static",
+          position: { left: "50%", top: "50%" },
+          color: "cyan",
+          size: 140,
+          restOpacity: 0.7,
+          fadeTime: 0,
+        })
 
-      manager.on("move", (evt, data) => {
-        gameInputHandler.handleNippleMove(data)
-      })
+        manager.on("move", (evt, data) => {
+          gameInputHandler.handleNippleMove(data)
+        })
 
-      manager.on("end", () => {
-        gameInputHandler.handleNippleEnd()
-      })
+        manager.on("end", () => {
+          gameInputHandler.handleNippleEnd()
+        })
 
-      joystickManagerRef.current = manager
-    }
+        joystickManagerRef.current = manager
+      }
+    })
 
     return () => {
       if (joystickManagerRef.current) {
