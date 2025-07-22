@@ -31,42 +31,37 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         const player = gameStateRef.current?.players?.[playerId]
         if (!player) return
 
-        // --- Direct State Mapping ---
-        // Movement
+        // --- Direct State Mapping for other actions ---
         player.controls.up = inputState.movement.up
         player.controls.down = inputState.movement.down
         player.controls.left = inputState.movement.left
         player.controls.right = inputState.movement.right
-
-        // Actions
         player.controls.dash = inputState.actions.dash
         player.controls.special = inputState.actions.special
         player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
-        // Aiming from Joystick - simulate mouse behavior
+        // --- Aiming & Charging Logic ---
         if (inputState.aiming.active) {
+          // Joystick is being held down.
           if (!player.isDrawingBow) {
-            // Start drawing bow (like mouse down)
+            // This is the first frame of the draw. Set start time.
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            console.log("[GAME_CONTROLS] Started drawing bow (mouse down simulation)")
+            console.log(`[GAME_CONTROLS] Charge started at ${player.drawStartTime}`)
           }
-          // Set player rotation based on joystick direction
+          // Update aim angle continuously. This will NOT reset the charge.
+          // The player's rotation is set to the joystick's angle for aiming.
           player.rotation = inputState.aiming.angle
-        } else {
-          if (player.isDrawingBow) {
-            // Stop drawing bow but don't fire here - that's handled by shoot action
-            player.isDrawingBow = false
-            console.log("[GAME_CONTROLS] Stopped drawing bow")
-          }
         }
+        // Note: There is no 'else' block. The game engine is responsible for setting
+        // player.isDrawingBow to false after a shot is fired, ensuring the charge
+        // time is correctly calculated.
 
-        // Shooting from Joystick - this is the "mouse up" event
-        if (inputState.actions.shoot) {
-          console.log("[GAME_CONTROLS] Shoot command received (mouse up simulation).")
-          player.controls.shoot = true
-        } else {
-          player.controls.shoot = false
+        // --- Shooting Logic (on release) ---
+        // The game engine will see this 'shoot' flag and fire the arrow.
+        player.controls.shoot = inputState.actions.shoot
+        if (player.controls.shoot) {
+          console.log("[GAME_CONTROLS] Shoot command sent to game engine.")
         }
       }
 
