@@ -61,9 +61,9 @@ class GameInputHandler {
     const newState: MovementState = { up: false, down: false, left: false, right: false }
 
     if (type === "move" && x !== null && y !== null) {
-      // The joystick component inverts the Y-axis (up is negative).
-      if (y < -threshold) newState.up = true
-      if (y > threshold) newState.down = true
+      // Corrected: The joystick component's Y-axis is positive for up (North).
+      if (y > threshold) newState.up = true
+      if (y < -threshold) newState.down = true
       if (x < -threshold) newState.left = true
       if (x > threshold) newState.right = true
     }
@@ -78,15 +78,16 @@ class GameInputHandler {
     const distance = event ? event.distance : 0
 
     if (distance >= deadzone && event.x !== null && event.y !== null) {
-      // Joystick is pulled back
+      // Joystick is pulled back, so aiming is active.
+      this.state.aiming.active = true
+
       if (!this.isChargingShot) {
-        // Start a new charge cycle
+        // Start a new charge cycle only once.
         this.isChargingShot = true
-        this.state.aiming.active = true
       }
       // Continuously update aiming details
-      // We use -event.y because the joystick's y-axis is inverted (positive is down).
-      const joystickAngle = Math.atan2(-event.y, event.x)
+      // The joystick's y-axis is positive for down, so we use event.y directly for standard atan2.
+      const joystickAngle = Math.atan2(event.y, event.x)
       // The firing angle is opposite to the pull direction (add 180 degrees / PI radians).
       this.state.aiming.angle = joystickAngle + Math.PI
       this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
