@@ -65,6 +65,7 @@ export interface Player extends GameObject {
   explosiveArrowCooldown: number
   isUsingExplosiveArrow: boolean
   lastHitByWeakShot?: boolean // Flag to track if player was hit by a weak shot
+  wasShooting?: boolean
 }
 
 // Update the GameState interface to include maxGameTime and gameMode
@@ -277,7 +278,7 @@ export const generateWalls = (): GameObject[] => {
 }
 
 // Update the calculateArrowDamage function to handle weak shots
-const calculateArrowDamage = (drawTime: number, maxDrawTime: number, isWeakShot: boolean): number => {
+export const calculateArrowDamage = (drawTime: number, maxDrawTime: number, isWeakShot: boolean): number => {
   // Weak shots always do 1 damage
   if (isWeakShot) {
     return 1
@@ -291,7 +292,7 @@ const calculateArrowDamage = (drawTime: number, maxDrawTime: number, isWeakShot:
 }
 
 // Calculate arrow speed based on draw time
-const calculateArrowSpeed = (drawTime: number, maxDrawTime: number): number => {
+export const calculateArrowSpeed = (drawTime: number, maxDrawTime: number): number => {
   // Minimum speed is 300, max is 600 based on draw time
   const minSpeed = 300
   const maxSpeed = 600
@@ -466,11 +467,9 @@ export const updateGameState = (
         player.lastAnimationChange = now
         // Set respawn timer
         player.respawnTimer = 1.0 // 1 second
-      } else if (player.isDrawingBow || player.controls.shoot) {
-        if (player.animationState !== "fire") {
-          player.animationState = "fire"
-          player.lastAnimationChange = now
-        }
+      } else if (player.isDrawingBow && player.animationState !== "fire") {
+        player.animationState = "fire"
+        player.lastAnimationChange = now
       } else if (player.isDashing && player.animationState !== "dash") {
         player.animationState = "dash"
         player.lastAnimationChange = now
@@ -565,68 +564,47 @@ export const updateGameState = (
         player.position.y += player.velocity.y * deltaTime
       }
 
-      // Handle bow drawing
-      if (player.controls.shoot) {
+      // --- Desktop Shooting Logic (Simplified) ---
+      // Handle shooting for desktop controls only
+      if (player.controls.shoot && !player.wasShooting && player.cooldown <= 0) {
+        // Start drawing bow
         if (!player.isDrawingBow) {
           player.isDrawingBow = true
-          player.drawStartTime = Date.now() / 1000 // Convert to seconds
-
-          // Set animation to fire when starting to draw bow
-          player.animationState = "fire"
-          player.lastAnimationChange = Date.now()
+          player.drawStartTime = Date.now() / 1000
         }
-      } else if (player.isDrawingBow && player.drawStartTime !== null) {
-        // Release arrow
+      } else if (!player.controls.shoot && player.wasShooting && player.isDrawingBow) {
+        // Fire arrow on mouse release
         const currentTime = Date.now() / 1000
-        const drawTime = currentTime - player.drawStartTime
+        const drawTime = player.drawStartTime ? currentTime - player.drawStartTime : 0
 
-        // Check if this is a weak shot (less than 30% draw)
-        const minDrawTime = player.maxDrawTime * 0.3
-        const isWeakShot = drawTime < minDrawTime
-
-        // Calculate damage and speed based on draw time
+        const isWeakShot = drawTime < player.minDrawTime
         const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
         const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
 
-        // Adjust arrow properties based on draw strength
-        let finalArrowSpeed = arrowSpeed
-        let arrowRange = 800 // Default range
-
-        if (isWeakShot) {
-          // Weak shots move slower and fall to ground quickly
-          finalArrowSpeed = arrowSpeed * 0.3
-          arrowRange = 200 // Much shorter range
-        }
-
         const arrowVelocity = {
-          x: Math.cos(player.rotation) * finalArrowSpeed,
-          y: Math.sin(player.rotation) * finalArrowSpeed,
+          x: Math.cos(player.rotation) * arrowSpeed,
+          y: Math.sin(player.rotation) * arrowSpeed,
         }
-
         const arrowPosition = {
           x: player.position.x + Math.cos(player.rotation) * (player.size + 5),
           y: player.position.y + Math.sin(player.rotation) * (player.size + 5),
         }
 
-        // Create the arrow with additional properties
         const arrow = createArrow(arrowPosition, arrowVelocity, player.rotation, player.id, damage)
-
-        // Add custom properties for weak shots
         if (isWeakShot) {
-          arrow.color = "#5D4037" // Darker brown for weak shots
-          // @ts-ignore - Adding custom property
+          // @ts-ignore
           arrow.isWeakShot = true
-          // @ts-ignore - Adding custom property
-          arrow.range = arrowRange
         }
-
         newState.arrows.push(arrow)
 
-        // Reset bow state
+        // Reset state after firing
         player.isDrawingBow = false
         player.drawStartTime = null
-        player.cooldown = 0.2 // Small cooldown between shots
+        player.cooldown = 0.2
       }
+
+      // Track previous shooting state
+      player.wasShooting = player.controls.shoot
 
       // Handle special attack charging
       if (player.controls.special) {
@@ -900,7 +878,7 @@ export const updateGameState = (
 // Handle player input
 export function handlePlayerInput(state: GameState, playerId: string, input: any): GameState {
   const player = state.players[playerId]
-  if (!player || !player.isActive) return state
+  if (!player || player.isActive) return state
 
   // Clone the state to avoid mutations
   const newState = { ...state }
