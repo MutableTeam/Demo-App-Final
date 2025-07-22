@@ -14,29 +14,20 @@ interface UseGameControlsProps {
 
 export function useGameControls({ playerId, gameStateRef, platformType, isEnabled }: UseGameControlsProps) {
   const componentIdRef = useRef(`use-game-controls-${Date.now()}`)
-  const prevShootState = useRef(false)
 
   useEffect(() => {
-    if (!isEnabled) return
-
     let cleanup: () => void = () => {}
 
-    if (platformType === "desktop") {
+    if (isEnabled && platformType === "desktop") {
       cleanup = setupGameInputHandlers({
         playerId,
         gameStateRef,
         componentIdRef,
       })
-    } else {
+    } else if (isEnabled && platformType !== "desktop") {
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current?.players?.[playerId]
         if (!player) return
-
-        // Add debugging for shooting
-        if (inputState.actions.shoot !== prevShootState.current) {
-          console.log(`[MOBILE_INPUT] Shoot state changed: ${inputState.actions.shoot}`)
-          prevShootState.current = inputState.actions.shoot
-        }
 
         // --- Direct State Mapping ---
         // Movement
@@ -55,23 +46,22 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
           if (!player.isDrawingBow) {
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            console.log("[MOBILE_INPUT] Started drawing bow")
+            console.log("[GAME_CONTROLS] Started drawing bow")
           }
-          // The angle from the joystick is already in radians, pointing away from the center.
-          // We need to adjust it because the game engine expects rotation relative to the player's 'forward' direction.
-          // The joystick gives an angle where 0 is right. We'll use this directly for player rotation.
-          player.rotation = inputState.aiming.angle
+          // Set player rotation to the OPPOSITE of the joystick direction for firing
+          player.rotation = inputState.aiming.angle + Math.PI
         } else {
-          // If aiming is not active, but the player was drawing, this signals a release.
           if (player.isDrawingBow) {
             player.isDrawingBow = false
-            console.log("[MOBILE_INPUT] Stopped drawing bow")
+            console.log("[GAME_CONTROLS] Stopped drawing bow")
           }
         }
 
         // Shooting from Joystick
-        // The game engine will check for `player.controls.shoot` being true.
         player.controls.shoot = inputState.actions.shoot
+        if (player.controls.shoot) {
+          console.log("[GAME_CONTROLS] Shoot command received by player object.")
+        }
       }
 
       gameInputHandler.setCallbacks({

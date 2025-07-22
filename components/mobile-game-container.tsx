@@ -1,137 +1,128 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
 import { Joystick } from "react-joystick-component"
 import { useOrientation } from "@/hooks/use-responsive"
-
-const orbitron = Orbitron({
+\
+const orbitron = Orbitron(\{
   subsets: ["latin"],
-  weight: ["400", "700"],
-})
+  weight: ["400", "700"],\
+\})
 
-interface MobileGameContainerProps {
+interface MobileGameContainerProps \{
   children: React.ReactNode
   className?: string
-}
+\}
 
-interface ActionButtonProps {
+interface ActionButtonProps \{
   label: string
   action: keyof GameInputState["actions"]
   className?: string
   title?: string
-}
-
-function ActionButton({ label, action, className, title }: ActionButtonProps) {
-  const handleInteractionStart = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleActionPress(action, true)
-    },
+\}
+\
+function ActionButton(\{ label, action, className, title \}: ActionButtonProps)
+\
+{
+  const handleInteractionStart = useCallback(\
+    (e: React.TouchEvent | React.MouseEvent) => \{\
+      e.preventDefault()\
+      e.stopPropagation()\
+      gameInputHandler.handleActionPress(action, true)\
+    \},\
     [action],
   )
 
-  const handleInteractionEnd = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleActionPress(action, false)
-    },
+  const handleInteractionEnd = useCallback(\
+    (e: React.TouchEvent | React.MouseEvent) => \{\
+      e.preventDefault()\
+      e.stopPropagation()\
+      gameInputHandler.handleActionPress(action, false)\
+    \},\
     [action],
   )
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <button
-        className={cn(
+      <button\
+        className=\{cn(
           "w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-75",
           "touch-none select-none active:scale-95 active:brightness-125",
           "bg-gray-800/80 border-cyan-400/50 text-cyan-300 shadow-[0_0_8px_rgba(0,255,255,0.3)] backdrop-blur-sm",
           "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
           orbitron.className,
           className,
-        )}
-        onTouchStart={handleInteractionStart}
-        onTouchEnd={handleInteractionEnd}
-        onTouchCancel={handleInteractionEnd}
-        onMouseDown={handleInteractionStart}
-        onMouseUp={handleInteractionEnd}
-        onMouseLeave={handleInteractionEnd}
-        style={{
+        )\}
+        onTouchStart=\{handleInteractionStart\}
+        onTouchEnd=\{handleInteractionEnd\}
+        onTouchCancel=\{handleInteractionEnd\}
+        onMouseDown=\{handleInteractionStart\}
+        onMouseUp=\{handleInteractionEnd\}
+        onMouseLeave=\{handleInteractionEnd\}\
+        style=\{\{\
           WebkitUserSelect: "none",
           userSelect: "none",
           WebkitTouchCallout: "none",
           WebkitTapHighlightColor: "transparent",
-        }}
+        \}\}
       >
-        {label}
+        \{label\}
       </button>
-      {title && <span className="text-xs text-cyan-400/80 font-semibold tracking-wider">{title}</span>}
+      \{title && <span className="text-xs text-cyan-400/80 font-semibold tracking-wider">\{title\}</span>\}
     </div>
   )
+  \
 }
-
-export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
+\
+export default function MobileGameContainer(\{ children, className \}: MobileGameContainerProps)
+\
+{
   const orientation = useOrientation()
-  const [debugInfo, setDebugInfo] = useState("")
-
   const isPortrait = orientation === "portrait"
 
   const controlsBaseClasses = "flex flex-col items-center justify-center space-y-3"
-  const labelClasses = `text-sm tracking-widest font-bold text-cyan-300 uppercase ${orbitron.className}`
+  const labelClasses = `text-sm tracking-widest font-bold text-cyan-300 uppercase $\{orbitron.className\}`
   const subLabelClasses = "text-xs text-cyan-400/60"
 
-  // Debug logging function
-  const logDebug = useCallback((message: string) => {
-    console.log(`[MOBILE_CONTAINER] ${message}`)
-    setDebugInfo((prev) => {
-      const lines = prev.split("\n")
-      lines.unshift(`${new Date().toLocaleTimeString()}: ${message}`)
-      return lines.slice(0, 5).join("\n")
-    })
-  }, [])
+  // Invert Y-axis at the source for correct movement\
+  const handleMovement = (e: any) => gameInputHandler.handleMovementJoystick(e ? \{ ...e, y: -e.y \} : null);\
+  const handleAiming = (e: any) => gameInputHandler.handleAimingJoystick(e ? \{ ...e, y: -e.y \} : null);
 
-  if (isPortrait) {
+  if (isPortrait) \
     return (
-      <div
-        className={cn("fixed inset-0 bg-gray-900 flex items-center justify-center font-sans text-gray-300", className)}
+      <div\
+        className=\{cn("fixed inset-0 bg-gray-900 flex items-center justify-center font-sans text-gray-300", className)\}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(10,40,60,0.5),_transparent_70%)]"></div>
         <div className="w-full h-full flex flex-col items-center p-2 gap-2 z-10">
-          {/* Top: Game Screen */}
+          \{/* Top: Game Screen */\}
           <div className="w-full h-3/5 flex items-center justify-center">
             <div className="w-full h-full bg-black/50 border-2 border-cyan-700/50 rounded-lg relative overflow-hidden shadow-[0_0_20px_rgba(0,255,255,0.2)] max-w-md">
-              {children}
+              \{children\}
             </div>
           </div>
 
-          {/* Bottom: Controls */}
+          \{/* Bottom: Controls */\}
           <div className="w-full h-2/5 flex flex-row items-center justify-between px-4 pointer-events-auto">
-            {/* Bottom Left: Movement Joystick */}
-            <div className={controlsBaseClasses}>
-              <span className={labelClasses}>Move</span>
-              <Joystick
-                size={100}
+            \{/* Bottom Left: Movement Joystick */\}\
+            <div className=\{controlsBaseClasses\}>\
+              <span className=\{labelClasses\}>Move</span>
+              <Joystick\
+                size=\{100\}
                 baseColor="rgba(0, 255, 255, 0.2)"
                 stickColor="rgba(0, 255, 255, 0.7)"
-                move={(e) => {
-                  gameInputHandler.handleMovementJoystick(e)
-                  logDebug(`Movement: x=${e?.x?.toFixed(2) || 0}, y=${e?.y?.toFixed(2) || 0}`)
-                }}
-                stop={(e) => {
-                  gameInputHandler.handleMovementJoystick(e)
-                  logDebug("Movement stopped")
-                }}
+                move=\{handleMovement\}
+                stop=\{() => handleMovement(null)\}
               />
             </div>
 
-            {/* Center: Actions - Smaller buttons in vertical column */}
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <span className={labelClasses}>Actions</span>
+            \{/* Center: Actions */\}
+            <div className="flex flex-col items-center justify-center space-y-2">\
+              <span className=\{labelClasses\}>Actions</span>
               <div className="flex flex-col gap-2">
                 <ActionButton label="X" action="dash" />
                 <ActionButton label="Y" action="special" />
@@ -139,109 +130,68 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               </div>
             </div>
 
-            {/* Bottom Right: Aiming Joystick */}
-            <div className={controlsBaseClasses}>
-              <span className={labelClasses}>Aim</span>
-              <Joystick
-                size={100}
+            \{/* Bottom Right: Aiming Joystick */\}\
+            <div className=\{controlsBaseClasses\}>\
+              <span className=\{labelClasses\}>Aim</span>
+              <Joystick\
+                size=\{100\}
                 baseColor="rgba(255, 0, 255, 0.2)"
                 stickColor="rgba(255, 0, 255, 0.7)"
-                move={(e) => {
-                  gameInputHandler.handleAimingJoystick(e)
-                  if (e) {
-                    const angle = Math.atan2(e.y, e.x) * (180 / Math.PI)
-                    const distance = Math.sqrt(e.x * e.x + e.y * e.y)
-                    logDebug(`Aiming: ${angle.toFixed(0)}° power=${distance.toFixed(2)}`)
-                  }
-                }}
-                stop={(e) => {
-                  gameInputHandler.handleAimingJoystick(e)
-                  logDebug("Aiming stopped - shot fired")
-                }}
-                start={(e) => {
-                  gameInputHandler.handleAimingJoystick(e)
-                  logDebug("Aiming started")
-                }}
+                move=\{handleAiming\}
+                stop=\{() => handleAiming(null)\}
+                start=\{handleAiming\}
               />
             </div>
           </div>
-
-          {/* Debug Info */}
-          {process.env.NODE_ENV === "development" && debugInfo && (
-            <div className="absolute top-2 left-2 bg-black/70 text-green-400 p-2 text-xs rounded max-w-xs">
-              <pre className="whitespace-pre-wrap">{debugInfo}</pre>
-            </div>
-          )}
         </div>
       </div>
     )
-  }
+  \}
 
   // Landscape Layout
   return (
-    <div
-      className={cn("fixed inset-0 bg-gray-900 flex items-center justify-center font-sans text-gray-300", className)}
+    <div\
+      className=\{cn("fixed inset-0 bg-gray-900 flex items-center justify-center font-sans text-gray-300", className)\}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(10,40,60,0.5),_transparent_70%)]"></div>
       <div className="w-full h-full flex flex-row items-center p-4 gap-4 z-10">
-        {/* Left: Movement Joystick */}
+        \{/* Left: Movement Joystick */\}
         <div className="w-[25%] h-full flex items-center justify-center pointer-events-auto">
-          <div className={controlsBaseClasses}>
-            <span className={labelClasses}>Movement</span>
+          <div className=\{controlsBaseClasses\}>
+            <span className=\{labelClasses\}>Movement</span>
             <Joystick
-              size={120}
+              size=\{120\}
               baseColor="rgba(0, 255, 255, 0.2)"
               stickColor="rgba(0, 255, 255, 0.7)"
-              move={(e) => {
-                gameInputHandler.handleMovementJoystick(e)
-                logDebug(`Movement: x=${e?.x?.toFixed(2) || 0}, y=${e?.y?.toFixed(2) || 0}`)
-              }}
-              stop={(e) => {
-                gameInputHandler.handleMovementJoystick(e)
-                logDebug("Movement stopped")
-              }}
+              move=\{handleMovement\}
+              stop=\{() => handleMovement(null)\}
             />
-            <span className={subLabelClasses}>Move Player</span>
+            <span className=\{subLabelClasses\}>Move Player</span>
           </div>
         </div>
 
-        {/* Center: Game Screen */}
+        \{/* Center: Game Screen */\}
         <div className="w-[50%] h-full flex items-center justify-center">
           <div className="w-full h-full bg-black/50 border-2 border-cyan-700/50 rounded-lg relative overflow-hidden shadow-[0_0_20px_rgba(0,255,255,0.2)]">
-            {children}
+            \{children\}
           </div>
         </div>
 
-        {/* Right: Aiming Joystick & Actions */}
+        \{/* Right: Aiming Joystick & Actions */\}
         <div className="w-[25%] h-full flex flex-col items-center justify-center p-4 pointer-events-auto">
-          {/* Aiming Joystick - Centered */}
           <div className="flex flex-col items-center justify-center space-y-3 mb-6">
-            <span className={labelClasses}>Aim & Shoot</span>
+            <span className=\{labelClasses\}>Aim & Shoot</span>
             <Joystick
-              size={120}
+              size=\{120\}
               baseColor="rgba(255, 0, 255, 0.2)"
               stickColor="rgba(255, 0, 255, 0.7)"
-              move={(e) => {
-                gameInputHandler.handleAimingJoystick(e)
-                if (e) {
-                  const angle = Math.atan2(e.y, e.x) * (180 / Math.PI)
-                  const distance = Math.sqrt(e.x * e.x + e.y * e.y)
-                  logDebug(`Aiming: ${angle.toFixed(0)}° power=${distance.toFixed(2)}`)
-                }
-              }}
-              stop={(e) => {
-                gameInputHandler.handleAimingJoystick(e)
-                logDebug("Aiming stopped - shot fired")
-              }}
-              start={(e) => {
-                gameInputHandler.handleAimingJoystick(e)
-                logDebug("Aiming started")
-              }}
+              move=\{handleAiming\}
+              stop=\{() => handleAiming(null)\}
+              start=\{handleAiming\}
             />
-            <span className={subLabelClasses}>Pull to charge, release to fire</span>
+            <span className=\{subLabelClasses\}>Pull to charge, release to fire</span>
           </div>
 
-          {/* Action Buttons - Smaller and more compact */}
           <div className="flex flex-col gap-2 items-center">
             <div className="flex gap-3">
               <ActionButton label="X" action="dash" title="Dash" />
@@ -250,14 +200,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
             <ActionButton label="B" action="explosiveArrow" title="Explode" />
           </div>
         </div>
-
-        {/* Debug Info */}
-        {process.env.NODE_ENV === "development" && debugInfo && (
-          <div className="absolute top-2 left-2 bg-black/70 text-green-400 p-2 text-xs rounded max-w-xs">
-            <pre className="whitespace-pre-wrap">{debugInfo}</pre>
-          </div>
-        )}
       </div>
     </div>
   )
-}
+\}
