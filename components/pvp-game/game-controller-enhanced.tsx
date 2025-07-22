@@ -16,7 +16,7 @@ import MobileGameContainer from "@/components/mobile-game-container"
 import { useGameControls } from "@/hooks/use-game-controls"
 import { useGameContext } from "@/contexts/game-context"
 import { usePlatform } from "@/contexts/platform-context"
-import { GameEngine } from "@/games/top-down-shooter/game-engine"
+import type { GameEngine } from "@/games/top-down-shooter/game-engine"
 
 interface GameStats {
   score: number
@@ -44,6 +44,7 @@ interface GameControllerEnhancedProps {
   isPaused?: boolean
   className?: string
   initialGameState: GameState
+  gameEngine: GameEngine | null
 }
 
 const GameControllerEnhanced: React.FC<GameControllerEnhancedProps> = ({
@@ -64,6 +65,7 @@ const GameControllerEnhanced: React.FC<GameControllerEnhancedProps> = ({
   isPaused = false,
   className,
   initialGameState,
+  gameEngine,
 }) => {
   const { isPaused: contextIsPaused } = useGameContext()
   const { platformType: contextPlatformType } = usePlatform()
@@ -206,18 +208,15 @@ const GameControllerEnhanced: React.FC<GameControllerEnhancedProps> = ({
       `${componentIdRef.current}-crash-detection`,
     )
 
-    const engine = new GameEngine(initialGameState, (newState) => {
-      setGameState(newState)
-    })
-    gameEngineRef.current = engine
-    engine.start()
+    gameEngineRef.current = gameEngine
+    gameEngine?.start()
 
     return () => {
       debugManager.logInfo("GAME_CTRL", "Cleaning up game engine.")
-      engine.stop()
+      gameEngine?.stop()
       gameEngineRef.current = null
     }
-  }, [gameId, playerId, initialGameState])
+  }, [gameId, playerId, initialGameState, gameEngine])
 
   useEffect(() => {
     if (contextIsPaused) {

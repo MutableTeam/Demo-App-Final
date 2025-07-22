@@ -6,13 +6,12 @@ import { useBaseGameController } from "@/utils/base-game-controller"
 import { debugManager } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import { audioManager } from "@/utils/audio-manager"
-import GameRenderer from "@/components/pvp-game/game-renderer"
-import DebugOverlay from "@/components/pvp-game/debug-overlay"
-import ResourceMonitor from "@/components/resource-monitor"
 import { GameEngine, type GameState } from "@/components/pvp-game/game-engine"
 import { useGameControls } from "@/hooks/use-game-controls"
 import { usePlatform } from "@/contexts/platform-context"
 import { updateGameState } from "@/utils/game-state-updater" // Declare the variable here
+import { GameControllerEnhanced } from "@/components/pvp-game/game-controller-enhanced"
+import { MobileGameContainer } from "@/components/mobile-game-container"
 
 interface GameComponentProps {
   playerId: string
@@ -63,6 +62,8 @@ const GameComponent: React.FC<GameComponentProps> = ({
   onGameEnd,
 }) => {
   const { platformType } = usePlatform()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [gameEngine, setGameEngine] = useState<GameEngine | null>(null)
   const {
     gameState,
     setGameState,
@@ -383,10 +384,17 @@ const GameComponent: React.FC<GameComponentProps> = ({
       }
     }
 
-    requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-      gameLoop,
-      `${componentIdRef.current}-game-loop`,
-    )
+    if (canvasRef.current) {
+      const engine = new GameEngine(canvasRef.current, (newState) => {
+        setGameState(newState)
+      })
+      setGameEngine(engine)
+      engine.start()
+
+      return () => {
+        engine.stop()
+      }
+    }
 
     if (!audioManager.isSoundMuted()) {
       try {
@@ -396,34 +404,26 @@ const GameComponent: React.FC<GameComponentProps> = ({
       }
     }
 
-    const engine = new GameEngine(gameStateRef.current, (newState) => {
-      setGameState(newState)
-    })
-    gameEngineRef.current = engine
-    engine.start()
-
-    return () => {
-      transitionDebugger.trackTransition("any", "unmounting", "GameComponent")
-      if (requestAnimationFrameIdRef.current !== null) {
-        transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
-        requestAnimationFrameIdRef.current = null
-        transitionDebugger.trackCleanup("GameComponent", "Animation Frame", true)
-      }
-      transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
-      clearTimeout(tutorialTimer)
-      try {
-        audioManager.stopBackgroundMusic()
-        transitionDebugger.trackCleanup("GameComponent", "Background Music", true)
-      } catch (err) {
-        debugManager.logWarning("AUDIO", "Error stopping background music", err)
-        transitionDebugger.trackCleanup("GameComponent", "Background Music", false, err)
-      }
-      debugManager.logInfo("GAME", "Game cleanup completed")
-      transitionDebugger.trackTransition("unmounting", "unmounted", "GameComponent")
-      debugManager.trackComponentUnmount("GameComponent")
-      if (gameEngineRef.current) {
-        gameEngineRef.current.stop()
-      }
+    transitionDebugger.trackTransition("any", "unmounting", "GameComponent")
+    if (requestAnimationFrameIdRef.current !== null) {
+      transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
+      requestAnimationFrameIdRef.current = null
+      transitionDebugger.trackCleanup("GameComponent", "Animation Frame", true)
+    }
+    transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
+    clearTimeout(tutorialTimer)
+    try {
+      audioManager.stopBackgroundMusic()
+      transitionDebugger.trackCleanup("GameComponent", "Background Music", true)
+    } catch (err) {
+      debugManager.logWarning("AUDIO", "Error stopping background music", err)
+      transitionDebugger.trackCleanup("GameComponent", "Background Music", false, err)
+    }
+    debugManager.logInfo("GAME", "Game cleanup completed")
+    transitionDebugger.trackTransition("unmounting", "unmounted", "GameComponent")
+    debugManager.trackComponentUnmount("GameComponent")
+    if (gameEngineRef.current) {
+      gameEngineRef.current.stop()
     }
   }, [playerId, playerName, isHost, gameMode, initialGameState, onGameEnd, setGameState, platformType])
 
@@ -442,16 +442,14 @@ const GameComponent: React.FC<GameComponentProps> = ({
     )
   }
 
+  const gameCanvas = <canvas ref={canvasRef} className="w-full h-full bg-gray-900 rounded-lg shadow-lg" />
+
   return (
-    <div className="relative">
-      <GameRenderer gameState={gameState} localPlayerId={playerId} />
-      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
-      <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
-      <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
-        Press M to toggle sound | F3 for debug | F8 for game debug | F11 for resource monitor
+    <div className="w-full h-screen flex items-center justify-center bg-black">
+      <div className="aspect-video w-full max-w-6xl h-auto max-h-full relative">
+        {platformType === "mobile" ? <MobileGameContainer>{gameCanvas}</MobileGameContainer> : gameCanvas}
+        <GameControllerEnhanced gameEngine={gameEngine} />
       </div>
     </div>
   )
 }
-
-export default GameComponent
