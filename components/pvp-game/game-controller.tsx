@@ -216,15 +216,22 @@ export default function GameController({
         player.controls.special = inputState.actions.special
         player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
-        // Handle aiming state
-        if (inputState.aiming.active) {
+        // Handle aiming state - only start drawing if we have sufficient power
+        if (inputState.aiming.active && inputState.aiming.power > 0.2) {
           if (!player.isDrawingBow && player.cooldown <= 0) {
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
+            console.log("[MOBILE_INPUT] Started drawing bow - Power:", inputState.aiming.power.toFixed(3))
           }
           player.rotation = inputState.aiming.angle
-        } else if (player.isDrawingBow && !inputState.aiming.active) {
-          // Cancel draw if aiming stops without shooting
+        } else if (player.isDrawingBow && (!inputState.aiming.active || inputState.aiming.power <= 0.2)) {
+          // Cancel draw if aiming stops or power drops too low without shooting
+          console.log(
+            "[MOBILE_INPUT] Cancelled bow draw - Active:",
+            inputState.aiming.active,
+            "Power:",
+            inputState.aiming.power.toFixed(3),
+          )
           player.isDrawingBow = false
           player.drawStartTime = null
         }
@@ -232,9 +239,36 @@ export default function GameController({
 
       const handleMobileShoot = (angle: number, power: number) => {
         const player = gameStateRef.current.players[playerId]
-        if (!player || !player.isDrawingBow) return
+        if (!player) {
+          console.log("[MOBILE_SHOOT] No player found")
+          return
+        }
 
-        const drawTime = player.drawStartTime ? Date.now() / 1000 - player.drawStartTime : 0
+        console.log(
+          "[MOBILE_SHOOT] Attempting to shoot - Angle:",
+          angle.toFixed(3),
+          "Power:",
+          power.toFixed(3),
+          "IsDrawing:",
+          player.isDrawingBow,
+          "Cooldown:",
+          player.cooldown.toFixed(3),
+        )
+
+        // Force start drawing if not already drawing (safety measure)
+        if (!player.isDrawingBow) {
+          player.isDrawingBow = true
+          player.drawStartTime = Date.now() / 1000
+          console.log("[MOBILE_SHOOT] Force started bow draw")
+        }
+
+        // Calculate draw time based on power or actual time
+        const currentTime = Date.now() / 1000
+        const actualDrawTime = player.drawStartTime ? currentTime - player.drawStartTime : 0
+        // Use power to simulate draw time (power 0.2-1.0 maps to minDrawTime-maxDrawTime)
+        const simulatedDrawTime = player.minDrawTime + ((power - 0.2) * (player.maxDrawTime - player.minDrawTime)) / 0.8
+        const drawTime = Math.max(actualDrawTime, simulatedDrawTime)
+
         const isWeakShot = power < 0.3 || drawTime < player.minDrawTime
         const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
         const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
@@ -243,6 +277,7 @@ export default function GameController({
           x: player.position.x + Math.cos(angle) * (player.size + 5),
           y: player.position.y + Math.sin(angle) * (player.size + 5),
         }
+
         const arrow = createArrow(arrowPosition, arrowVelocity, angle, player.id, damage)
         if (isWeakShot) {
           arrow.color = "#5D4037"
@@ -250,6 +285,8 @@ export default function GameController({
           arrow.isWeakShot = true
         }
         gameStateRef.current.arrows.push(arrow)
+
+        console.log("[MOBILE_SHOOT] Arrow created - Damage:", damage, "Speed:", arrowSpeed, "IsWeak:", isWeakShot)
 
         player.isDrawingBow = false
         player.drawStartTime = null

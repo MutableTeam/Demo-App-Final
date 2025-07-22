@@ -39,6 +39,7 @@ class GameInputHandler {
   }
   private shootTimeout: NodeJS.Timeout | null = null
   private isChargingShot = false // Internal state to manage charge cycle
+  private lastPower = 0 // Track the last power value
 
   constructor() {
     this.state = {
@@ -78,38 +79,66 @@ class GameInputHandler {
   }
 
   handleAimingJoystick(event: IJoystickUpdateEvent) {
-    const deadzone = 0.2
+    const chargingThreshold = 0.2 // Power threshold to start charging
     const distance = event ? event.distance : 0
 
-    if (distance >= deadzone && event.x !== null && event.y !== null) {
-      // Joystick is pulled back
-      if (!this.isChargingShot) {
-        // Start a new charge cycle
+    // Calculate power based on distance (normalize to 0-1 range)
+    // Assuming max joystick distance is around 50-100 pixels
+    const maxDistance = 50
+    let currentPower = Math.min(distance / maxDistance, 1)
+
+    console.log(
+      `[INPUT_HANDLER] Distance: ${distance}, Power: ${currentPower.toFixed(3)}, Charging: ${this.isChargingShot}`,
+    )
+
+    if (event.x !== null && event.y !== null && distance > 0) {
+      // Calculate the firing angle (opposite to joystick pull direction)
+      const joystickAngle = Math.atan2(event.y, event.x)
+      this.state.aiming.angle = joystickAngle + Math.PI
+      this.state.aiming.power = currentPower
+
+      // Check if we should start charging
+      if (currentPower > chargingThreshold && !this.isChargingShot) {
+        // Start charging
         this.isChargingShot = true
         this.state.aiming.active = true
-        console.log("[INPUT_HANDLER] Started charging shot.")
+        console.log("[INPUT_HANDLER] Started charging shot - Power:", currentPower.toFixed(3))
       }
-      // Continuously update aiming details
-      // The angle is the direction the joystick is pulled.
-      const joystickAngle = Math.atan2(event.y, event.x)
-      // The firing angle is opposite to the pull direction (add 180 degrees / PI radians).
-      this.state.aiming.angle = joystickAngle + Math.PI
-      this.state.aiming.power = Math.min(distance / 50, 1) // Assuming joystick radius of 50
-    } else {
-      // Joystick is in the deadzone or released
-      if (this.isChargingShot) {
-        // If we were charging, fire the shot
-        console.log("[INPUT_HANDLER] Joystick released. Firing shot.")
 
-        // Call the shoot callback directly instead of using state
-        if (this.callbacks.onShoot) {
-          this.callbacks.onShoot(this.state.aiming.angle, this.state.aiming.power)
-        }
+      // If we're charging, keep updating the aiming state
+      if (this.isChargingShot) {
+        this.state.aiming.active = true
       }
-      // Reset for the next charge cycle
+    } else {
+      // Joystick is released or at center
+      currentPower = 0
+      this.state.aiming.power = 0
+    }
+
+    // Check if we should fire (power dropped below threshold while charging)
+    if (this.isChargingShot && currentPower <= chargingThreshold) {
+      // Fire the shot with the last recorded power and angle
+      console.log(
+        "[INPUT_HANDLER] Firing shot - Power:",
+        this.lastPower.toFixed(3),
+        "Angle:",
+        this.state.aiming.angle.toFixed(3),
+      )
+
+      if (this.callbacks.onShoot) {
+        // Use the last power value that was above threshold
+        this.callbacks.onShoot(this.state.aiming.angle, Math.max(this.lastPower, chargingThreshold))
+      }
+
+      // Reset charging state
       this.isChargingShot = false
       this.state.aiming.active = false
       this.state.aiming.power = 0
+    }
+
+    // Update last power if we're above threshold
+    if (currentPower > chargingThreshold) {
+      this.lastPower = currentPower
     }
 
     this.notifyStateChange()
@@ -142,6 +171,8 @@ class GameInputHandler {
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
+    this.isChargingShot = false
+    this.lastPower = 0
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }
