@@ -1,23 +1,10 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
+import type React from "react"
+import { useEffect, useRef, useState, useMemo } from "react"
+import { createInitialGameState, createPlayer, type GameState } from "./game-engine"
 import EnhancedGameRenderer from "./enhanced-game-renderer"
-import {
-  playBowDrawSound,
-  playBowReleaseSound,
-  playBowFullDrawSound,
-  playSpecialAttackSound,
-  playHitSound,
-  playDeathSound,
-  playDashSound,
-  playGameOverSound,
-  playVictorySound,
-  startBackgroundMusic,
-  stopBackgroundMusic,
-  audioManager,
-  playExplosionSound,
-} from "@/utils/audio-manager"
+import { audioManager } from "@/utils/audio-manager"
 import { debugManager, DebugLevel } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
@@ -27,6 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import MobileGameContainer from "@/components/mobile-game-container"
 import { useGameControls } from "@/hooks/use-game-controls"
+import { useGameContext } from "@/contexts/game-context"
+import { usePlatform } from "@/contexts/platform-context"
+import { GameEngine } from "@/games/top-down-shooter/game-engine"
 
 interface GameStats {
   score: number
@@ -53,9 +43,10 @@ interface GameControllerEnhancedProps {
   isPlaying?: boolean
   isPaused?: boolean
   className?: string
+  initialGameState: GameState
 }
 
-export default function GameControllerEnhanced({
+const GameControllerEnhanced: React.FC<GameControllerEnhancedProps> = ({
   playerId,
   playerName,
   isHost,
@@ -72,9 +63,12 @@ export default function GameControllerEnhanced({
   isPlaying = false,
   isPaused = false,
   className,
-}: GameControllerEnhancedProps) {
-  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState())
-  const gameStateRef = useRef<GameState>(gameState)
+  initialGameState,
+}) => {
+  const { isPaused: contextIsPaused } = useGameContext()
+  const { platformType: contextPlatformType } = usePlatform()
+  const [gameState, setGameState] = useState<GameState>(initialGameState)
+  const gameStateRef = useRef<GameState>(initialGameState)
   const lastUpdateTimeRef = useRef<number>(Date.now())
   const requestAnimationFrameIdRef = useRef<number | null>(null)
   const bowSoundPlayedRef = useRef<boolean>(false)
@@ -91,14 +85,7 @@ export default function GameControllerEnhanced({
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
   const [playersOnline, setPlayersOnline] = useState(0)
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
-
-  // Use the new unified game controls hook
-  useGameControls({
-    playerId,
-    gameStateRef,
-    platformType,
-    isEnabled: !gameState.isGameOver,
-  })
+  const gameEngineRef = useRef<GameEngine | null>(null)
 
   useEffect(() => {
     debugManager.updateConfig({
@@ -219,231 +206,35 @@ export default function GameControllerEnhanced({
       `${componentIdRef.current}-crash-detection`,
     )
 
-    const gameLoop = (timestamp: number) => {
-      try {
-        debugManager.startFrame()
-
-        const now = Date.now()
-        const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1)
-        lastUpdateTimeRef.current = now
-
-        const entityCounts = {
-          players: Object.keys(gameStateRef.current.players).length,
-          arrows: gameStateRef.current.arrows?.length || 0,
-          walls: gameStateRef.current.walls?.length || 0,
-          pickups: gameStateRef.current.pickups?.length || 0,
-        }
-
-        debugManager.trackEntities(entityCounts)
-
-        if ((gameStateRef.current.arrows?.length || 0) > 100) {
-          debugManager.logWarning("GAME_LOOP", "Possible memory leak: Too many arrows", {
-            arrowCount: gameStateRef.current.arrows?.length || 0,
-          })
-
-          if ((gameStateRef.current.arrows?.length || 0) > 200) {
-            gameStateRef.current.arrows = gameStateRef.current.arrows?.slice(-100) || []
-            debugManager.logInfo("GAME_LOOP", "Performed safety cleanup of arrows")
-          }
-        }
-
-        Object.keys(aiControllersRef.current).forEach((aiId) => {
-          if (gameStateRef.current.players[aiId]) {
-            const aiController = aiControllersRef.current[aiId]
-            const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
-
-            gameStateRef.current.players[aiId].controls = controls
-            gameStateRef.current.players[aiId].rotation = targetRotation
-          }
-        })
-
-        let newState = gameStateRef.current
-
-        const updateWithTimeout = () => {
-          return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-              reject(new Error("Game update timed out - possible infinite loop"))
-            }, 500)
-
-            try {
-              const result = updateGameState(gameStateRef.current, deltaTime)
-              clearTimeout(timeoutId)
-              resolve(result)
-            } catch (error) {
-              clearTimeout(timeoutId)
-              reject(error)
-            }
-          })
-        }
-
-        updateWithTimeout()
-          .then((result) => {
-            newState = result as GameState
-            continueGameLoop(newState)
-          })
-          .catch((error) => {
-            debugManager.logError("GAME_LOOP", "Error in game update", error)
-            debugManager.captureState(gameStateRef.current, "Update Error State")
-            continueGameLoop(gameStateRef.current)
-          })
-
-        function continueGameLoop(state: GameState) {
-          const localPlayer = state.players[playerId]
-          if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
-            try {
-              if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
-                playBowDrawSound()
-                bowSoundPlayedRef.current = true
-              }
-
-              if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
-                const currentTime = Date.now() / 1000
-                const drawTime = currentTime - localPlayer.drawStartTime
-
-                if (drawTime >= (localPlayer.maxDrawTime || 2) && !fullDrawSoundPlayedRef.current) {
-                  playBowFullDrawSound()
-                  fullDrawSoundPlayedRef.current = true
-                }
-              }
-
-              if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
-                playBowReleaseSound()
-                bowSoundPlayedRef.current = false
-                fullDrawSoundPlayedRef.current = false
-              }
-
-              if (localPlayer.isChargingSpecial && !specialSoundPlayedRef.current) {
-                specialSoundPlayedRef.current = true
-              }
-
-              if (!localPlayer.isChargingSpecial && gameStateRef.current.players[playerId]?.isChargingSpecial) {
-                playSpecialAttackSound()
-                specialSoundPlayedRef.current = false
-              }
-
-              if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
-                playDashSound()
-              }
-
-              if (
-                localPlayer.animationState === "hit" &&
-                gameStateRef.current.players[playerId]?.animationState !== "hit"
-              ) {
-                playHitSound()
-              }
-
-              if (
-                localPlayer.animationState === "death" &&
-                gameStateRef.current.players[playerId]?.animationState !== "death"
-              ) {
-                playDeathSound()
-              }
-
-              if (localPlayer.controls?.explosiveArrow && (localPlayer.explosiveArrowCooldown || 0) <= 0) {
-                playExplosionSound()
-              }
-            } catch (error) {
-              debugManager.logError("AUDIO", "Error playing game sounds", error)
-            }
-          }
-
-          gameStateRef.current = state
-          setGameState(state)
-
-          if (state.isGameOver && onGameEnd) {
-            if (!audioManager.isSoundMuted()) {
-              if (state.winner === playerId) {
-                playVictorySound()
-              } else {
-                playGameOverSound()
-              }
-            }
-
-            stopBackgroundMusic()
-
-            transitionDebugger.trackTransition("playing", "game-over", "GameControllerEnhanced")
-
-            onGameEnd(state.winner)
-
-            debugManager.logInfo("GAME", "Game ended", {
-              winner: state.winner,
-              gameTime: state.gameTime,
-              playerCount: Object.keys(state.players).length,
-            })
-          } else {
-            requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-              gameLoop,
-              `${componentIdRef.current}-game-loop`,
-            )
-          }
-
-          debugManager.endFrame()
-        }
-      } catch (error) {
-        debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
-
-        debugManager.captureState(gameStateRef.current, "Critical Error State")
-
-        setTimeout(() => {
-          requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-            gameLoop,
-            `${componentIdRef.current}-game-loop`,
-          )
-        }, 1000)
-      }
-    }
-
-    requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-      gameLoop,
-      `${componentIdRef.current}-game-loop`,
-    )
-
-    if (!audioManager.isSoundMuted()) {
-      try {
-        const musicPromise = startBackgroundMusic()
-        if (musicPromise && typeof musicPromise.catch === "function") {
-          musicPromise.catch((err) => {
-            debugManager.logWarning("AUDIO", "Failed to start background music", err)
-          })
-        }
-      } catch (err) {
-        debugManager.logWarning("AUDIO", "Error starting background music", err)
-      }
-    }
+    const engine = new GameEngine(initialGameState, (newState) => {
+      setGameState(newState)
+    })
+    gameEngineRef.current = engine
+    engine.start()
 
     return () => {
-      if (requestAnimationFrameIdRef.current !== null) {
-        transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
-        requestAnimationFrameIdRef.current = null
-        transitionDebugger.trackCleanup("GameControllerEnhanced", "Animation Frame", true)
-      }
-
-      Object.keys(animationTimeoutsRef.current).forEach((key) => {
-        clearTimeout(animationTimeoutsRef.current[key])
-      })
-      animationTimeoutsRef.current = {}
-
-      transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
-
-      transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
-
-      try {
-        stopBackgroundMusic()
-        transitionDebugger.trackCleanup("GameControllerEnhanced", "Background Music", true)
-      } catch (err) {
-        debugManager.logWarning("AUDIO", "Error stopping background music", err)
-        transitionDebugger.trackCleanup("GameControllerEnhanced", "Background Music", false, err)
-      }
-
-      debugManager.logInfo("GAME", "Enhanced game cleanup completed")
-      transitionDebugger.trackTransition("unmounting", "unmounted", "GameControllerEnhanced")
-      debugManager.trackComponentUnmount("GameControllerEnhanced")
+      debugManager.logInfo("GAME_CTRL", "Cleaning up game engine.")
+      engine.stop()
+      gameEngineRef.current = null
     }
-  }, [playerId, playerName, isHost, gameMode, onGameEnd, useEnhancedPhysics, platformType])
+  }, [gameId, playerId, initialGameState])
 
   useEffect(() => {
-    debugManager.trackComponentRender("GameControllerEnhanced")
+    if (contextIsPaused) {
+      gameEngineRef.current?.stop()
+    } else {
+      gameEngineRef.current?.start()
+    }
+  }, [contextIsPaused])
+
+  useGameControls({
+    playerId,
+    gameStateRef,
+    platformType: contextPlatformType,
+    isEnabled: !contextIsPaused,
   })
+
+  const memoizedGameState = useMemo(() => gameState, [gameState])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -484,7 +275,7 @@ export default function GameControllerEnhanced({
 
   const gameRenderer = (
     <EnhancedGameRenderer
-      gameState={gameState}
+      gameState={memoizedGameState}
       localPlayerId={playerId}
       debugMode={showDebug}
       platformType={platformType}
@@ -528,3 +319,5 @@ export default function GameControllerEnhanced({
     </div>
   )
 }
+
+export default GameControllerEnhanced

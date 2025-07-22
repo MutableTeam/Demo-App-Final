@@ -46,9 +46,6 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         if (!player) return
 
         // --- Direct State Mapping ---
-        // This is the core of the fix. It ensures mobile inputs directly
-        // modify the same `player.controls` object as the desktop handlers.
-
         // Movement
         player.controls.up = inputState.movement.up
         player.controls.down = inputState.movement.down
@@ -60,21 +57,16 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         player.controls.special = inputState.actions.special
         player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
-        // Aiming
-        // The game engine is responsible for the logic of what happens when these states change.
+        // Aiming & Shooting
         if (inputState.aiming.active) {
-          if (!player.isDrawingBow) {
-            // The input system signals the *intent* to start drawing.
-            player.isDrawingBow = true
-            player.drawStartTime = Date.now() / 1000
-          }
-          player.rotation = inputState.aiming.angle
+          // Player is actively aiming with the joystick
+          player.controls.shoot = true // Indicates aiming/charging
+          // Convert degrees from joystick to radians for game engine
+          player.rotation = inputState.aiming.angle * (Math.PI / 180)
+          // You could also use inputState.aiming.power to influence shot strength
         } else {
-          // If aiming is not active, but the player was drawing, this signals a release.
-          // The game engine will see this change and fire an arrow.
-          if (player.isDrawingBow) {
-            player.isDrawingBow = false
-          }
+          // Player has released the aiming joystick
+          player.controls.shoot = false
         }
       }
 

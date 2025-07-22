@@ -1,9 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
+import { Joystick, type IJoystickUpdateEvent } from "react-joystick-component"
 import { cn } from "@/lib/utils"
-import { gameInputHandler, type GameInputState, type MovementState } from "@/utils/game-input-handler"
+import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
 
 const orbitron = Orbitron({
@@ -21,12 +22,6 @@ interface ActionButtonProps {
   action: keyof GameInputState["actions"]
   className?: string
   title?: string
-}
-
-interface MovementButtonProps {
-  label: string
-  direction: keyof MovementState
-  className?: string
 }
 
 function ActionButton({ label, action, className, title }: ActionButtonProps) {
@@ -79,56 +74,8 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
   )
 }
 
-function MovementButton({ label, direction, className }: MovementButtonProps) {
-  const handleInteractionStart = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleMovementPress(direction, true)
-    },
-    [direction],
-  )
-
-  const handleInteractionEnd = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleMovementPress(direction, false)
-    },
-    [direction],
-  )
-
-  return (
-    <button
-      className={cn(
-        "w-14 h-14 rounded-lg border-2 flex items-center justify-center text-sm font-bold transition-all duration-75",
-        "touch-none select-none active:scale-95 active:brightness-125",
-        "bg-gray-800/80 border-green-400/50 text-green-300 shadow-[0_0_8px_rgba(0,255,0,0.3)] backdrop-blur-sm",
-        "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-green-400/50",
-        orbitron.className,
-        className,
-      )}
-      onTouchStart={handleInteractionStart}
-      onTouchEnd={handleInteractionEnd}
-      onTouchCancel={handleInteractionEnd}
-      onMouseDown={handleInteractionStart}
-      onMouseUp={handleInteractionEnd}
-      onMouseLeave={handleInteractionEnd}
-      style={{
-        WebkitUserSelect: "none",
-        userSelect: "none",
-        WebkitTouchCallout: "none",
-        WebkitTapHighlightColor: "transparent",
-      }}
-    >
-      {label}
-    </button>
-  )
-}
-
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
-  const aimPadRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -140,23 +87,30 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  const handleAimTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    gameInputHandler.handleAimTouchStart(e)
+  const handleMove = useCallback((event: IJoystickUpdateEvent) => {
+    gameInputHandler.handleMovement(event)
   }, [])
 
-  const handleAimTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    gameInputHandler.handleAimTouchMove(e)
+  const handleMoveStop = useCallback(() => {
+    gameInputHandler.handleMovementStop()
   }, [])
 
-  const handleAimTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    gameInputHandler.handleAimTouchEnd(e)
+  const handleAim = useCallback((event: IJoystickUpdateEvent) => {
+    gameInputHandler.handleAim(event)
+  }, [])
+
+  const handleAimStart = useCallback(() => {
+    gameInputHandler.handleAimStart()
+  }, [])
+
+  const handleAimStop = useCallback(() => {
+    gameInputHandler.handleAimStop()
   }, [])
 
   const isLandscape = orientation === "landscape"
 
   const controlsBaseClasses = "flex flex-col items-center justify-center space-y-3"
   const labelClasses = `text-sm tracking-widest font-bold text-cyan-300 uppercase ${orbitron.className}`
-  const subLabelClasses = "text-xs text-cyan-400/60"
 
   if (isLandscape) {
     return (
@@ -168,16 +122,15 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           {/* Left: Movement */}
           <div className="w-[25%] h-full flex items-center justify-center">
             <div className={controlsBaseClasses}>
-              <span className={labelClasses}>Movement</span>
-              <div className="flex flex-col items-center space-y-2">
-                <MovementButton label="↑" direction="up" />
-                <div className="flex space-x-2">
-                  <MovementButton label="←" direction="left" />
-                  <MovementButton label="→" direction="right" />
-                </div>
-                <MovementButton label="↓" direction="down" />
-              </div>
-              <span className={subLabelClasses}>Move Player</span>
+              <span className={labelClasses}>Move</span>
+              <Joystick
+                size={120}
+                baseColor="rgba(0, 255, 255, 0.1)"
+                stickColor="rgba(0, 255, 255, 0.5)"
+                move={handleMove}
+                stop={handleMoveStop}
+                throttle={16}
+              />
             </div>
           </div>
 
@@ -189,22 +142,23 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           </div>
 
           {/* Right: Aiming & Actions */}
-          <div
-            ref={aimPadRef}
-            className="w-[25%] h-full flex flex-col items-center justify-between p-4 touch-none"
-            onTouchStart={handleAimTouchStart}
-            onTouchMove={handleAimTouchMove}
-            onTouchEnd={handleAimTouchEnd}
-            onTouchCancel={handleAimTouchEnd}
-          >
-            <div className="w-full text-center">
-              <span className={labelClasses}>Aim & Shoot</span>
-              <span className={subLabelClasses}> (Drag anywhere here)</span>
+          <div className="w-[25%] h-full flex flex-col items-center justify-around p-4">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 w-auto h-auto place-items-center">
+              <ActionButton label="X" action="dash" title="Dash" />
+              <ActionButton label="Y" action="special" title="Special" />
+              <ActionButton label="B" action="explosiveArrow" title="Explode" />
             </div>
-            <div className="grid grid-cols-2 grid-rows-2 gap-x-8 gap-y-4 w-auto h-auto place-items-center">
-              <ActionButton label="X" action="dash" title="Dash" className="col-start-1 row-start-1" />
-              <ActionButton label="Y" action="special" title="Special" className="col-start-2 row-start-1" />
-              <ActionButton label="B" action="explosiveArrow" title="Explode" className="col-start-2 row-start-2" />
+            <div className={controlsBaseClasses}>
+              <span className={labelClasses}>Aim & Shoot</span>
+              <Joystick
+                size={120}
+                baseColor="rgba(255, 0, 0, 0.1)"
+                stickColor="rgba(255, 0, 0, 0.5)"
+                move={handleAim}
+                start={handleAimStart}
+                stop={handleAimStop}
+                throttle={16}
+              />
             </div>
           </div>
         </div>
@@ -227,35 +181,42 @@ export default function MobileGameContainer({ children, className }: MobileGameC
         </div>
 
         {/* Bottom: Controls */}
-        <div
-          ref={aimPadRef}
-          className="w-full h-2/5 flex flex-row items-center justify-between px-4 touch-none"
-          onTouchStart={handleAimTouchStart}
-          onTouchMove={handleAimTouchMove}
-          onTouchEnd={handleAimTouchEnd}
-          onTouchCancel={handleAimTouchEnd}
-        >
+        <div className="w-full h-2/5 flex flex-row items-center justify-between px-4">
           {/* Bottom Left: Movement */}
           <div className={controlsBaseClasses}>
             <span className={labelClasses}>Move</span>
-            <div className="flex flex-col items-center space-y-1">
-              <MovementButton label="↑" direction="up" />
-              <div className="flex space-x-1">
-                <MovementButton label="←" direction="left" />
-                <MovementButton label="→" direction="right" />
-              </div>
-              <MovementButton label="↓" direction="down" />
+            <Joystick
+              size={100}
+              baseColor="rgba(0, 255, 255, 0.1)"
+              stickColor="rgba(0, 255, 255, 0.5)"
+              move={handleMove}
+              stop={handleMoveStop}
+              throttle={16}
+            />
+          </div>
+
+          {/* Bottom Center: Actions */}
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <span className={labelClasses}>Actions</span>
+            <div className="flex gap-3">
+              <ActionButton label="X" action="dash" />
+              <ActionButton label="Y" action="special" />
+              <ActionButton label="B" action="explosiveArrow" />
             </div>
           </div>
 
-          {/* Bottom Right: Actions */}
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <span className={labelClasses}>Actions</span>
-            <div className="grid grid-cols-3 gap-3 w-auto h-auto place-items-center">
-              <ActionButton label="X" action="dash" title="Dash" />
-              <ActionButton label="Y" action="special" title="Special" />
-              <ActionButton label="B" action="explosiveArrow" title="Explode" />
-            </div>
+          {/* Bottom Right: Aiming */}
+          <div className={controlsBaseClasses}>
+            <span className={labelClasses}>Aim</span>
+            <Joystick
+              size={100}
+              baseColor="rgba(255, 0, 0, 0.1)"
+              stickColor="rgba(255, 0, 0, 0.5)"
+              move={handleAim}
+              start={handleAimStart}
+              stop={handleAimStop}
+              throttle={16}
+            />
           </div>
         </div>
       </div>

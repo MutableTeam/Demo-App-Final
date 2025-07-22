@@ -1,13 +1,13 @@
 import { debugManager } from "./debug-utils"
 import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
+import type { IJoystickUpdateEvent } from "react-joystick-component"
 
 // --- Interfaces for Mobile Input ---
 export interface AimingState {
-  angle: number // radians
+  angle: number // degrees
   power: number // 0 to 1
   active: boolean
-  touchId: number | null
 }
 
 export interface MovementState {
@@ -33,11 +33,10 @@ class GameInputHandler {
   private callbacks: {
     onStateChange?: (state: GameInputState) => void
   }
-  private aimStartPos: { x: number; y: number } | null = null
 
   constructor() {
     this.state = {
-      aiming: { angle: 0, power: 0, active: false, touchId: null },
+      aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
       actions: { dash: false, special: false, explosiveArrow: false },
     }
@@ -49,57 +48,50 @@ class GameInputHandler {
     this.callbacks = callbacks
   }
 
-  // --- Simple Movement Button Handlers ---
-  handleMovementPress(direction: keyof MovementState, pressed: boolean) {
-    if (this.state.movement[direction] !== pressed) {
-      this.state.movement[direction] = pressed
+  // --- Joystick Handlers ---
+  handleMovement(event: IJoystickUpdateEvent) {
+    const newMovementState: MovementState = {
+      up: event.direction === "FORWARD",
+      down: event.direction === "BACKWARD",
+      left: event.direction === "LEFT",
+      right: event.direction === "RIGHT",
+    }
+    if (JSON.stringify(this.state.movement) !== JSON.stringify(newMovementState)) {
+      this.state.movement = newMovementState
       this.notifyStateChange()
     }
   }
 
-  handleAimTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    e.preventDefault()
-    const touch = e.changedTouches[0]
-    if (!touch || this.state.aiming.active) return
-
-    this.state.aiming = { angle: 0, power: 0, active: true, touchId: touch.identifier }
-    this.aimStartPos = { x: touch.clientX, y: touch.clientY }
+  handleMovementStop() {
+    this.state.movement = { up: false, down: false, left: false, right: false }
     this.notifyStateChange()
   }
 
-  handleAimTouchMove(e: React.TouchEvent<HTMLDivElement>) {
-    e.preventDefault()
-    if (!this.state.aiming.active || this.state.aiming.touchId === null || !this.aimStartPos) return
+  handleAim(event: IJoystickUpdateEvent) {
+    if (event.x === null || event.y === null || event.distance === null) return
+    // Convert joystick coords to angle in degrees
+    const angle = Math.atan2(event.y, event.x) * (180 / Math.PI)
+    const power = Math.min(event.distance / 50, 1) // 50 is half the joystick size
 
-    const touch = Array.from(e.touches).find((t) => t.identifier === this.state.aiming.touchId)
-    if (!touch) return
-
-    const deltaX = this.aimStartPos.x - touch.clientX
-    const deltaY = this.aimStartPos.y - touch.clientY
-
-    const angle = Math.atan2(deltaY, deltaX)
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-    const maxDistance = 100 // pixels
-    const power = Math.min(distance / maxDistance, 1)
-
-    this.state.aiming.angle = angle
-    this.state.aiming.power = power
+    this.state.aiming = {
+      angle: angle,
+      power: power,
+      active: true,
+    }
     this.notifyStateChange()
   }
 
-  handleAimTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
-    e.preventDefault()
-    if (!this.state.aiming.active || this.state.aiming.touchId === null) return
-
-    const touch = Array.from(e.changedTouches).find((t) => t.identifier === this.state.aiming.touchId)
-    if (!touch) return
-
-    // Decoupled from shooting logic. Just report the state change.
-    this.state.aiming = { angle: 0, power: 0, active: false, touchId: null }
-    this.aimStartPos = null
+  handleAimStart() {
+    this.state.aiming.active = true
     this.notifyStateChange()
   }
 
+  handleAimStop() {
+    this.state.aiming.active = false
+    this.notifyStateChange()
+  }
+
+  // --- Action Button Handler ---
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
     if (this.state.actions[action] !== pressed) {
       this.state.actions[action] = pressed
@@ -109,18 +101,17 @@ class GameInputHandler {
 
   private notifyStateChange() {
     if (this.callbacks.onStateChange) {
-      this.callbacks.onStateChange(this.state)
+      this.callbacks.onStateChange({ ...this.state })
     }
   }
 
   destroy() {
     this.state = {
-      aiming: { angle: 0, power: 0, active: false, touchId: null },
+      aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
       actions: { dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
-    this.aimStartPos = null
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }

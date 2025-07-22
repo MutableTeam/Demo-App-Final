@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { useBaseGameController } from "@/utils/base-game-controller"
 import { debugManager } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
@@ -8,28 +9,60 @@ import { audioManager } from "@/utils/audio-manager"
 import GameRenderer from "@/components/pvp-game/game-renderer"
 import DebugOverlay from "@/components/pvp-game/debug-overlay"
 import ResourceMonitor from "@/components/resource-monitor"
-import { updateGameState } from "@/components/pvp-game/game-engine"
-import type { PlatformType } from "@/contexts/platform-context"
+import { GameEngine, type GameState } from "@/components/pvp-game/game-engine"
 import { useGameControls } from "@/hooks/use-game-controls"
+import { usePlatform } from "@/contexts/platform-context"
+import { updateGameState } from "@/utils/game-state-updater" // Declare the variable here
 
-export default function GameComponent({
+interface GameComponentProps {
+  playerId: string
+  playerName: string
+  isHost: boolean
+  gameMode: string
+  initialGameState: GameState
+  onGameEnd: (winner: string | null) => void
+}
+
+const createInitialGameState = (playerId: string): GameState => ({
+  players: {
+    [playerId]: {
+      id: playerId,
+      position: { x: 100, y: 100 },
+      velocity: { x: 0, y: 0 },
+      rotation: 0,
+      health: 100,
+      isDrawingBow: false,
+      drawStartTime: 0,
+      lastShotTime: 0,
+      controls: {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        shoot: false,
+        dash: false,
+        special: false,
+        explosiveArrow: false,
+      },
+    },
+  },
+  arrows: [],
+  enemies: [],
+  explosions: [],
+  score: 0,
+  isGameOver: false,
+  gameTime: 0,
+})
+
+const GameComponent: React.FC<GameComponentProps> = ({
   playerId,
   playerName,
   isHost,
   gameMode,
   initialGameState,
   onGameEnd,
-  platformType,
-}: {
-  playerId: string
-  playerName: string
-  isHost: boolean
-  gameMode: string
-  initialGameState: any
-  onGameEnd: (winner: string | null) => void
-  platformType: PlatformType
-}) {
-  // Use the base game controller
+}) => {
+  const { platformType } = usePlatform()
   const {
     gameState,
     setGameState,
@@ -57,6 +90,12 @@ export default function GameComponent({
   const specialSoundPlayedRef = useRef(false)
   const minDrawSoundPlayedRef = useRef(false)
   const [showTutorial, setShowTutorial] = useState(true)
+
+  const gameEngineRef = useRef<GameEngine | null>(null)
+
+  useEffect(() => {
+    gameStateRef.current = gameState
+  }, [gameState])
 
   // Use the new unified game controls hook
   useGameControls({
@@ -357,6 +396,12 @@ export default function GameComponent({
       }
     }
 
+    const engine = new GameEngine(gameStateRef.current, (newState) => {
+      setGameState(newState)
+    })
+    gameEngineRef.current = engine
+    engine.start()
+
     return () => {
       transitionDebugger.trackTransition("any", "unmounting", "GameComponent")
       if (requestAnimationFrameIdRef.current !== null) {
@@ -376,6 +421,9 @@ export default function GameComponent({
       debugManager.logInfo("GAME", "Game cleanup completed")
       transitionDebugger.trackTransition("unmounting", "unmounted", "GameComponent")
       debugManager.trackComponentUnmount("GameComponent")
+      if (gameEngineRef.current) {
+        gameEngineRef.current.stop()
+      }
     }
   }, [playerId, playerName, isHost, gameMode, initialGameState, onGameEnd, setGameState, platformType])
 
@@ -405,3 +453,5 @@ export default function GameComponent({
     </div>
   )
 }
+
+export default GameComponent
