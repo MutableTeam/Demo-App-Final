@@ -363,9 +363,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
     const player = gameState.players[localPlayerId]
     if (!player) return
 
-    // Draw enhanced ability indicators (bottom-left)
-    drawEnhancedAbilityIndicators(ctx, player, gameState.arenaSize.height)
-
     // Draw bow charge indicator when drawing bow
     if (player.isDrawingBow && player.drawStartTime !== null) {
       const currentTime = Date.now() / 1000
@@ -573,8 +570,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
     }
   }
 
-  // Add these new helper functions after the drawUI function:
-
   // Helper function to draw a trophy icon
   const drawTrophy = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
     // Trophy cup
@@ -663,226 +658,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
         }
       }
     })
-  }
-
-  // Enhanced ability indicators
-  const drawEnhancedAbilityIndicators = (ctx: CanvasRenderingContext2D, player: Player, canvasHeight: number) => {
-    const abilitySize = 60
-    const padding = 15
-    const spacing = 20
-    const startX = padding
-    const startY = canvasHeight - padding - abilitySize
-
-    // Draw dash ability - ensure the percentage calculation is correct
-    const dashCooldownPercentage = player.dashCooldown <= 0 ? 1 : Math.max(0, 1 - player.dashCooldown / 2)
-    drawAbilityIcon(ctx, startX, startY, abilitySize, dashCooldownPercentage, "DASH", drawDashIcon)
-
-    // Draw special attack ability - ensure the percentage calculation is correct
-    const specialCooldownPercentage =
-      player.specialAttackCooldown <= 0 ? 1 : Math.max(0, 1 - player.specialAttackCooldown / 5)
-    drawAbilityIcon(
-      ctx,
-      startX + abilitySize + spacing,
-      startY,
-      abilitySize,
-      specialCooldownPercentage,
-      "SPECIAL",
-      drawSpecialIcon,
-    )
-
-    // Draw explosive arrow ability
-    const explosiveArrowCooldownPercentage =
-      player.explosiveArrowCooldown <= 0 ? 1 : Math.max(0, 1 - player.explosiveArrowCooldown / 30)
-    drawAbilityIcon(
-      ctx,
-      startX + (abilitySize + spacing) * 2,
-      startY,
-      abilitySize,
-      explosiveArrowCooldownPercentage,
-      "EXPLOSIVE",
-      drawExplosiveArrowIcon,
-    )
-  }
-
-  // Draw ability icon with cooldown
-  const drawAbilityIcon = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    size: number,
-    percentage: number,
-    label: string,
-    iconDrawFunction: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => void,
-  ) => {
-    // Draw background circle
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-    ctx.beginPath()
-    ctx.arc(x + size / 2, y + size / 2, size / 2 + 5, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Add subtle border
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.arc(x + size / 2, y + size / 2, size / 2 + 5, 0, Math.PI * 2)
-    ctx.stroke()
-
-    // Draw ability background
-    ctx.fillStyle = "#333333"
-    ctx.beginPath()
-    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Draw cooldown overlay (semi-transparent pie)
-    if (percentage < 1) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)"
-      ctx.beginPath()
-      ctx.moveTo(x + size / 2, y + size / 2)
-      ctx.arc(x + size / 2, y + size / 2, size / 2, -Math.PI / 2, -Math.PI / 2 + (1 - percentage) * Math.PI * 2, false)
-      ctx.closePath()
-      ctx.fill()
-    }
-
-    // Draw ability icon
-    iconDrawFunction(ctx, x + size / 2, y + size / 2, size * 0.5)
-
-    // Draw ready indicator - now properly checking if exactly equal to 1 or very close to 1
-    if (percentage >= 0.999) {
-      // Changed from === 1 to >= 0.999 to handle floating point imprecision
-      // Pulsing glow effect
-      const pulseIntensity = Math.sin(frameCountRef.current * 0.1) * 0.3 + 0.7
-
-      ctx.strokeStyle = `rgba(51, 255, 51, ${pulseIntensity * 0.8})`
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.arc(x + size / 2, y + size / 2, size / 2 + 2, 0, Math.PI * 2)
-      ctx.stroke()
-
-      // "READY" text
-      ctx.fillStyle = "#33FF33"
-      ctx.font = "bold 10px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText("READY", x + size / 2, y + size + 15)
-    } else {
-      // Cooldown text
-      ctx.fillStyle = "#CCCCCC"
-      ctx.font = "bold 10px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText(label, x + size / 2, y + size + 15)
-    }
-  }
-
-  // Draw dash icon
-  const drawDashIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-    ctx.strokeStyle = "#66CCFF"
-    ctx.lineWidth = 3
-
-    // Draw arrow
-    ctx.beginPath()
-    // Arrow body
-    ctx.moveTo(x - size / 2, y)
-    ctx.lineTo(x + size / 3, y)
-    // Arrow head
-    ctx.moveTo(x + size / 5, y - size / 4)
-    ctx.lineTo(x + size / 2, y)
-    ctx.lineTo(x + size / 5, y + size / 4)
-    ctx.stroke()
-
-    // Draw motion lines
-    ctx.strokeStyle = "rgba(102, 204, 255, 0.6)"
-    ctx.lineWidth = 2
-
-    // First motion line
-    ctx.beginPath()
-    ctx.moveTo(x - size / 3, y - size / 5)
-    ctx.lineTo(x, y - size / 5)
-    ctx.stroke()
-
-    // Second motion line
-    ctx.beginPath()
-    ctx.moveTo(x - size / 4, y)
-    ctx.lineTo(x - size / 8, y)
-    ctx.stroke()
-
-    // Third motion line
-    ctx.beginPath()
-    ctx.moveTo(x - size / 3, y + size / 5)
-    ctx.lineTo(x, y + size / 5)
-    ctx.stroke()
-  }
-
-  // Draw explosive arrow icon
-  const drawExplosiveArrowIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-    // Draw arrow
-    ctx.strokeStyle = "#FF5722"
-    ctx.lineWidth = 3
-
-    // Arrow shaft
-    ctx.beginPath()
-    ctx.moveTo(x - size / 3, y)
-    ctx.lineTo(x + size / 4, y)
-    ctx.stroke()
-
-    // Arrow head
-    ctx.beginPath()
-    ctx.moveTo(x + size / 4, y - size / 6)
-    ctx.lineTo(x + size / 2, y)
-    ctx.lineTo(x + size / 4, y + size / 6)
-    ctx.stroke()
-
-    // Explosion burst
-    ctx.strokeStyle = "#FFCC00"
-
-    // Burst rays
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8
-      const startRadius = size / 4
-      const endRadius = size / 2
-
-      ctx.beginPath()
-      ctx.moveTo(x + Math.cos(angle) * startRadius, y + Math.sin(angle) * startRadius)
-      ctx.lineTo(x + Math.cos(angle) * endRadius, y + Math.sin(angle) * endRadius)
-      ctx.stroke()
-    }
-
-    // Center circle
-    ctx.fillStyle = "#FF5722"
-    ctx.beginPath()
-    ctx.arc(x, y, size / 6, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  // Draw special attack icon
-  const drawSpecialIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-    // Draw star shape for special attack
-    const spikes = 5
-    const outerRadius = size / 2
-    const innerRadius = size / 4
-
-    ctx.fillStyle = "#FFCC33"
-    ctx.beginPath()
-
-    for (let i = 0; i < spikes * 2; i++) {
-      const radius = i % 2 === 0 ? outerRadius : innerRadius
-      const angle = (Math.PI * 2 * i) / (spikes * 2) - Math.PI / 2
-      const pointX = x + radius * Math.cos(angle)
-      const pointY = y + radius * Math.sin(angle)
-
-      if (i === 0) {
-        ctx.moveTo(pointX, pointY)
-      } else {
-        ctx.lineTo(pointX, pointY)
-      }
-    }
-
-    ctx.closePath()
-    ctx.fill()
-
-    // Add glow effect
-    const pulseIntensity = Math.sin(frameCountRef.current * 0.1) * 0.3 + 0.7
-    ctx.strokeStyle = `rgba(255, 204, 51, ${pulseIntensity * 0.8})`
-    ctx.lineWidth = 2
-    ctx.stroke()
   }
 
   // Enhanced scoreboard
@@ -1028,24 +803,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       ctx.textAlign = "center"
       ctx.fillText(killsText, scoreboardX + scoreboardWidth - 40, rowY + rowHeight / 2 + 5)
     })
-  }
-
-  // Replace the existing drawCooldownIndicator function with this empty one since we're not using it anymore
-  const drawCooldownIndicator = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    percentage: number,
-    label: string,
-  ) => {
-    // This function is no longer used, but we keep it to avoid breaking references
-  }
-
-  // Replace the existing drawMiniScoreboard function with this empty one since we're not using it anymore
-  const drawMiniScoreboard = (ctx: CanvasRenderingContext2D, gameState: GameState) => {
-    // This function is no longer used, but we keep it to avoid breaking references
   }
 
   // Draw debug information
@@ -1358,7 +1115,7 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
         drawPlayer(ctx, player, player.id === localPlayerId)
       })
 
-      // Draw UI
+      // Draw UI (only essential elements - no ability indicators)
       drawUI(ctx, gameState, localPlayerId)
 
       // Draw debug info if enabled

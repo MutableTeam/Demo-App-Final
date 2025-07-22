@@ -277,7 +277,7 @@ export const generateWalls = (): GameObject[] => {
 }
 
 // Update the calculateArrowDamage function to handle weak shots
-const calculateArrowDamage = (drawTime: number, maxDrawTime: number, isWeakShot: boolean): number => {
+export const calculateArrowDamage = (drawTime: number, maxDrawTime: number, isWeakShot: boolean): number => {
   // Weak shots always do 1 damage
   if (isWeakShot) {
     return 1
@@ -291,7 +291,7 @@ const calculateArrowDamage = (drawTime: number, maxDrawTime: number, isWeakShot:
 }
 
 // Calculate arrow speed based on draw time
-const calculateArrowSpeed = (drawTime: number, maxDrawTime: number): number => {
+export const calculateArrowSpeed = (drawTime: number, maxDrawTime: number): number => {
   // Minimum speed is 300, max is 600 based on draw time
   const minSpeed = 300
   const maxSpeed = 600
@@ -565,7 +565,7 @@ export const updateGameState = (
         player.position.y += player.velocity.y * deltaTime
       }
 
-      // Handle bow drawing
+      // Handle bow drawing (Desktop only)
       if (player.controls.shoot) {
         if (!player.isDrawingBow) {
           player.isDrawingBow = true
@@ -575,8 +575,8 @@ export const updateGameState = (
           player.animationState = "fire"
           player.lastAnimationChange = Date.now()
         }
-      } else if (player.isDrawingBow && player.drawStartTime !== null) {
-        // Release arrow
+      } else if (player.isDrawingBow && player.drawStartTime !== null && !player.controls.shoot) {
+        // Release arrow (Desktop only)
         const currentTime = Date.now() / 1000
         const drawTime = currentTime - player.drawStartTime
 
@@ -900,7 +900,7 @@ export const updateGameState = (
 // Handle player input
 export function handlePlayerInput(state: GameState, playerId: string, input: any): GameState {
   const player = state.players[playerId]
-  if (!player || !player.isActive) return state
+  if (!player || player.isActive) return state
 
   // Clone the state to avoid mutations
   const newState = { ...state }

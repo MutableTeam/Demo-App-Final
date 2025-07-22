@@ -12,8 +12,9 @@ import GameControllerEnhanced from "@/components/pvp-game/game-controller-enhanc
 import { usePlatform } from "@/contexts/platform-context"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Badge } from "@/components/ui/badge"
-import { Monitor, Smartphone } from "lucide-react"
+import { Monitor } from "lucide-react"
 import { cn } from "@/lib/utils"
+import MobileGameContainer from "@/components/mobile-game-container"
 
 // Cyberpunk styled components for the game container
 const CyberpunkGameContainer = styled.div`
@@ -205,11 +206,9 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
 
   const isCyberpunk = styleMode === "cyberpunk"
 
-  // Get the game from registry
   const game = gameRegistry.getGame(gameId)
 
   useEffect(() => {
-    // Log initialization for debugging
     debugManager.logInfo("GameContainer", "Initializing game container", {
       gameId,
       playerId,
@@ -218,35 +217,12 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       gameMode,
       platformType,
     })
-
-    // Set game to playing state after a short delay to ensure proper initialization
     const timer = setTimeout(() => {
       setGameState("playing")
       debugManager.logInfo("GameContainer", "Game state set to playing")
     }, 500)
-
     return () => clearTimeout(timer)
   }, [gameId, playerId, playerName, isHost, gameMode, platformType])
-
-  if (!game) {
-    if (isCyberpunk) {
-      return (
-        <CyberpunkLoadingContainer>
-          <CyberpunkLoadingText>Game not found</CyberpunkLoadingText>
-        </CyberpunkLoadingContainer>
-      )
-    }
-
-    return (
-      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
-        <div className="text-center">
-          <p className="text-xl font-bold text-muted-foreground">Game not found</p>
-        </div>
-      </div>
-    )
-  }
-
-  const GameComponent = game.GameComponent
 
   const handleError = (error: Error) => {
     console.error("Game error:", error)
@@ -257,33 +233,28 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     })
   }
 
-  // Initialize game state
-  const initialGameState = game.initializeGameState({
-    playerId,
-    playerName,
-    isHost,
-    gameMode,
-    players: [
-      { id: playerId, name: playerName, isHost },
-      // Mock players for testing
-      { id: "ai-1", name: "AI Player 1", isHost: false },
-      { id: "ai-2", name: "AI Player 2", isHost: false },
-      { id: "ai-3", name: "AI Player 3", isHost: false },
-    ],
-  })
+  if (!game) {
+    const NotFoundComponent = isCyberpunk ? (
+      <CyberpunkLoadingContainer>
+        <CyberpunkLoadingText>Game not found</CyberpunkLoadingText>
+      </CyberpunkLoadingContainer>
+    ) : (
+      <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
+        <div className="text-center">
+          <p className="text-xl font-bold text-muted-foreground">Game not found</p>
+        </div>
+      </div>
+    )
+    return NotFoundComponent
+  }
 
-  // Cyberpunk styled loading state
   if (gameState === "loading") {
-    if (isCyberpunk) {
-      return (
-        <CyberpunkLoadingContainer>
-          <CyberpunkSpinner />
-          <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
-        </CyberpunkLoadingContainer>
-      )
-    }
-
-    return (
+    const LoadingComponent = isCyberpunk ? (
+      <CyberpunkLoadingContainer>
+        <CyberpunkSpinner />
+        <CyberpunkLoadingText>Loading Game</CyberpunkLoadingText>
+      </CyberpunkLoadingContainer>
+    ) : (
       <div className="flex items-center justify-center h-[600px] bg-muted rounded-lg border">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -291,103 +262,88 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
         </div>
       </div>
     )
+    return LoadingComponent
   }
 
-  // Render game container based on style mode
-  if (isCyberpunk) {
-    return (
-      <CyberpunkGameContainer>
-        {/* Development Banner with Platform Info */}
-        <CyberpunkDevBanner>
-          <span>Demo Game : Does Not Represent Final Product</span>
-          <PlatformBadge>
-            {platformType === "desktop" ? (
-              <>
-                <Monitor className="h-3 w-3" />
-                Desktop Mode
-              </>
-            ) : (
-              <>
-                <Smartphone className="h-3 w-3" />
-                Mobile Mode
-              </>
-            )}
-          </PlatformBadge>
-        </CyberpunkDevBanner>
+  const initialGameState = game.initializeGameState({
+    playerId,
+    playerName,
+    isHost,
+    gameMode,
+    players: [
+      { id: playerId, name: playerName, isHost },
+      { id: "ai-1", name: "AI Player 1", isHost: false },
+      { id: "ai-2", name: "AI Player 2", isHost: false },
+      { id: "ai-3", name: "AI Player 3", isHost: false },
+    ],
+  })
 
-        <GameErrorBoundary>
-          {game.id === "archer-arena" || game.id === "last-stand" ? (
-            <GameControllerEnhanced
-              playerId={playerId}
-              playerName={playerName}
-              isHost={isHost}
-              gameMode={gameMode}
-              onGameEnd={onGameEnd}
-              platformType={platformType}
-            />
-          ) : (
-            <GameComponent
-              playerId={playerId}
-              playerName={playerName}
-              isHost={isHost}
-              gameMode={gameMode}
-              initialGameState={initialGameState}
-              onGameEnd={onGameEnd}
-              onError={handleError}
-              platformType={platformType}
-            />
-          )}
-        </GameErrorBoundary>
-      </CyberpunkGameContainer>
+  const GameComponent = game.GameComponent
+  const GameContent =
+    game.id === "archer-arena" || game.id === "last-stand" ? (
+      <GameControllerEnhanced
+        playerId={playerId}
+        playerName={playerName}
+        isHost={isHost}
+        gameMode={gameMode}
+        onGameEnd={onGameEnd}
+        platformType={platformType}
+      />
+    ) : (
+      <GameComponent
+        playerId={playerId}
+        playerName={playerName}
+        isHost={isHost}
+        gameMode={gameMode}
+        initialGameState={initialGameState}
+        onGameEnd={onGameEnd}
+        onError={handleError}
+        platformType={platformType}
+      />
+    )
+
+  if (platformType === "mobile") {
+    return (
+      <MobileGameContainer
+        onJoystickMove={(direction) => {
+          // This would be wired to a global input handler in a full implementation
+          console.log("Joystick Move:", direction)
+        }}
+        onActionPress={(action, pressed) => {
+          console.log("Action Press:", action, pressed)
+        }}
+      >
+        <GameErrorBoundary>{GameContent}</GameErrorBoundary>
+      </MobileGameContainer>
     )
   }
 
-  // Light/Dark theme version
-  return (
+  // Default to desktop container
+  const DesktopContainer = isCyberpunk ? (
+    <CyberpunkGameContainer>
+      <CyberpunkDevBanner>
+        <span>Demo Game : Does Not Represent Final Product</span>
+        <PlatformBadge>
+          <Monitor className="h-3 w-3" />
+          Desktop Mode
+        </PlatformBadge>
+      </CyberpunkDevBanner>
+      <GameErrorBoundary>{GameContent}</GameErrorBoundary>
+    </CyberpunkGameContainer>
+  ) : (
     <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
-      {/* Development Banner with Platform Info */}
       <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
         <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
         <Badge variant="outline" className="flex items-center gap-1">
-          {platformType === "desktop" ? (
-            <>
-              <Monitor className="h-3 w-3" />
-              Desktop Mode
-            </>
-          ) : (
-            <>
-              <Smartphone className="h-3 w-3" />
-              Mobile Mode
-            </>
-          )}
+          <Monitor className="h-3 w-3" />
+          Desktop Mode
         </Badge>
       </div>
-
-      <GameErrorBoundary>
-        {game.id === "archer-arena" || game.id === "last-stand" ? (
-          <GameControllerEnhanced
-            playerId={playerId}
-            playerName={playerName}
-            isHost={isHost}
-            gameMode={gameMode}
-            onGameEnd={onGameEnd}
-            platformType={platformType}
-          />
-        ) : (
-          <GameComponent
-            playerId={playerId}
-            playerName={playerName}
-            isHost={isHost}
-            gameMode={gameMode}
-            initialGameState={initialGameState}
-            onGameEnd={onGameEnd}
-            onError={handleError}
-            platformType={platformType}
-          />
-        )}
-      </GameErrorBoundary>
+      <GameErrorBoundary>{GameContent}</GameErrorBoundary>
     </div>
   )
+
+  return DesktopContainer
 }
 
 // Export as default

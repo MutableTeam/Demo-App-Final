@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
+import {
+  createInitialGameState,
+  createPlayer,
+  type GameState,
+  updateGameState,
+  createArrow,
+  calculateArrowDamage,
+  calculateArrowSpeed,
+} from "./game-engine"
 import GameRenderer from "./game-renderer"
 import DebugOverlay from "./debug-overlay"
 import {
@@ -17,12 +25,14 @@ import {
   startBackgroundMusic,
   stopBackgroundMusic,
   audioManager,
-  playExplosionSound, // Add this import
+  playExplosionSound,
 } from "@/utils/audio-manager"
 import { debugManager, DebugLevel } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
+import type { PlatformType } from "@/contexts/platform-context"
+import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 
 interface GameControllerProps {
   playerId: string
@@ -30,6 +40,7 @@ interface GameControllerProps {
   isHost: boolean
   gameMode?: string
   onGameEnd?: (winner: string | null) => void
+  platformType?: PlatformType
 }
 
 export default function GameController({
@@ -38,6 +49,7 @@ export default function GameController({
   isHost,
   gameMode = "duel",
   onGameEnd,
+  platformType = "desktop",
 }: GameControllerProps) {
   // Use a function to initialize state to ensure it's only created once
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -436,6 +448,92 @@ export default function GameController({
       }
     }
 
+    // NEW: Mobile Input Handling Setup
+    if (platformType !== "desktop") {
+      debugManager.logInfo("INPUT", "Setting up mobile input handlers for GameController")
+
+      const handleMobileInput = (inputState: GameInputState) => {
+        if (!gameStateRef.current.players[playerId]) return
+        const player = gameStateRef.current.players[playerId]
+
+        // Apply movement
+        player.controls.up = inputState.movement.up
+        player.controls.down = inputState.movement.down
+        player.controls.left = inputState.movement.left
+        player.controls.right = inputState.movement.right
+
+        // Apply actions
+        player.controls.dash = inputState.actions.dash
+        player.controls.special = inputState.actions.special
+        player.controls.explosiveArrow = inputState.actions.explosiveArrow
+
+        // Apply aiming
+        if (inputState.aiming.active) {
+          player.isDrawingBow = true
+          if (player.drawStartTime === null) {
+            player.drawStartTime = Date.now() / 1000
+          }
+          player.rotation = inputState.aiming.angle
+        } else {
+          // This case is handled by onShoot, but as a fallback:
+          if (player.isDrawingBow) {
+            player.isDrawingBow = false
+            player.drawStartTime = null
+          }
+        }
+      }
+
+      const handleMobileShoot = (angle: number, power: number) => {
+        if (!gameStateRef.current.players[playerId]) return
+        const player = gameStateRef.current.players[playerId]
+
+        // Use power to determine damage and speed
+        const drawTime = player.maxDrawTime * power
+        const isWeakShot = power < 0.3 // Corresponds to minDrawTime
+        const damage = calculateArrowDamage(drawTime, player.maxDrawTime, isWeakShot)
+        const arrowSpeed = calculateArrowSpeed(drawTime, player.maxDrawTime)
+
+        const arrowVelocity = {
+          x: Math.cos(angle) * arrowSpeed,
+          y: Math.sin(angle) * arrowSpeed,
+        }
+        const arrowPosition = {
+          x: player.position.x + Math.cos(angle) * (player.size + 5),
+          y: player.position.y + Math.sin(angle) * (player.size + 5),
+        }
+
+        const arrow = createArrow(arrowPosition, arrowVelocity, angle, player.id, damage)
+        if (isWeakShot) {
+          arrow.color = "#5D4037"
+          // @ts-ignore
+          arrow.isWeakShot = true
+        }
+
+        gameStateRef.current.arrows.push(arrow)
+
+        // Reset player state
+        player.isDrawingBow = false
+        player.drawStartTime = null
+        player.cooldown = 0.2
+        player.animationState = "fire" // Trigger fire animation
+        player.lastAnimationChange = Date.now()
+
+        // Schedule transition back to idle/run
+        setTimeout(() => {
+          if (gameStateRef.current.players[playerId]?.animationState === "fire") {
+            const isMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
+            gameStateRef.current.players[playerId].animationState = isMoving ? "run" : "idle"
+            gameStateRef.current.players[playerId].lastAnimationChange = Date.now()
+          }
+        }, 300)
+      }
+
+      gameInputHandler.setCallbacks({
+        onStateChange: handleMobileInput,
+        onShoot: handleMobileShoot,
+      })
+    }
+
     // Set up keyboard controls
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!gameStateRef.current.players[playerId]) return
@@ -641,49 +739,52 @@ export default function GameController({
       e.preventDefault() // Prevent context menu on right click
     }
 
-    // Add event listeners using our safe methods
-    transitionDebugger.safeAddEventListener(
-      window,
-      "keydown",
-      handleKeyDown,
-      undefined,
-      `${componentIdRef.current}-game-keydown`,
-    )
-    transitionDebugger.safeAddEventListener(
-      window,
-      "keyup",
-      handleKeyUp,
-      undefined,
-      `${componentIdRef.current}-game-keyup`,
-    )
-    transitionDebugger.safeAddEventListener(
-      document,
-      "mousemove",
-      handleMouseMove,
-      undefined,
-      `${componentIdRef.current}-mousemove`,
-    )
-    transitionDebugger.safeAddEventListener(
-      document,
-      "mousedown",
-      handleMouseDown,
-      undefined,
-      `${componentIdRef.current}-mousedown`,
-    )
-    transitionDebugger.safeAddEventListener(
-      document,
-      "mouseup",
-      handleMouseUp,
-      undefined,
-      `${componentIdRef.current}-mouseup`,
-    )
-    transitionDebugger.safeAddEventListener(
-      document,
-      "contextmenu",
-      handleContextMenu,
-      undefined,
-      `${componentIdRef.current}-contextmenu`,
-    )
+    if (platformType === "desktop") {
+      debugManager.logInfo("INPUT", "Setting up desktop input handlers for GameController")
+      // Add event listeners using our safe methods
+      transitionDebugger.safeAddEventListener(
+        window,
+        "keydown",
+        handleKeyDown,
+        undefined,
+        `${componentIdRef.current}-game-keydown`,
+      )
+      transitionDebugger.safeAddEventListener(
+        window,
+        "keyup",
+        handleKeyUp,
+        undefined,
+        `${componentIdRef.current}-game-keyup`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "mousemove",
+        handleMouseMove,
+        undefined,
+        `${componentIdRef.current}-mousemove`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "mousedown",
+        handleMouseDown,
+        undefined,
+        `${componentIdRef.current}-mousedown`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "mouseup",
+        handleMouseUp,
+        undefined,
+        `${componentIdRef.current}-mouseup`,
+      )
+      transitionDebugger.safeAddEventListener(
+        document,
+        "contextmenu",
+        handleContextMenu,
+        undefined,
+        `${componentIdRef.current}-contextmenu`,
+      )
+    }
 
     // Resume audio context on user interaction
     const resumeAudio = () => {
@@ -724,6 +825,10 @@ export default function GameController({
       })
       animationTimeoutsRef.current = {}
 
+      if (platformType !== "desktop") {
+        gameInputHandler.destroy() // Clean up the handler
+      }
+
       // Remove all event listeners
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keydown`)
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-game-keyup`)
@@ -749,7 +854,7 @@ export default function GameController({
       transitionDebugger.trackTransition("unmounting", "unmounted", "GameController")
       debugManager.trackComponentUnmount("GameController")
     }
-  }, [playerId, playerName, isHost, gameMode, onGameEnd])
+  }, [playerId, playerName, isHost, gameMode, onGameEnd, platformType])
 
   // Track renders
   useEffect(() => {
