@@ -201,14 +201,14 @@ export default function GameController({
     let cleanupDesktopHandlers: (() => void) | null = null
 
     if (platformType === "desktop") {
-      debugManager.logInfo("INPUT", "Setting up desktop input handlers.")
+      debugManager.logInfo("INPUT", "Setting up DESKTOP input handlers.")
       cleanupDesktopHandlers = setupGameInputHandlers({
         playerId,
         gameStateRef,
         componentIdRef,
       })
     } else {
-      debugManager.logInfo("INPUT", "Setting up mobile input handlers.")
+      debugManager.logInfo("INPUT", "Setting up MOBILE input handlers.")
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current.players[playerId]
         if (!player) return
@@ -281,8 +281,14 @@ export default function GameController({
       if (requestAnimationFrameIdRef.current) cancelAnimationFrame(requestAnimationFrameIdRef.current)
       Object.values(animationTimeoutsRef.current).forEach(clearTimeout)
 
-      if (cleanupDesktopHandlers) cleanupDesktopHandlers()
-      if (platformType !== "desktop") gameInputHandler.destroy()
+      if (cleanupDesktopHandlers) {
+        debugManager.logInfo("INPUT", "Cleaning up DESKTOP input handlers.")
+        cleanupDesktopHandlers()
+      }
+      if (platformType !== "desktop") {
+        debugManager.logInfo("INPUT", "Cleaning up MOBILE input handlers.")
+        gameInputHandler.destroy()
+      }
 
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
       stopBackgroundMusic()

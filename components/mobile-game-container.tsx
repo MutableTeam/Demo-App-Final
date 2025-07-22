@@ -6,6 +6,12 @@ import { Joystick } from "react-joystick-component"
 import { cn } from "@/lib/utils"
 import type { IJoystickUpdateEvent } from "react-joystick-component"
 import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
+import { Orbitron } from "next/font/google" // Using a cyberpunk-style font
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+})
 
 interface MobileGameContainerProps {
   children: React.ReactNode
@@ -39,30 +45,33 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
   )
 
   return (
-    <button
-      className={cn(
-        "w-16 h-16 rounded-full border-2 flex items-center justify-center font-mono text-lg font-bold transition-all duration-100",
-        "touch-none select-none active:scale-95",
-        "bg-zinc-700/90 border-zinc-500/70 text-zinc-200 active:bg-zinc-600/90 shadow-lg backdrop-blur-sm",
-        "hover:bg-zinc-600/80 focus:outline-none focus:ring-2 focus:ring-zinc-400/50",
-        className,
-      )}
-      onTouchStart={handleInteractionStart}
-      onTouchEnd={handleInteractionEnd}
-      onTouchCancel={handleInteractionEnd}
-      onMouseDown={handleInteractionStart}
-      onMouseUp={handleInteractionEnd}
-      onMouseLeave={handleInteractionEnd}
-      title={title}
-      style={{
-        WebkitUserSelect: "none",
-        userSelect: "none",
-        WebkitTouchCallout: "none",
-        WebkitTapHighlightColor: "transparent",
-      }}
-    >
-      {label}
-    </button>
+    <div className="flex flex-col items-center gap-1">
+      <button
+        className={cn(
+          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-100",
+          "touch-none select-none active:scale-95 active:brightness-125",
+          "bg-gray-800/80 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] backdrop-blur-sm",
+          "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
+          orbitron.className,
+          className,
+        )}
+        onTouchStart={handleInteractionStart}
+        onTouchEnd={handleInteractionEnd}
+        onTouchCancel={handleInteractionEnd}
+        onMouseDown={handleInteractionStart}
+        onMouseUp={handleInteractionEnd}
+        onMouseLeave={handleInteractionEnd}
+        style={{
+          WebkitUserSelect: "none",
+          userSelect: "none",
+          WebkitTouchCallout: "none",
+          WebkitTapHighlightColor: "transparent",
+        }}
+      >
+        {label}
+      </button>
+      {title && <span className="text-xs text-cyan-400/80 font-semibold tracking-wider">{title}</span>}
+    </div>
   )
 }
 
@@ -102,36 +111,39 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
   const isLandscape = orientation === "landscape"
 
-  const controlsBaseClasses = "flex flex-col items-center justify-center space-y-2"
-  const labelClasses = "text-xs tracking-widest font-bold text-zinc-300 uppercase"
-  const subLabelClasses = "text-xs text-zinc-500"
+  const controlsBaseClasses = "flex flex-col items-center justify-center space-y-3"
+  const labelClasses = `text-sm tracking-widest font-bold text-cyan-300 uppercase ${orbitron.className}`
+  const subLabelClasses = "text-xs text-cyan-400/60"
 
   if (isLandscape) {
     return (
       <div
-        className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
+        className={cn("fixed inset-0 bg-gray-900 flex items-center justify-center font-sans text-gray-300", className)}
       >
-        <div className="w-full h-full flex flex-row items-center p-4 gap-4">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(10,40,60,0.5),_transparent_70%)]"></div>
+        <div className="w-full h-full flex flex-row items-center p-4 gap-4 z-10">
           {/* Left: Movement */}
-          <div className="w-1/4 h-full flex items-center justify-center">
+          <div className="w-[25%] h-full flex items-center justify-center">
             <div className={controlsBaseClasses}>
               <span className={labelClasses}>Movement</span>
               <Joystick
-                size={120}
+                size={140}
                 sticky={false}
-                baseColor="rgba(63, 63, 70, 0.8)"
-                stickColor="rgba(113, 113, 122, 0.9)"
+                baseColor="rgba(17, 24, 39, 0.7)"
+                stickColor="rgba(34, 211, 238, 0.6)"
                 move={handleJoystickMove}
                 stop={handleJoystickStop}
                 throttle={16}
+                baseClassName="border-2 border-cyan-500/30 rounded-full shadow-lg"
+                stickClassName="shadow-[0_0_15px_rgba(34,211,238,0.5)]"
               />
               <span className={subLabelClasses}>Move Player</span>
             </div>
           </div>
 
           {/* Center: Game Screen */}
-          <div className="w-1/2 h-full flex items-center justify-center">
-            <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden">
+          <div className="w-[50%] h-full flex items-center justify-center">
+            <div className="w-full h-full bg-black/50 border-2 border-cyan-700/50 rounded-lg relative overflow-hidden shadow-[0_0_20px_rgba(0,255,255,0.2)]">
               {children}
             </div>
           </div>
@@ -139,7 +151,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           {/* Right: Aiming & Actions */}
           <div
             ref={aimPadRef}
-            className="w-1/4 h-full flex flex-col items-center justify-between p-4 touch-none"
+            className="w-[25%] h-full flex flex-col items-center justify-between p-4 touch-none"
             onTouchStart={handleAimTouchStart}
             onTouchMove={handleAimTouchMove}
             onTouchEnd={handleAimTouchEnd}
@@ -149,15 +161,10 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               <span className={labelClasses}>Aim & Shoot</span>
               <span className={subLabelClasses}> (Drag anywhere here)</span>
             </div>
-            <div className="grid grid-cols-2 grid-rows-2 gap-3 w-[150px] h-[150px]">
-              <ActionButton label="Y" action="special" title="Special Attack" className="col-start-2 row-start-1" />
+            <div className="grid grid-cols-2 grid-rows-2 gap-4 w-[180px] h-[180px] place-items-center">
+              <ActionButton label="Y" action="special" title="Special" className="col-start-2 row-start-1" />
               <ActionButton label="X" action="dash" title="Dash" className="col-start-1 row-start-1" />
-              <ActionButton
-                label="B"
-                action="explosiveArrow"
-                title="Explosive Arrow"
-                className="col-start-2 row-start-2"
-              />
+              <ActionButton label="B" action="explosiveArrow" title="Explode" className="col-start-2 row-start-2" />
             </div>
           </div>
         </div>
@@ -168,12 +175,13 @@ export default function MobileGameContainer({ children, className }: MobileGameC
   // Portrait Layout
   return (
     <div
-      className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
+      className={cn("fixed inset-0 bg-gray-900 flex items-center justify-center font-sans text-gray-300", className)}
     >
-      <div className="w-full h-full flex flex-col items-center p-2 gap-2">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(10,40,60,0.5),_transparent_70%)]"></div>
+      <div className="w-full h-full flex flex-col items-center p-2 gap-2 z-10">
         {/* Top: Game Screen */}
         <div className="w-full h-3/5 flex items-center justify-center">
-          <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden max-w-md">
+          <div className="w-full h-full bg-black/50 border-2 border-cyan-700/50 rounded-lg relative overflow-hidden shadow-[0_0_20px_rgba(0,255,255,0.2)] max-w-md">
             {children}
           </div>
         </div>
@@ -191,23 +199,25 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           <div className={controlsBaseClasses}>
             <span className={labelClasses}>Move</span>
             <Joystick
-              size={100}
+              size={120}
               sticky={false}
-              baseColor="rgba(63, 63, 70, 0.8)"
-              stickColor="rgba(113, 113, 122, 0.9)"
+              baseColor="rgba(17, 24, 39, 0.7)"
+              stickColor="rgba(34, 211, 238, 0.6)"
               move={handleJoystickMove}
               stop={handleJoystickStop}
               throttle={16}
+              baseClassName="border-2 border-cyan-500/30 rounded-full shadow-lg"
+              stickClassName="shadow-[0_0_15px_rgba(34,211,238,0.5)]"
             />
           </div>
 
           {/* Bottom Right: Actions */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className={labelClasses}>Actions</span>
-            <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
-              <ActionButton label="Y" action="special" title="Special Attack" />
+            <div className="grid grid-cols-3 gap-3 w-[200px] h-[80px] place-items-center">
               <ActionButton label="X" action="dash" title="Dash" />
-              <ActionButton label="B" action="explosiveArrow" title="Explosive Arrow" />
+              <ActionButton label="Y" action="special" title="Special" />
+              <ActionButton label="B" action="explosiveArrow" title="Explode" />
             </div>
           </div>
         </div>

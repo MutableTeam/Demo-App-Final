@@ -70,11 +70,13 @@ class GameInputHandler {
         right: normalizedX > threshold,
       }
     }
+    console.log(`[InputDebug] Joystick Move: x=${x?.toFixed(2)}, y=${y?.toFixed(2)} -> state=`, this.state.movement)
     this.notifyStateChange()
   }
 
   handleJoystickStop() {
     this.state.movement = { up: false, down: false, left: false, right: false }
+    console.log("[InputDebug] Joystick Stop")
     this.notifyStateChange()
   }
 
@@ -85,6 +87,7 @@ class GameInputHandler {
 
     this.state.aiming = { angle: 0, power: 0, active: true, touchId: touch.identifier }
     this.aimStartPos = { x: touch.clientX, y: touch.clientY }
+    console.log(`[InputDebug] Aim Start: touchId=${touch.identifier}`, this.aimStartPos)
     debugManager.logDebug("INPUT", "Aiming started", { touchId: touch.identifier })
     this.notifyStateChange()
   }
@@ -106,6 +109,7 @@ class GameInputHandler {
 
     this.state.aiming.angle = angle
     this.state.aiming.power = power
+    console.log(`[InputDebug] Aim Move: angle=${angle.toFixed(2)}, power=${power.toFixed(2)}`)
     this.notifyStateChange()
   }
 
@@ -117,17 +121,22 @@ class GameInputHandler {
     if (!touch) return
 
     if (this.callbacks.onShoot && this.state.aiming.power > 0.1) {
+      console.log(
+        `[InputDebug] SHOOT: angle=${this.state.aiming.angle.toFixed(2)}, power=${this.state.aiming.power.toFixed(2)}`,
+      )
       this.callbacks.onShoot(this.state.aiming.angle, this.state.aiming.power)
     }
 
     this.state.aiming = { angle: 0, power: 0, active: false, touchId: null }
     this.aimStartPos = null
     debugManager.logDebug("INPUT", "Shot fired via touch")
+    console.log("[InputDebug] Aim End")
     this.notifyStateChange()
   }
 
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
     this.state.actions[action] = pressed
+    console.log(`[InputDebug] Action: ${action}, Pressed: ${pressed}`)
     debugManager.logDebug("INPUT", `Action button: ${action}, pressed: ${pressed}`)
     this.notifyStateChange()
   }
