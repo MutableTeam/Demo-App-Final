@@ -1,63 +1,92 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { gameInputHandler, type ControlState, type AimingState, type ActionState } from "@/utils/game-input-handler"
+import { useEffect, useState, useCallback } from "react"
+import { gameInputHandler, type InputState } from "@/utils/game-input-handler"
+import { usePlatform } from "@/contexts/platform-context"
 
-export function useGameControls() {
-  const [controlState, setControlState] = useState<ControlState>({
-    movement: { up: false, down: false, left: false, right: false },
-    aiming: { active: false, angle: 0, power: 0 },
-    actions: { shoot: false, dash: false, special: false },
-  })
+export interface GameControls {
+  // Movement
+  moveUp: boolean
+  moveDown: boolean
+  moveLeft: boolean
+  moveRight: boolean
+  dash: boolean
+
+  // Aiming and shooting
+  isAiming: boolean
+  aimAngle: number
+  aimPower: number
+  shoot: boolean
+
+  // Actions
+  special: boolean
+  reload: boolean
+
+  // Utility
+  resetControls: () => void
+}
+
+export function useGameControls(): GameControls {
+  const { platform } = usePlatform()
+  const [inputState, setInputState] = useState<InputState>(gameInputHandler.getInputState())
 
   useEffect(() => {
-    const handleStateChange = (newState: ControlState) => {
-      setControlState(newState)
+    // Subscribe to input state changes
+    const unsubscribe = gameInputHandler.subscribe(setInputState)
+
+    // Set up keyboard listeners for desktop
+    if (platform === "desktop") {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        // Prevent default for game keys to avoid browser shortcuts
+        if (
+          ["w", "a", "s", "d", " ", "shift", "r", "q"].includes(event.key.toLowerCase()) ||
+          ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
+        ) {
+          event.preventDefault()
+        }
+        gameInputHandler.handleKeyDown(event.key)
+      }
+
+      const handleKeyUp = (event: KeyboardEvent) => {
+        gameInputHandler.handleKeyUp(event.key)
+      }
+
+      window.addEventListener("keydown", handleKeyDown)
+      window.addEventListener("keyup", handleKeyUp)
+
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown)
+        window.removeEventListener("keyup", handleKeyUp)
+        unsubscribe()
+      }
     }
 
-    gameInputHandler.subscribe(handleStateChange)
+    return unsubscribe
+  }, [platform])
 
-    return () => {
-      gameInputHandler.unsubscribe(handleStateChange)
-    }
+  const resetControls = useCallback(() => {
+    gameInputHandler.reset()
   }, [])
 
-  const getMovementVector = useCallback((): { x: number; y: number } => {
-    const { up, down, left, right } = controlState.movement
-    let x = 0
-    let y = 0
-    if (up) y -= 1
-    if (down) y += 1
-    if (left) x -= 1
-    if (right) x += 1
-
-    // Normalize vector for consistent speed
-    if (x !== 0 || y !== 0) {
-      const magnitude = Math.sqrt(x * x + y * y)
-      x /= magnitude
-      y /= magnitude
-    }
-
-    return { x, y }
-  }, [controlState.movement])
-
-  const isShooting = useCallback((): boolean => {
-    return controlState.actions.shoot
-  }, [controlState.actions.shoot])
-
-  const getAimingState = useCallback((): AimingState => {
-    return controlState.aiming
-  }, [controlState.aiming])
-
-  const getActionState = useCallback((): ActionState => {
-    return controlState.actions
-  }, [controlState.actions])
-
   return {
-    controlState,
-    getMovementVector,
-    isShooting,
-    getAimingState,
-    getActionState,
+    // Movement
+    moveUp: inputState.movement.up,
+    moveDown: inputState.movement.down,
+    moveLeft: inputState.movement.left,
+    moveRight: inputState.movement.right,
+    dash: inputState.movement.dash,
+
+    // Aiming and shooting
+    isAiming: inputState.aiming.active,
+    aimAngle: inputState.aiming.angle,
+    aimPower: inputState.aiming.power,
+    shoot: inputState.actions.shoot,
+
+    // Actions
+    special: inputState.actions.special,
+    reload: inputState.actions.reload,
+
+    // Utility
+    resetControls,
   }
 }
