@@ -106,9 +106,9 @@ class GameInputHandler {
 
   handleAimingJoystick(event: any) {
     if (!event) {
-      // Joystick released
+      // Joystick released - this is like mouse up, should fire if we were drawing
       if (this.isAiming) {
-        console.log("[INPUT_HANDLER] Aim released. Firing shot.")
+        console.log("[INPUT_HANDLER] Aim joystick released. Firing shot (mouse up simulation).")
         this.state.actions.shoot = true
         this.isAiming = false
 
@@ -133,12 +133,17 @@ class GameInputHandler {
     }
 
     const { x, y, distance } = event
-    const minDistance = 10 // Minimum distance to register as active aiming
+    const minDistance = 15 // Minimum distance to register as drawing the bow
 
     if (distance > minDistance) {
-      this.isAiming = true
+      // Joystick is being pulled - this is like mouse down, start drawing bow
+      if (!this.isAiming) {
+        console.log("[INPUT_HANDLER] Aim joystick pulled. Starting bow draw (mouse down simulation).")
+        this.isAiming = true
+      }
+
       const angle = Math.atan2(y, x)
-      const power = Math.min(distance / 50, 1)
+      const power = Math.min(distance / 50, 1) // Normalize power based on distance
 
       this.state.aiming = {
         active: true,
@@ -146,10 +151,9 @@ class GameInputHandler {
         power: power,
       }
     } else {
-      // In deadzone, not actively aiming
-      this.isAiming = false
+      // In deadzone, not actively aiming but don't fire yet
       this.state.aiming = {
-        active: false,
+        active: this.isAiming, // Keep active if we're still drawing
         angle: 0,
         power: 0,
       }

@@ -43,26 +43,30 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         player.controls.special = inputState.actions.special
         player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
-        // Aiming from Joystick
+        // Aiming from Joystick - simulate mouse behavior
         if (inputState.aiming.active) {
           if (!player.isDrawingBow) {
+            // Start drawing bow (like mouse down)
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            console.log("[GAME_CONTROLS] Started drawing bow")
+            console.log("[GAME_CONTROLS] Started drawing bow (mouse down simulation)")
           }
-          // Set player rotation to the OPPOSITE of the joystick direction for firing
-          player.rotation = inputState.aiming.angle + Math.PI
+          // Set player rotation based on joystick direction
+          player.rotation = inputState.aiming.angle
         } else {
           if (player.isDrawingBow) {
+            // Stop drawing bow but don't fire here - that's handled by shoot action
             player.isDrawingBow = false
             console.log("[GAME_CONTROLS] Stopped drawing bow")
           }
         }
 
-        // Shooting from Joystick
-        player.controls.shoot = inputState.actions.shoot
-        if (player.controls.shoot) {
-          console.log("[GAME_CONTROLS] Shoot command received by player object.")
+        // Shooting from Joystick - this is the "mouse up" event
+        if (inputState.actions.shoot) {
+          console.log("[GAME_CONTROLS] Shoot command received (mouse up simulation).")
+          player.controls.shoot = true
+        } else {
+          player.controls.shoot = false
         }
       }
 

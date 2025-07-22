@@ -85,7 +85,24 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
   // Invert Y-axis at the source for correct movement
   const handleMovement = (e: any) => gameInputHandler.handleMovementJoystick(e ? { ...e, y: -e.y } : null)
-  const handleAiming = (e: any) => gameInputHandler.handleAimingJoystick(e ? { ...e, y: -e.y } : null)
+
+  // Handle aiming joystick - simulate mouse click behavior
+  const handleAiming = (e: any) => {
+    if (e) {
+      // Invert Y-axis and pass to handler
+      gameInputHandler.handleAimingJoystick({ ...e, y: -e.y })
+    } else {
+      // Joystick released
+      gameInputHandler.handleAimingJoystick(null)
+    }
+  }
+
+  const handleAimingStart = (e: any) => {
+    console.log("[MOBILE_CONTAINER] Aiming started (mouse down)")
+    if (e) {
+      gameInputHandler.handleAimingJoystick({ ...e, y: -e.y })
+    }
+  }
 
   if (isPortrait) {
     return (
@@ -134,7 +151,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
                 stickColor="rgba(255, 0, 255, 0.7)"
                 move={handleAiming}
                 stop={() => handleAiming(null)}
-                start={handleAiming}
+                start={handleAimingStart}
               />
             </div>
           </div>
@@ -182,9 +199,9 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               stickColor="rgba(255, 0, 255, 0.7)"
               move={handleAiming}
               stop={() => handleAiming(null)}
-              start={handleAiming}
+              start={handleAimingStart}
             />
-            <span className={subLabelClasses}>Pull to charge, release to fire</span>
+            <span className={subLabelClasses}>Pull to draw bow, release to fire</span>
           </div>
 
           <div className="flex flex-col gap-2 items-center">
