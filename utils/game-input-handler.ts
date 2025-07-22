@@ -31,6 +31,8 @@ export interface GameInputState {
 interface JoystickData {
   leveledX: number
   leveledY: number
+  x: number
+  y: number
 }
 
 // --- Mobile Input Handler Class ---
@@ -49,7 +51,7 @@ class GameInputHandler {
       actions: { dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "GameInputHandler initialized for mobile touch controls.")
+    debugManager.logInfo("INPUT", "GameInputHandler initialized.")
   }
 
   setCallbacks(callbacks: {
@@ -59,12 +61,11 @@ class GameInputHandler {
     this.callbacks = callbacks
   }
 
-  // --- NEW: Handler for joystick-controller ---
+  // --- Handler for joystick-controller ---
   handleJoystickData(data: JoystickData) {
     const threshold = 3 // Leveled values are -10 to 10.
     const { leveledX, leveledY } = data
 
-    // Determine new movement state based on joystick output
     const newMovementState = {
       up: leveledY < -threshold, // Negative Y is up
       down: leveledY > threshold, // Positive Y is down
@@ -72,22 +73,12 @@ class GameInputHandler {
       right: leveledX > threshold,
     }
 
-    // Only update and notify if the directional state has actually changed
-    if (
-      this.state.movement.up !== newMovementState.up ||
-      this.state.movement.down !== newMovementState.down ||
-      this.state.movement.left !== newMovementState.left ||
-      this.state.movement.right !== newMovementState.right
-    ) {
+    if (JSON.stringify(this.state.movement) !== JSON.stringify(newMovementState)) {
       this.state.movement = newMovementState
-      if (leveledX === 0 && leveledY === 0) {
-        console.log("[InputDebug] Joystick Stop")
-      } else {
-        console.log(
-          `[InputDebug] Joystick Data: leveledX=${leveledX}, leveledY=${leveledY} -> state=`,
-          this.state.movement,
-        )
-      }
+      console.log(
+        `[InputDebug] Joystick Update: leveledX=${leveledX}, leveledY=${leveledY} -> Movement State:`,
+        this.state.movement,
+      )
       this.notifyStateChange()
     }
   }
@@ -144,9 +135,11 @@ class GameInputHandler {
   }
 
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
-    this.state.actions[action] = pressed
-    console.log(`[InputDebug] Action: ${action}, Pressed: ${pressed}`)
-    this.notifyStateChange()
+    if (this.state.actions[action] !== pressed) {
+      this.state.actions[action] = pressed
+      console.log(`[InputDebug] Action: ${action}, Pressed: ${pressed}`)
+      this.notifyStateChange()
+    }
   }
 
   private notifyStateChange() {

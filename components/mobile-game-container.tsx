@@ -77,7 +77,6 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const aimPadRef = useRef<HTMLDivElement>(null)
-  const joystickContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -91,25 +90,29 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
   // Initialize the new joystick
   useEffect(() => {
-    if (!joystickContainerRef.current) return
+    const joystickContainer = document.getElementById("joystick-container")
+    if (!joystickContainer) {
+      console.error("[InputDebug] Joystick container not found in DOM.")
+      return
+    }
 
-    console.log("[InputDebug] Initializing JoystickController")
+    console.log("[InputDebug] Initializing JoystickController on container:", joystickContainer)
     const joystick = new JoystickController(
       {
         maxRange: 70,
         level: 10,
-        radius: 70,
-        joystickRadius: 40,
-        opacity: 0.7,
-        container: joystickContainerRef.current,
+        radius: 60,
+        joystickRadius: 35,
+        opacity: 0.8,
+        container: joystickContainer,
         isFixed: true,
         isReturnToCenter: true,
-        color: "rgba(34, 211, 238, 0.6)",
-        borderColor: "rgba(17, 24, 39, 0.7)",
-        joystickBorderColor: "rgba(34, 211, 238, 0.8)",
+        color: "rgba(34, 211, 238, 0.5)",
+        borderColor: "rgba(17, 24, 39, 0.8)",
+        joystickBorderColor: "rgba(34, 211, 238, 0.7)",
         minDebounceTime: 0,
         maxDebounceTime: 16,
-        bottomToUp: false, // Y-axis increases downwards, matching game coordinates
+        bottomToUp: false,
       },
       (data) => {
         gameInputHandler.handleJoystickData(data)
@@ -120,7 +123,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
       console.log("[InputDebug] Destroying JoystickController")
       joystick.destroy()
     }
-  }, [])
+  }, [orientation]) // Re-initialize joystick on orientation change
 
   const handleAimTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     gameInputHandler.handleAimTouchStart(e)
@@ -152,8 +155,8 @@ export default function MobileGameContainer({ children, className }: MobileGameC
             <div className={controlsBaseClasses}>
               <span className={labelClasses}>Movement</span>
               <div
-                ref={joystickContainerRef}
-                className="w-[140px] h-[140px] relative rounded-full border-2 border-cyan-500/30 shadow-lg"
+                id="joystick-container"
+                className="w-[140px] h-[140px] relative rounded-full border-2 border-cyan-500/30 shadow-lg bg-gray-900/50"
               />
               <span className={subLabelClasses}>Move Player</span>
             </div>
@@ -179,9 +182,9 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               <span className={labelClasses}>Aim & Shoot</span>
               <span className={subLabelClasses}> (Drag anywhere here)</span>
             </div>
-            <div className="grid grid-cols-2 grid-rows-2 gap-4 w-[180px] h-[180px] place-items-center">
-              <ActionButton label="Y" action="special" title="Special" className="col-start-2 row-start-1" />
+            <div className="grid grid-cols-2 grid-rows-2 gap-x-8 gap-y-4 w-auto h-auto place-items-center">
               <ActionButton label="X" action="dash" title="Dash" className="col-start-1 row-start-1" />
+              <ActionButton label="Y" action="special" title="Special" className="col-start-2 row-start-1" />
               <ActionButton label="B" action="explosiveArrow" title="Explode" className="col-start-2 row-start-2" />
             </div>
           </div>
@@ -217,15 +220,15 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           <div className={controlsBaseClasses}>
             <span className={labelClasses}>Move</span>
             <div
-              ref={joystickContainerRef}
-              className="w-[120px] h-[120px] relative rounded-full border-2 border-cyan-500/30 shadow-lg"
+              id="joystick-container"
+              className="w-[120px] h-[120px] relative rounded-full border-2 border-cyan-500/30 shadow-lg bg-gray-900/50"
             />
           </div>
 
           {/* Bottom Right: Actions */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className={labelClasses}>Actions</span>
-            <div className="grid grid-cols-3 gap-3 w-[200px] h-[80px] place-items-center">
+            <div className="grid grid-cols-3 gap-3 w-auto h-auto place-items-center">
               <ActionButton label="X" action="dash" title="Dash" />
               <ActionButton label="Y" action="special" title="Special" />
               <ActionButton label="B" action="explosiveArrow" title="Explode" />

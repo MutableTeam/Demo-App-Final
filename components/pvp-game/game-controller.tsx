@@ -31,6 +31,7 @@ import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
 import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
+import { setShowResourceMonitor } from "@/utils/resource-monitor-utils" // Import setShowResourceMonitor
 
 interface GameControllerProps {
   playerId: string
@@ -60,7 +61,7 @@ export default function GameController({
   const gameInitializedRef = useRef<boolean>(false)
   const aiControllersRef = useRef<Record<string, ReturnType<typeof createAIController>>>({})
   const [showDebug, setShowDebug] = useState<boolean>(false)
-  const [showResourceMonitor, setShowResourceMonitor] = useState<boolean>(false)
+  const [showResourceMonitor, setShowDebugResourceMonitor] = useState<boolean>(false)
   const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
   const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
@@ -202,6 +203,7 @@ export default function GameController({
 
     if (platformType === "desktop") {
       debugManager.logInfo("INPUT", "Setting up DESKTOP input handlers.")
+      console.log("[InputDebug] Initializing DESKTOP controls.")
       cleanupDesktopHandlers = setupGameInputHandlers({
         playerId,
         gameStateRef,
@@ -209,6 +211,7 @@ export default function GameController({
       })
     } else {
       debugManager.logInfo("INPUT", "Setting up MOBILE input handlers.")
+      console.log("[InputDebug] Initializing MOBILE controls.")
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current.players[playerId]
         if (!player) return
