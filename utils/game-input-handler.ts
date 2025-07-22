@@ -56,7 +56,6 @@ class GameInputHandler {
   private callbacks: GameInputCallbacks = {}
   private shootTimeout: NodeJS.Timeout | null = null
   private isAiming = false // Track aiming state internally
-  private aimingStartTime: number | null = null // Track when aiming started
 
   setCallbacks(callbacks: GameInputCallbacks) {
     this.callbacks = callbacks
@@ -105,8 +104,10 @@ class GameInputHandler {
     this.notifyStateChange()
   }
 
+  private isAiming = false // This will track the entire "touch" duration
+
   handleAimingJoystick(event: any) {
-    const minDistance = 15 // Deadzone
+    const deadzone = 0.15
 
     // Case 1: Joystick is released (event is null)
     if (!event) {
@@ -117,7 +118,6 @@ class GameInputHandler {
 
         // Reset the aiming state completely
         this.isAiming = false
-        this.aimingStartTime = null
         this.state.aiming.active = false
         this.state.aiming.power = 0
 
@@ -137,22 +137,23 @@ class GameInputHandler {
 
     // Case 2: Joystick is active (event is not null)
     const { x, y, distance } = event
+    const minDistance = deadzone * 50 // Convert deadzone to actual distance
 
-    // If we aren't already aiming and joystick is pulled beyond deadzone, start aiming
+    // If we aren't already aiming and the joystick is pulled beyond the deadzone,
+    // start aiming (this is the "mousedown" equivalent)
     if (!this.isAiming && distance > minDistance) {
       console.log("[INPUT_HANDLER] Joystick pulled. Starting aim/charge.")
       this.isAiming = true
-      this.aimingStartTime = Date.now() / 1000
       this.state.aiming.active = true
     }
 
-    // If we are in an aiming state, update the angle and power
-    // This happens continuously as the user moves the stick
+    // If we are in an aiming state, update the aiming properties
     if (this.isAiming) {
       this.state.aiming.angle = Math.atan2(y, x)
       this.state.aiming.power = Math.min(distance / 50, 1)
-      this.notifyStateChange()
     }
+
+    this.notifyStateChange()
   }
 
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {

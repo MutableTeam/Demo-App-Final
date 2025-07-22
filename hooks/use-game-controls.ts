@@ -4,7 +4,6 @@ import type React from "react"
 import { useEffect, useRef } from "react"
 import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
 import type { PlatformType } from "@/contexts/platform-context"
-import { logger } from "@/utils/logger"
 
 interface UseGameControlsProps {
   playerId: string
@@ -15,8 +14,6 @@ interface UseGameControlsProps {
 
 export function useGameControls({ playerId, gameStateRef, platformType, isEnabled }: UseGameControlsProps) {
   const componentIdRef = useRef(`use-game-controls-${Date.now()}`)
-  const previousInputRef = useRef<GameInputState | null>(null)
-  const drawStartTimeRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isEnabled) return
@@ -34,7 +31,7 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         const player = gameStateRef.current?.players?.[playerId]
         if (!player) return
 
-        // --- Direct State Mapping for movement and action buttons ---
+        // --- Direct State Mapping for movement and actions ---
         player.controls.up = inputState.movement.up
         player.controls.down = inputState.movement.down
         player.controls.left = inputState.movement.left
@@ -45,26 +42,32 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
 
         // --- Aiming & Charging Logic ---
         if (inputState.aiming.active) {
-          // Joystick is being held down
+          // Joystick is being held down for aiming
           if (!player.isDrawingBow) {
-            // First time pulling the joystick - start drawing the bow
+            // This is the first frame of the draw. Set start time.
             player.isDrawingBow = true
             player.drawStartTime = Date.now() / 1000
-            drawStartTimeRef.current = player.drawStartTime
-            logger.info("GAME_CONTROLS", `Charge started at ${player.drawStartTime}`)
+            console.log(`[GAME_CONTROLS] Charge started at ${player.drawStartTime}`)
           }
 
-          // Update aim angle continuously without resetting the charge
+          // Update aim angle continuously while drawing the bow
           player.rotation = inputState.aiming.angle
-        } else if (player.isDrawingBow && !inputState.aiming.active) {
-          // Joystick was released after drawing - fire the arrow
+        } else if (player.isDrawingBow && !inputState.actions.shoot) {
+          // If we were drawing the bow but not anymore, and we're not shooting,
+          // reset the bow state (this handles cases where the joystick returns to center)
           player.isDrawingBow = false
-          player.controls.shoot = true
-          drawStartTimeRef.current = null
-          logger.info("GAME_CONTROLS", "Firing arrow on joystick release")
+          player.drawStartTime = null
         }
 
-        previousInputRef.current = JSON.parse(JSON.stringify(inputState))
+        // --- Shooting Logic (on release) ---
+        // Only set shoot to true when the input handler sends a shoot action
+        if (inputState.actions.shoot && !player.controls.shoot) {
+          player.controls.shoot = true
+          console.log("[GAME_CONTROLS] Shoot command sent to game engine.")
+        } else if (!inputState.actions.shoot && player.controls.shoot) {
+          // Reset the shoot control when the input handler resets it
+          player.controls.shoot = false
+        }
       }
 
       gameInputHandler.setCallbacks({

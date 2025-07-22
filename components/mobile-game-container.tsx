@@ -98,6 +98,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
   }
 
   const handleAimingStart = (e: any) => {
+    console.log("[MOBILE_CONTAINER] Aiming started (mouse down)")
     if (e) {
       gameInputHandler.handleAimingJoystick({ ...e, y: -e.y })
     }
@@ -152,6 +153,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
                 stop={() => handleAiming(null)}
                 start={handleAimingStart}
               />
+              <span className={subLabelClasses}>Pull to draw bow, release to fire</span>
             </div>
           </div>
         </div>

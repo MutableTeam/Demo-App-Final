@@ -575,8 +575,8 @@ export const updateGameState = (
           player.animationState = "fire"
           player.lastAnimationChange = Date.now()
         }
-      } else if (player.isDrawingBow && player.drawStartTime !== null && !player.controls.shoot) {
-        // Release arrow (Desktop only)
+      } else if (player.isDrawingBow && player.drawStartTime !== null) {
+        // Release arrow only if we were actually drawing the bow
         const currentTime = Date.now() / 1000
         const drawTime = currentTime - player.drawStartTime
 
