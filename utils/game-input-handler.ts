@@ -32,7 +32,6 @@ class GameInputHandler {
   private state: GameInputState
   private callbacks: {
     onStateChange?: (state: GameInputState) => void
-    onShoot?: (angle: number, power: number) => void
   }
   private aimStartPos: { x: number; y: number } | null = null
 
@@ -46,10 +45,7 @@ class GameInputHandler {
     debugManager.logInfo("INPUT", "GameInputHandler initialized.")
   }
 
-  setCallbacks(callbacks: {
-    onStateChange?: (state: GameInputState) => void
-    onShoot?: (angle: number, power: number) => void
-  }) {
+  setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
     this.callbacks = callbacks
   }
 
@@ -57,7 +53,6 @@ class GameInputHandler {
   handleMovementPress(direction: keyof MovementState, pressed: boolean) {
     if (this.state.movement[direction] !== pressed) {
       this.state.movement[direction] = pressed
-      console.log(`[InputDebug] Movement: ${direction}, Pressed: ${pressed}`)
       this.notifyStateChange()
     }
   }
@@ -69,7 +64,6 @@ class GameInputHandler {
 
     this.state.aiming = { angle: 0, power: 0, active: true, touchId: touch.identifier }
     this.aimStartPos = { x: touch.clientX, y: touch.clientY }
-    console.log(`[InputDebug] Aim Start: touchId=${touch.identifier}`, this.aimStartPos)
     this.notifyStateChange()
   }
 
@@ -100,23 +94,15 @@ class GameInputHandler {
     const touch = Array.from(e.changedTouches).find((t) => t.identifier === this.state.aiming.touchId)
     if (!touch) return
 
-    if (this.callbacks.onShoot && this.state.aiming.power > 0.1) {
-      console.log(
-        `[InputDebug] SHOOT: angle=${this.state.aiming.angle.toFixed(2)}, power=${this.state.aiming.power.toFixed(2)}`,
-      )
-      this.callbacks.onShoot(this.state.aiming.angle, this.state.aiming.power)
-    }
-
+    // Decoupled from shooting logic. Just report the state change.
     this.state.aiming = { angle: 0, power: 0, active: false, touchId: null }
     this.aimStartPos = null
-    console.log("[InputDebug] Aim End")
     this.notifyStateChange()
   }
 
   handleActionPress(action: keyof GameInputState["actions"], pressed: boolean) {
     if (this.state.actions[action] !== pressed) {
       this.state.actions[action] = pressed
-      console.log(`[InputDebug] Action: ${action}, Pressed: ${pressed}`)
       this.notifyStateChange()
     }
   }
@@ -135,7 +121,7 @@ class GameInputHandler {
     }
     this.callbacks = {}
     this.aimStartPos = null
-    debugManager.logInfo("INPUT", "Game input handler destroyed")
+    debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }
 

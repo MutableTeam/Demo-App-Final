@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createInitialGameState, createPlayer, type GameState, updateGameState } from "./game-engine"
 import EnhancedGameRenderer from "./enhanced-game-renderer"
 import {
@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import MobileGameContainer from "@/components/mobile-game-container"
-import { setupGameInputHandlers } from "@/utils/game-input-handler"
+import { useGameControls } from "@/hooks/use-game-controls"
 
 interface GameStats {
   score: number
@@ -92,132 +92,13 @@ export default function GameControllerEnhanced({
   const [playersOnline, setPlayersOnline] = useState(0)
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
 
-  // Handle movement from joystick - ONLY movement, no shooting
-  const handleMovementChange = useCallback(
-    (movement: { up: boolean; down: boolean; left: boolean; right: boolean }) => {
-      console.log("handleMovementChange called with:", movement)
-      if (!gameStateRef.current.players[playerId]) {
-        console.log("No player found for movement change")
-        return
-      }
-
-      const player = gameStateRef.current.players[playerId]
-
-      // Store previous movement state for animation handling
-      const wasMoving = player.controls.up || player.controls.down || player.controls.left || player.controls.right
-
-      // Update ONLY movement controls - do NOT touch shooting controls
-      player.controls.up = movement.up
-      player.controls.down = movement.down
-      player.controls.left = movement.left
-      player.controls.right = movement.right
-
-      const isMoving = movement.up || movement.down || movement.left || movement.right
-
-      console.log("Movement change applied:", {
-        movement,
-        isMoving,
-        wasMoving,
-        currentAnimation: player.animationState,
-        otherStates: {
-          isDrawingBow: player.isDrawingBow,
-          isDashing: player.isDashing,
-          isChargingSpecial: player.isChargingSpecial,
-        },
-      })
-
-      // Handle animation state changes based on movement
-      // Only change animation if not in a higher priority state
-      if (isMoving && !wasMoving) {
-        if (
-          player.animationState === "idle" &&
-          !player.isDrawingBow &&
-          !player.isDashing &&
-          !player.isChargingSpecial
-        ) {
-          player.animationState = "run"
-          player.lastAnimationChange = Date.now()
-          console.log("Animation changed to run")
-        }
-      } else if (!isMoving && wasMoving) {
-        if (player.animationState === "run" && !player.isDrawingBow && !player.isDashing && !player.isChargingSpecial) {
-          player.animationState = "idle"
-          player.lastAnimationChange = Date.now()
-          console.log("Animation changed to idle")
-        }
-      }
-    },
-    [playerId],
-  )
-
-  // Handle action button presses - ONLY actions, no movement
-  const handleActionPress = useCallback(
-    (action: string, pressed: boolean) => {
-      console.log("handleActionPress called with:", { action, pressed })
-
-      if (!gameStateRef.current.players[playerId]) {
-        console.log("No player found for action press")
-        return
-      }
-
-      const player = gameStateRef.current.players[playerId]
-
-      switch (action) {
-        case "shoot": // A button - Shoot Arrow
-          console.log("Handling shoot action:", pressed)
-          player.controls.shoot = pressed
-          if (pressed) {
-            player.isDrawingBow = true
-            player.drawStartTime = Date.now() / 1000
-            player.animationState = "fire"
-            player.lastAnimationChange = Date.now()
-            console.log("Started drawing bow")
-          } else {
-            if (player.isDrawingBow) {
-              player.isDrawingBow = false
-              // Don't immediately change animation - let the game engine handle it
-              console.log("Released bow - firing arrow")
-            }
-          }
-          break
-        case "dash": // X button - Dash
-          console.log("Handling dash action:", pressed)
-          if (pressed && !player.isDashing && (player.dashCooldown || 0) <= 0) {
-            player.controls.dash = true
-            console.log("Dash activated")
-          } else {
-            player.controls.dash = false
-          }
-          break
-        case "special": // Y button - Special Attack
-          console.log("Handling special action:", pressed)
-          player.controls.special = pressed
-          if (pressed) {
-            player.isChargingSpecial = true
-            player.specialChargeStartTime = Date.now() / 1000
-            player.animationState = "special"
-            player.lastAnimationChange = Date.now()
-            console.log("Started charging special")
-          } else {
-            if (player.isChargingSpecial) {
-              player.isChargingSpecial = false
-              console.log("Released special attack")
-            }
-          }
-          break
-        case "explosive": // B button - Explosive Arrow
-          console.log("Handling explosive action:", pressed)
-          if (pressed && (player.explosiveArrowCooldown || 0) <= 0) {
-            player.controls.explosiveArrow = true
-            console.log("Explosive arrow activated")
-          } else {
-            player.controls.explosiveArrow = false
-          }
-          break
-      }
-    },
-    [playerId],
-  )
+  // Use the new unified game controls hook
+  useGameControls({
+    playerId,
+    gameStateRef,
+    platformType,
+    isEnabled: !gameState.isGameOver,
+  })
 
   useEffect(() => {
     debugManager.updateConfig({
@@ -530,15 +411,6 @@ export default function GameControllerEnhanced({
       }
     }
 
-    let cleanupDesktop: () => void = () => {}
-    if (platformType === "desktop") {
-      cleanupDesktop = setupGameInputHandlers({
-        playerId,
-        gameStateRef,
-        componentIdRef,
-      })
-    }
-
     return () => {
       if (requestAnimationFrameIdRef.current !== null) {
         transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
@@ -551,7 +423,6 @@ export default function GameControllerEnhanced({
       })
       animationTimeoutsRef.current = {}
 
-      cleanupDesktop()
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
 
       transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
@@ -622,11 +493,7 @@ export default function GameControllerEnhanced({
 
   if (platformType === "mobile") {
     return (
-      <MobileGameContainer
-        onMovementChange={handleMovementChange}
-        onActionPress={handleActionPress}
-        className={className}
-      >
+      <MobileGameContainer className={className}>
         {gameRenderer}
         {gameState.isGameOver && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
