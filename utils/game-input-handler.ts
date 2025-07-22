@@ -1,6 +1,7 @@
 import { debugManager } from "./debug-utils"
 import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
+import type nipplejs from "nipplejs"
 
 // --- Interfaces for Mobile Input ---
 export interface AimingState {
@@ -25,14 +26,6 @@ export interface GameInputState {
     special: boolean
     explosiveArrow: boolean
   }
-}
-
-// --- Type for the new joystick library data ---
-interface JoystickData {
-  leveledX: number
-  leveledY: number
-  x: number
-  y: number
 }
 
 // --- Mobile Input Handler Class ---
@@ -61,24 +54,34 @@ class GameInputHandler {
     this.callbacks = callbacks
   }
 
-  // --- Handler for joystick-controller ---
-  handleJoystickData(data: JoystickData) {
-    const threshold = 3 // Leveled values are -10 to 10.
-    const { leveledX, leveledY } = data
+  // --- NEW: Handler for nipplejs ---
+  handleNippleMove(data: nipplejs.JoystickOutputData) {
+    const newMovementState: MovementState = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+    }
 
-    const newMovementState = {
-      up: leveledY < -threshold, // Negative Y is up
-      down: leveledY > threshold, // Positive Y is down
-      left: leveledX < -threshold,
-      right: leveledX > threshold,
+    if (data.direction) {
+      newMovementState.up = data.direction.y === "up"
+      newMovementState.down = data.direction.y === "down"
+      newMovementState.left = data.direction.x === "left"
+      newMovementState.right = data.direction.x === "right"
     }
 
     if (JSON.stringify(this.state.movement) !== JSON.stringify(newMovementState)) {
       this.state.movement = newMovementState
-      console.log(
-        `[InputDebug] Joystick Update: leveledX=${leveledX}, leveledY=${leveledY} -> Movement State:`,
-        this.state.movement,
-      )
+      console.log(`[InputDebug] NippleJS Move -> Movement State:`, this.state.movement)
+      this.notifyStateChange()
+    }
+  }
+
+  handleNippleEnd() {
+    const newMovementState = { up: false, down: false, left: false, right: false }
+    if (JSON.stringify(this.state.movement) !== JSON.stringify(newMovementState)) {
+      this.state.movement = newMovementState
+      console.log("[InputDebug] NippleJS End -> Movement State:", this.state.movement)
       this.notifyStateChange()
     }
   }

@@ -31,7 +31,6 @@ import ResourceMonitor from "@/components/resource-monitor"
 import { createAIController, AIDifficulty } from "../../utils/game-ai"
 import type { PlatformType } from "@/contexts/platform-context"
 import { gameInputHandler, setupGameInputHandlers, type GameInputState } from "@/utils/game-input-handler"
-import { setShowResourceMonitor } from "@/utils/resource-monitor-utils" // Import setShowResourceMonitor
 
 interface GameControllerProps {
   playerId: string
@@ -56,21 +55,16 @@ export default function GameController({
   const requestAnimationFrameIdRef = useRef<number | null>(null)
   const bowSoundPlayedRef = useRef<boolean>(false)
   const fullDrawSoundPlayedRef = useRef<boolean>(false)
-  const specialSoundPlayedRef = useRef<boolean>(false)
   const audioInitializedRef = useRef<boolean>(false)
   const gameInitializedRef = useRef<boolean>(false)
   const aiControllersRef = useRef<Record<string, ReturnType<typeof createAIController>>>({})
   const [showDebug, setShowDebug] = useState<boolean>(false)
   const [showResourceMonitor, setShowDebugResourceMonitor] = useState<boolean>(false)
   const componentIdRef = useRef<string>(`game-controller-${Date.now()}`)
-  const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
-  const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false)
-  const memoryTrackingInterval = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     debugManager.updateConfig({ enabled: true, level: DebugLevel.DEBUG, capturePerformance: true })
     debugManager.logInfo("GAME", "Debug system initialized for game controller")
-    transitionDebugger.trackTransition("none", "initialized", "GameController")
 
     const handleDebugKeys = (e: KeyboardEvent) => {
       if (e.key === "F8") setShowDebug((prev) => !prev)
@@ -78,7 +72,7 @@ export default function GameController({
         debugManager.captureState(gameStateRef.current, "Manual Snapshot")
         debugManager.logInfo("GAME", "Manual state snapshot captured")
       }
-      if (e.key === "F11") setShowResourceMonitor((prev) => !prev)
+      if (e.key === "F11") setShowDebugResourceMonitor((prev) => !prev)
     }
     transitionDebugger.safeAddEventListener(
       window,
@@ -104,7 +98,6 @@ export default function GameController({
 
     debugManager.setupGlobalErrorTracking()
     debugManager.trackComponentMount("GameController", { playerId, playerName, isHost, gameMode })
-    transitionDebugger.trackTransition("initialized", "mounting", "GameController")
 
     if (typeof window !== "undefined") {
       ;(window as any).__gameStateRef = gameStateRef
@@ -134,7 +127,6 @@ export default function GameController({
     setGameState(currentState)
     gameStateRef.current = currentState
     debugManager.captureState(currentState, "Initial State")
-    transitionDebugger.trackTransition("mounting", "mounted", "GameController")
 
     const gameLoop = () => {
       const now = Date.now()
@@ -189,7 +181,6 @@ export default function GameController({
           newState.winner === playerId ? playVictorySound() : playGameOverSound()
         }
         stopBackgroundMusic()
-        transitionDebugger.trackTransition("playing", "game-over", "GameController")
         return
       }
       requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
@@ -199,24 +190,27 @@ export default function GameController({
     if (!audioManager.isSoundMuted())
       startBackgroundMusic().catch((err) => debugManager.logWarning("AUDIO", "Failed to start BGM", err))
 
-    let cleanupDesktopHandlers: (() => void) | null = null
+    let cleanupInputHandlers: (() => void) | null = null
 
     if (platformType === "desktop") {
-      debugManager.logInfo("INPUT", "Setting up DESKTOP input handlers.")
       console.log("[InputDebug] Initializing DESKTOP controls.")
-      cleanupDesktopHandlers = setupGameInputHandlers({
+      cleanupInputHandlers = setupGameInputHandlers({
         playerId,
         gameStateRef,
         componentIdRef,
       })
     } else {
-      debugManager.logInfo("INPUT", "Setting up MOBILE input handlers.")
       console.log("[InputDebug] Initializing MOBILE controls.")
       const handleMobileInput = (inputState: GameInputState) => {
         const player = gameStateRef.current.players[playerId]
         if (!player) return
 
-        player.controls = { ...player.controls, ...inputState.movement, ...inputState.actions }
+        // Combine movement and actions into player controls
+        player.controls = {
+          ...player.controls,
+          ...inputState.movement,
+          ...inputState.actions,
+        }
 
         if (inputState.aiming.active) {
           if (!player.isDrawingBow) {
@@ -268,6 +262,7 @@ export default function GameController({
         onStateChange: handleMobileInput,
         onShoot: handleMobileShoot,
       })
+      cleanupInputHandlers = () => gameInputHandler.destroy()
     }
 
     const resumeAudio = () => !audioManager.isSoundMuted() && audioManager.resumeAudioContext()
@@ -280,19 +275,11 @@ export default function GameController({
     )
 
     return () => {
-      transitionDebugger.trackTransition("any", "unmounting", "GameController")
       if (requestAnimationFrameIdRef.current) cancelAnimationFrame(requestAnimationFrameIdRef.current)
-      Object.values(animationTimeoutsRef.current).forEach(clearTimeout)
-
-      if (cleanupDesktopHandlers) {
-        debugManager.logInfo("INPUT", "Cleaning up DESKTOP input handlers.")
-        cleanupDesktopHandlers()
+      if (cleanupInputHandlers) {
+        console.log("[InputDebug] Cleaning up input handlers.")
+        cleanupInputHandlers()
       }
-      if (platformType !== "desktop") {
-        debugManager.logInfo("INPUT", "Cleaning up MOBILE input handlers.")
-        gameInputHandler.destroy()
-      }
-
       transitionDebugger.safeRemoveEventListener(`${componentIdRef.current}-resume-audio`)
       stopBackgroundMusic()
       debugManager.logInfo("GAME", "Game cleanup completed")
@@ -302,7 +289,7 @@ export default function GameController({
 
   if (!gameInitializedRef.current) {
     return (
-      <div className="flex items-center justify-center h-[600px] bg-gray-800 rounded-lg">
+      <div className="flex items-center justify-center h-full bg-gray-800">
         <div className="text-white text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-xl font-bold">Loading Game...</p>

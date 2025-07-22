@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
-import JoystickController from "joystick-controller"
+import nipplejs from "nipplejs"
 import { cn } from "@/lib/utils"
 import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
@@ -77,6 +77,7 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const aimPadRef = useRef<HTMLDivElement>(null)
+  const joystickManagerRef = useRef<nipplejs.JoystickManager | null>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -88,42 +89,40 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  // Initialize the new joystick
+  // Initialize nipplejs
   useEffect(() => {
-    const joystickContainer = document.getElementById("joystick-container")
-    if (!joystickContainer) {
-      console.error("[InputDebug] Joystick container not found in DOM.")
-      return
-    }
+    const joystickZone = document.getElementById("joystick-zone")
+    if (joystickZone && !joystickManagerRef.current) {
+      console.log("[InputDebug] Initializing NippleJS on zone:", joystickZone)
+      const manager = nipplejs.create({
+        zone: joystickZone,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        color: "cyan",
+        size: 140,
+        restOpacity: 0.7,
+        fadeTime: 0,
+      })
 
-    console.log("[InputDebug] Initializing JoystickController on container:", joystickContainer)
-    const joystick = new JoystickController(
-      {
-        maxRange: 70,
-        level: 10,
-        radius: 60,
-        joystickRadius: 35,
-        opacity: 0.8,
-        container: joystickContainer,
-        isFixed: true,
-        isReturnToCenter: true,
-        color: "rgba(34, 211, 238, 0.5)",
-        borderColor: "rgba(17, 24, 39, 0.8)",
-        joystickBorderColor: "rgba(34, 211, 238, 0.7)",
-        minDebounceTime: 0,
-        maxDebounceTime: 16,
-        bottomToUp: false,
-      },
-      (data) => {
-        gameInputHandler.handleJoystickData(data)
-      },
-    )
+      manager.on("move", (evt, data) => {
+        gameInputHandler.handleNippleMove(data)
+      })
+
+      manager.on("end", () => {
+        gameInputHandler.handleNippleEnd()
+      })
+
+      joystickManagerRef.current = manager
+    }
 
     return () => {
-      console.log("[InputDebug] Destroying JoystickController")
-      joystick.destroy()
+      if (joystickManagerRef.current) {
+        console.log("[InputDebug] Destroying NippleJS manager")
+        joystickManagerRef.current.destroy()
+        joystickManagerRef.current = null
+      }
     }
-  }, [orientation]) // Re-initialize joystick on orientation change
+  }, [orientation]) // Re-run if orientation changes to re-create the joystick
 
   const handleAimTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     gameInputHandler.handleAimTouchStart(e)
@@ -154,10 +153,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           <div className="w-[25%] h-full flex items-center justify-center">
             <div className={controlsBaseClasses}>
               <span className={labelClasses}>Movement</span>
-              <div
-                id="joystick-container"
-                className="w-[140px] h-[140px] relative rounded-full border-2 border-cyan-500/30 shadow-lg bg-gray-900/50"
-              />
+              <div id="joystick-zone" className="w-[140px] h-[140px] relative rounded-full bg-gray-900/50" />
               <span className={subLabelClasses}>Move Player</span>
             </div>
           </div>
@@ -219,10 +215,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           {/* Bottom Left: Movement */}
           <div className={controlsBaseClasses}>
             <span className={labelClasses}>Move</span>
-            <div
-              id="joystick-container"
-              className="w-[120px] h-[120px] relative rounded-full border-2 border-cyan-500/30 shadow-lg bg-gray-900/50"
-            />
+            <div id="joystick-zone" className="w-[120px] h-[120px] relative rounded-full bg-gray-900/50" />
           </div>
 
           {/* Bottom Right: Actions */}
