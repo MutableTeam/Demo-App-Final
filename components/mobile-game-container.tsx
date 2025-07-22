@@ -102,55 +102,62 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
   const isLandscape = orientation === "landscape"
 
+  const controlsBaseClasses = "flex flex-col items-center justify-center space-y-2"
+  const labelClasses = "text-xs tracking-widest font-bold text-zinc-300 uppercase"
+  const subLabelClasses = "text-xs text-zinc-500"
+
   if (isLandscape) {
-    // Landscape Layout: Movement | Game Screen | Actions & Aiming
     return (
       <div
         className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
       >
         <div className="w-full h-full flex flex-row items-center p-4 gap-4">
-          {/* Movement Controls - Left Side */}
-          <div className="w-1/4 h-full flex flex-col items-center justify-center space-y-4">
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <span className="text-xs tracking-widest font-bold text-zinc-300">MOVEMENT</span>
-              <div className="relative">
-                <Joystick
-                  size={120}
-                  sticky={false}
-                  baseColor="rgba(63, 63, 70, 0.8)"
-                  stickColor="rgba(113, 113, 122, 0.9)"
-                  move={handleJoystickMove}
-                  stop={handleJoystickStop}
-                  throttle={16}
-                />
-              </div>
-              <span className="text-xs text-zinc-500">Move Player</span>
+          {/* Left: Movement */}
+          <div className="w-1/4 h-full flex items-center justify-center">
+            <div className={controlsBaseClasses}>
+              <span className={labelClasses}>Movement</span>
+              <Joystick
+                size={120}
+                sticky={false}
+                baseColor="rgba(63, 63, 70, 0.8)"
+                stickColor="rgba(113, 113, 122, 0.9)"
+                move={handleJoystickMove}
+                stop={handleJoystickStop}
+                throttle={16}
+              />
+              <span className={subLabelClasses}>Move Player</span>
             </div>
           </div>
 
-          {/* Game Screen - Center */}
+          {/* Center: Game Screen */}
           <div className="w-1/2 h-full flex items-center justify-center">
             <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden">
               {children}
             </div>
           </div>
 
-          {/* Action & Aiming Controls - Right Side */}
+          {/* Right: Aiming & Actions */}
           <div
             ref={aimPadRef}
-            className="w-1/4 h-full flex flex-col items-center justify-end p-4"
+            className="w-1/4 h-full flex flex-col items-center justify-between p-4 touch-none"
             onTouchStart={handleAimTouchStart}
             onTouchMove={handleAimTouchMove}
             onTouchEnd={handleAimTouchEnd}
             onTouchCancel={handleAimTouchEnd}
           >
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <div className="grid grid-cols-2 gap-3 w-[140px] h-[140px] place-items-center">
-                <ActionButton label="Y" action="special" title="Special Attack" />
-                <ActionButton label="X" action="dash" title="Dash" />
-                <ActionButton label="B" action="explosiveArrow" title="Explosive Arrow" />
-              </div>
-              <span className="text-xs text-zinc-500">Drag to Aim & Shoot</span>
+            <div className="w-full text-center">
+              <span className={labelClasses}>Aim & Shoot</span>
+              <span className={subLabelClasses}> (Drag anywhere here)</span>
+            </div>
+            <div className="grid grid-cols-2 grid-rows-2 gap-3 w-[150px] h-[150px]">
+              <ActionButton label="Y" action="special" title="Special Attack" className="col-start-2 row-start-1" />
+              <ActionButton label="X" action="dash" title="Dash" className="col-start-1 row-start-1" />
+              <ActionButton
+                label="B"
+                action="explosiveArrow"
+                title="Explosive Arrow"
+                className="col-start-2 row-start-2"
+              />
             </div>
           </div>
         </div>
@@ -163,48 +170,44 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     <div
       className={cn("fixed inset-0 bg-zinc-900 flex items-center justify-center font-mono text-zinc-400", className)}
     >
-      <div className="w-full h-full flex flex-col items-center p-4 gap-4">
-        {/* Game Screen - Top */}
-        <div className="w-full h-2/3 flex items-center justify-center">
+      <div className="w-full h-full flex flex-col items-center p-2 gap-2">
+        {/* Top: Game Screen */}
+        <div className="w-full h-3/5 flex items-center justify-center">
           <div className="w-full h-full bg-black/70 border-2 border-zinc-700 rounded-lg relative overflow-hidden max-w-md">
             {children}
           </div>
         </div>
 
-        {/* Controls - Bottom */}
-        <div className="w-full h-1/3 flex flex-row items-center justify-between px-4">
-          {/* Movement Controls - Bottom Left */}
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <span className="text-xs tracking-widest font-bold text-zinc-300">MOVE</span>
-            <div className="relative">
-              <Joystick
-                size={100}
-                sticky={false}
-                baseColor="rgba(63, 63, 70, 0.8)"
-                stickColor="rgba(113, 113, 122, 0.9)"
-                move={handleJoystickMove}
-                stop={handleJoystickStop}
-                throttle={16}
-              />
-            </div>
+        {/* Bottom: Controls */}
+        <div
+          ref={aimPadRef}
+          className="w-full h-2/5 flex flex-row items-center justify-between px-4 touch-none"
+          onTouchStart={handleAimTouchStart}
+          onTouchMove={handleAimTouchMove}
+          onTouchEnd={handleAimTouchEnd}
+          onTouchCancel={handleAimTouchEnd}
+        >
+          {/* Bottom Left: Movement */}
+          <div className={controlsBaseClasses}>
+            <span className={labelClasses}>Move</span>
+            <Joystick
+              size={100}
+              sticky={false}
+              baseColor="rgba(63, 63, 70, 0.8)"
+              stickColor="rgba(113, 113, 122, 0.9)"
+              move={handleJoystickMove}
+              stop={handleJoystickStop}
+              throttle={16}
+            />
           </div>
 
-          {/* Action & Aiming Controls - Bottom Right */}
-          <div
-            ref={aimPadRef}
-            className="w-1/2 h-full flex flex-col items-end justify-center"
-            onTouchStart={handleAimTouchStart}
-            onTouchMove={handleAimTouchMove}
-            onTouchEnd={handleAimTouchEnd}
-            onTouchCancel={handleAimTouchEnd}
-          >
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
-                <ActionButton label="Y" action="special" title="Special Attack" />
-                <ActionButton label="X" action="dash" title="Dash" />
-                <ActionButton label="B" action="explosiveArrow" title="Explosive Arrow" />
-              </div>
-              <span className="text-xs text-zinc-500">Drag to Aim & Shoot</span>
+          {/* Bottom Right: Actions */}
+          <div className="flex flex-col items-center justify-center space-y-2">
+            <span className={labelClasses}>Actions</span>
+            <div className="grid grid-cols-2 gap-3 w-[120px] h-[120px] place-items-center">
+              <ActionButton label="Y" action="special" title="Special Attack" />
+              <ActionButton label="X" action="dash" title="Dash" />
+              <ActionButton label="B" action="explosiveArrow" title="Explosive Arrow" />
             </div>
           </div>
         </div>
