@@ -7,7 +7,7 @@ import { GameRenderer } from "./game-renderer"
 import { DebugOverlay } from "./debug-overlay"
 import { GameEngine, type GameState } from "./game-engine"
 import { gameInputHandler } from "../../utils/game-input-handler"
-import { createAIController, type AIController } from "../../utils/game-ai"
+import { AIController } from "../../utils/game-ai"
 
 interface GameControllerProps {
   localPlayerId: string
@@ -36,8 +36,8 @@ export default function GameController({ localPlayerId, onGameEnd, debugMode = f
       aiPlayerIds.forEach((aiId, index) => {
         gameEngineRef.current?.addPlayer(aiId, `AI Bot ${index + 1}`, true)
 
-        // Create AI controller with standard difficulty
-        aiControllersRef.current[aiId] = createAIController(aiId)
+        // Create AI controller
+        aiControllersRef.current[aiId] = new AIController(aiId)
       })
 
       // Set initial game state
@@ -89,19 +89,19 @@ export default function GameController({ localPlayerId, onGameEnd, debugMode = f
 
           // Handle bow drawing
           if (decision.drawBow && !aiPlayer.isDrawingBow) {
-            gameEngineRef.current?.startDrawingBow(aiId)
+            gameEngineRef.current.startDrawingBow(aiId)
           } else if (!decision.drawBow && aiPlayer.isDrawingBow) {
-            gameEngineRef.current?.releaseBow(aiId)
+            gameEngineRef.current.releaseBow(aiId)
           }
 
           // Handle shooting
           if (decision.shoot) {
-            gameEngineRef.current?.shoot(aiId)
+            gameEngineRef.current.shoot(aiId)
           }
 
           // Handle special attack
           if (decision.specialAttack) {
-            gameEngineRef.current?.useSpecialAttack(aiId)
+            gameEngineRef.current.useSpecialAttack(aiId)
           }
         }
       }

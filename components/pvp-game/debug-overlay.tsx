@@ -1,6 +1,3 @@
-"use client"
-
-import { useState, useEffect } from "react"
 import type { GameState } from "./game-engine"
 
 interface DebugOverlayProps {
@@ -9,79 +6,36 @@ interface DebugOverlayProps {
   visible: boolean
 }
 
-export default function DebugOverlay({ gameState, localPlayerId, visible }: DebugOverlayProps) {
-  const [fps, setFps] = useState<number>(0)
-  const [lastFrameTime, setLastFrameTime] = useState<number>(Date.now())
-  const [frameCount, setFrameCount] = useState<number>(0)
+export function DebugOverlay({ gameState, localPlayerId, visible }: DebugOverlayProps) {
+  if (!visible) {
+    return null
+  }
 
-  // Update FPS counter
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now()
-      const elapsed = now - lastFrameTime
-      if (elapsed > 0) {
-        setFps(Math.round(frameCount / (elapsed / 1000)))
-        setLastFrameTime(now)
-        setFrameCount(0)
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [frameCount, lastFrameTime])
-
-  // Increment frame counter
-  useEffect(() => {
-    setFrameCount((prev) => prev + 1)
-  }, [gameState])
-
-  if (!visible) return null
-
-  const player = gameState.players[localPlayerId]
-  const aiPlayers = Object.values(gameState.players).filter((p) => p.id !== localPlayerId)
+  const localPlayer = gameState.players[localPlayerId]
 
   return (
-    <div className="absolute top-0 left-0 p-2 bg-black/70 text-white text-xs font-mono w-80 z-10 max-h-screen overflow-y-auto">
-      <h3 className="font-bold mb-1">Debug Information</h3>
-      <div className="space-y-1">
-        <p>FPS: {fps}</p>
-        <p>
-          Game Time: {gameState.gameTime.toFixed(1)}s / {gameState.maxGameTime}s
-        </p>
-        <p>Players: {Object.keys(gameState.players).length}</p>
-        <p>Arrows: {gameState.arrows.length}</p>
-
-        {player && (
-          <>
-            <h4 className="font-bold mt-2">Local Player</h4>
-            <p>
-              Position: ({Math.round(player.position.x)}, {Math.round(player.position.y)})
-            </p>
-            <p>Health: {player.health}/100</p>
-            <p>Animation: {player.animationState}</p>
-            <p>Bow Drawing: {player.isDrawingBow ? "Yes" : "No"}</p>
-            <p>Special Ready: {player.specialAttackCooldown <= 0 ? "Yes" : "No"}</p>
-          </>
-        )}
-
-        {aiPlayers.length > 0 && (
-          <>
-            <h4 className="font-bold mt-2">AI Players</h4>
-            {aiPlayers.map((aiPlayer) => (
-              <div key={aiPlayer.id} className="ml-2 border-l border-gray-500 pl-2 mb-2">
-                <p className="font-semibold">{aiPlayer.name}</p>
-                <p>Health: {aiPlayer.health}/100</p>
-                <p>
-                  Position: ({Math.round(aiPlayer.position.x)}, {Math.round(aiPlayer.position.y)})
-                </p>
-                <p>Rotation: {aiPlayer.rotation.toFixed(2)}</p>
-                <p>Animation: {aiPlayer.animationState}</p>
-                <p>Drawing Bow: {aiPlayer.isDrawingBow ? "Yes" : "No"}</p>
-                <p>Controls: {JSON.stringify(aiPlayer.controls)}</p>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
+    <div className="absolute top-0 left-0 p-2 bg-black bg-opacity-50 text-white text-xs font-mono z-50 pointer-events-none">
+      <h3 className="font-bold text-sm mb-2">Debug Overlay</h3>
+      <div>Game Time: {gameState.gameTime.toFixed(2)}s</div>
+      <div>Is Game Over: {gameState.isGameOver.toString()}</div>
+      <div>Winner: {gameState.winner || "None"}</div>
+      <div className="mt-2 font-bold">Players ({Object.keys(gameState.players).length}):</div>
+      {Object.values(gameState.players).map((player) => (
+        <div key={player.id} className="mt-1 pl-2 border-l border-gray-600">
+          <div>
+            ID: {player.name} {player.id === localPlayerId ? "(You)" : ""}
+          </div>
+          <div>Health: {player.health}</div>
+          <div>
+            Position: ({player.position.x.toFixed(0)}, {player.position.y.toFixed(0)})
+          </div>
+          <div>Rotation: {player.rotation.toFixed(2)}</div>
+          <div>Drawing Bow: {player.isDrawingBow.toString()}</div>
+          <div>Controls: {JSON.stringify(player.controls)}</div>
+        </div>
+      ))}
+      <div className="mt-2 font-bold">Projectiles ({gameState.projectiles.length}):</div>
+      {/* You can add projectile info here if needed */}
     </div>
   )
 }
