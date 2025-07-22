@@ -123,7 +123,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           </div>
 
           {/* Right: Aiming Joystick & Actions */}
-          <div className="w-[25%] h-full flex flex-col items-center justify-around p-4 pointer-events-auto">
+          <div className="w-[25%] h-full flex flex-col items-center justify-center p-4 pointer-events-auto">
             <div className="w-full text-center">
               <span className={labelClasses}>Aim & Shoot</span>
               <Joystick
@@ -136,10 +136,11 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               />
               <span className={subLabelClasses}>Pull to charge, release to fire</span>
             </div>
-            <div className="grid grid-cols-2 grid-rows-2 gap-x-8 gap-y-4 w-auto h-auto place-items-center">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4 w-auto h-auto place-items-center mt-8">
+              {" "}
+              {/* Added mt-8 for spacing */}
               <ActionButton label="X" action="dash" title="Dash" className="col-start-1 row-start-1" />
               <ActionButton label="Y" action="special" title="Special" className="col-start-2 row-start-1" />
-              <ActionButton label="B" action="explosiveArrow" title="Explode" className="col-start-2 row-start-2" />
             </div>
           </div>
         </div>
@@ -181,7 +182,6 @@ export default function MobileGameContainer({ children, className }: MobileGameC
             <div className="flex gap-3">
               <ActionButton label="X" action="dash" />
               <ActionButton label="Y" action="special" />
-              <ActionButton label="B" action="explosiveArrow" />
             </div>
           </div>
 
