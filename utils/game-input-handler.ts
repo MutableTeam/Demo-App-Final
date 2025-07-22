@@ -15,9 +15,6 @@ export interface MovementState {
   down: boolean
   left: boolean
   right: boolean
-  vectorX: number // -1 to 1
-  vectorY: number // -1 to 1
-  magnitude: number // 0 to 1
 }
 
 export interface GameInputState {
@@ -41,15 +38,7 @@ class GameInputHandler {
   constructor() {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
-      movement: {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        vectorX: 0,
-        vectorY: 0,
-        magnitude: 0,
-      },
+      movement: { up: false, down: false, left: false, right: false },
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
@@ -62,84 +51,58 @@ class GameInputHandler {
 
   // --- Joystick Handlers ---
   handleMovementJoystick(event: IJoystickUpdateEvent) {
-    const { type, direction, x, y, distance } = event
+    const { type, direction } = event
+    const newState: MovementState = { up: false, down: false, left: false, right: false }
 
-    if (type === "stop") {
-      // Reset all movement when joystick is released
-      this.state.movement = {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        vectorX: 0,
-        vectorY: 0,
-        magnitude: 0,
-      }
-    } else if (type === "move" && x !== null && y !== null && distance !== null) {
-      // Calculate precise movement vectors for 8-directional movement
-      const maxDistance = 50 // Assuming joystick size of 100, so radius is 50
-      const normalizedX = x / maxDistance
-      const normalizedY = -y / maxDistance // Invert Y because screen coordinates are inverted
-      const normalizedMagnitude = Math.min(distance / maxDistance, 1)
-
-      // Apply deadzone
-      const deadzone = 0.2
-      if (normalizedMagnitude < deadzone) {
-        this.state.movement = {
-          up: false,
-          down: false,
-          left: false,
-          right: false,
-          vectorX: 0,
-          vectorY: 0,
-          magnitude: 0,
-        }
-      } else {
-        // Use a lower threshold for 8-directional movement to allow diagonals
-        const threshold = 0.2
-
-        const newState: MovementState = {
-          up: normalizedY > threshold,
-          down: normalizedY < -threshold,
-          left: normalizedX < -threshold,
-          right: normalizedX > threshold,
-          vectorX: normalizedX,
-          vectorY: normalizedY,
-          magnitude: normalizedMagnitude,
-        }
-
-        this.state.movement = newState
-      }
+    if (type === "move" && direction) {
+      if (direction === "FORWARD") newState.up = true
+      if (direction === "BACKWARD") newState.down = true
+      if (direction === "LEFT") newState.left = true
+      if (direction === "RIGHT") newState.right = true
     }
+    // On 'stop', newState remains all false, correctly stopping movement.
 
+    this.state.movement = newState
     this.notifyStateChange()
   }
 
   handleAimingJoystick(event: IJoystickUpdateEvent) {
     const { type, x, y, distance } = event
 
+    // Add debugging
+    debugManager.logInfo(
+      "AIMING",
+      `Joystick event: ${type}, distance: ${distance}, active: ${this.state.aiming.active}`,
+    )
+
     if (type === "stop") {
       // If the joystick was active, trigger a shot on release.
       if (this.state.aiming.active) {
+        debugManager.logInfo("AIMING", "Triggering shot on joystick release")
         this.state.actions.shoot = true
       }
       this.state.aiming = { active: false, angle: 0, power: 0 }
       this.notifyStateChange()
 
-      // Reset the shoot action shortly after to prevent continuous firing.
+      // Reset the shoot action after a longer delay to ensure it's processed
       setTimeout(() => {
         if (this.state.actions.shoot) {
           this.state.actions.shoot = false
+          debugManager.logInfo("AIMING", "Resetting shoot action")
           this.notifyStateChange()
         }
-      }, 50)
-    } else if (x != null && y != null && distance != null) {
-      // Joystick is being moved.
-      const angle = Math.atan2(y, x)
-      const power = Math.min(distance / 50, 1) // Assuming joystick size of 100, so radius is 50.
+      }, 100) // Increased from 50ms to 100ms
+    } else if (type === "start" || (type === "move" && x != null && y != null && distance != null)) {
+      // Only process if we have valid coordinates and distance
+      if (distance > 5) {
+        // Add minimum distance threshold to prevent jitter
+        const angle = Math.atan2(y, x)
+        const power = Math.min(distance / 50, 1) // Assuming joystick size of 100, so radius is 50.
 
-      this.state.aiming = { active: true, angle, power }
-      this.notifyStateChange()
+        debugManager.logInfo("AIMING", `Setting aim: angle=${angle.toFixed(2)}, power=${power.toFixed(2)}`)
+        this.state.aiming = { active: true, angle, power }
+        this.notifyStateChange()
+      }
     }
   }
 
@@ -162,15 +125,7 @@ class GameInputHandler {
   destroy() {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
-      movement: {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        vectorX: 0,
-        vectorY: 0,
-        magnitude: 0,
-      },
+      movement: { up: false, down: false, left: false, right: false },
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}

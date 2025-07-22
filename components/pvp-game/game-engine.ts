@@ -547,13 +547,13 @@ export const updateGameState = (
         player.velocity.x = 0
         player.velocity.y = 0
 
-        // Apply controls to velocity - this allows diagonal movement
+        // Apply controls to velocity
         if (player.controls.up) player.velocity.y = -speed * movementMultiplier
         if (player.controls.down) player.velocity.y = speed * movementMultiplier
         if (player.controls.left) player.velocity.x = -speed * movementMultiplier
         if (player.controls.right) player.velocity.x = speed * movementMultiplier
 
-        // Normalize diagonal movement to prevent faster diagonal speed
+        // Normalize diagonal movement
         if (player.velocity.x !== 0 && player.velocity.y !== 0) {
           const magnitude = Math.sqrt(player.velocity.x * player.velocity.x + player.velocity.y * player.velocity.y)
           player.velocity.x = (player.velocity.x / magnitude) * speed * movementMultiplier

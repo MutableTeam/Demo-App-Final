@@ -180,17 +180,13 @@ export default function MobileGameContainer({ children, className }: MobileGameC
             />
           </div>
 
-          {/* Center: Actions - Smaller buttons */}
+          {/* Center: Actions - Smaller buttons in vertical column */}
           <div className="flex flex-col items-center justify-center space-y-2">
             <span className={labelClasses}>Actions</span>
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <ActionButton label="X" action="dash" />
-                <ActionButton label="Y" action="special" />
-              </div>
-              <div className="flex justify-center">
-                <ActionButton label="B" action="explosiveArrow" />
-              </div>
+              <ActionButton label="X" action="dash" />
+              <ActionButton label="Y" action="special" />
+              <ActionButton label="B" action="explosiveArrow" />
             </div>
           </div>
 
