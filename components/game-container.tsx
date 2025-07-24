@@ -304,15 +304,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
 
   if (platformType === "mobile") {
     return (
-      <MobileGameContainer
-        onJoystickMove={(direction) => {
-          // This would be wired to a global input handler in a full implementation
-          console.log("Joystick Move:", direction)
-        }}
-        onActionPress={(action, pressed) => {
-          console.log("Action Press:", action, pressed)
-        }}
-      >
+      <MobileGameContainer>
         <GameErrorBoundary>{GameContent}</GameErrorBoundary>
       </MobileGameContainer>
     )

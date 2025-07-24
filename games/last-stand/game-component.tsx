@@ -6,7 +6,6 @@ import { updateLastStandGameState } from "./game-engine"
 import LastStandRenderer from "./game-renderer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Skull, Trophy, Clock, Heart, Zap } from "lucide-react"
 import { debugManager } from "@/utils/debug-utils"
 import { audioManager, playGameOverSound } from "@/utils/audio-manager"
@@ -35,10 +34,8 @@ export default function LastStandGame({
 
   // Game state
   const [gameState, setGameState] = useState(() => createInitialLastStandState(playerId, playerName, gameMode))
-  const [showConfirmation, setShowConfirmation] = useState<boolean>(true)
-  const [showCountdown, setShowCountdown] = useState<boolean>(false)
+  const [showCountdown, setShowCountdown] = useState<boolean>(true) // Start with countdown instead of confirmation
   const [showGameOver, setShowGameOver] = useState<boolean>(false)
-  const [leaderboardTimeRemaining, setLeaderboardTimeRemaining] = useState<string>("00:00")
   const [isPaused, setIsPaused] = useState<boolean>(false)
   const [specialCooldown, setSpecialCooldown] = useState<number>(0)
 
@@ -48,7 +45,7 @@ export default function LastStandGame({
   const requestAnimationFrameIdRef = useRef<number | null>(null)
 
   // Determine if the game is active to enable controls
-  const isGameActive = !showConfirmation && !showCountdown && !showGameOver && !isPaused
+  const isGameActive = !showCountdown && !showGameOver && !isPaused
 
   // Centralized game controls hook
   useGameControls({
@@ -62,12 +59,6 @@ export default function LastStandGame({
   useEffect(() => {
     gameStateRef.current = gameState
   }, [gameState])
-
-  // Handle confirmation
-  const handleConfirmStart = () => {
-    setShowConfirmation(false)
-    setShowCountdown(true)
-  }
 
   // Handle countdown complete
   const handleCountdownComplete = () => {
@@ -211,106 +202,10 @@ export default function LastStandGame({
     }
   }, [])
 
-  // Render confirmation screen
-  if (showConfirmation) {
-    return (
-      <div className="flex items-center justify-center h-[600px] bg-gray-900 rounded-lg">
-        <Card className="w-[400px] bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Skull className="h-5 w-5" />
-                <CardTitle className="font-mono">ARCHER ARENA: LAST STAND</CardTitle>
-              </div>
-              <Badge
-                variant="outline"
-                className="bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono"
-              >
-                {gameMode.toUpperCase()}
-              </Badge>
-            </div>
-            <CardDescription>Survive waves of undead enemies and compete for high scores</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="bg-black/10 p-4 rounded-md">
-                <h3 className="font-bold mb-2 flex items-center gap-2">
-                  <Trophy className="h-4 w-4" /> Leaderboard
-                </h3>
-                <div className="flex justify-between text-sm">
-                  <span>Time Remaining:</span>
-                  <span className="font-mono">{leaderboardTimeRemaining}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Entry Fee:</span>
-                  <span className="font-mono">
-                    {gameMode === "hourly" ? "5" : gameMode === "daily" ? "10" : "0"} MUTB
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Current Pot:</span>
-                  <span className="font-mono">
-                    {gameMode === "hourly" ? "250" : gameMode === "daily" ? "1000" : "0"} MUTB
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-black/10 p-4 rounded-md">
-                <h3 className="font-bold mb-2 flex items-center gap-2">
-                  <Skull className="h-4 w-4" /> Game Rules
-                </h3>
-                <ul className="text-sm space-y-1 list-disc pl-4">
-                  <li>Survive as many waves of undead enemies as possible</li>
-                  <li>Each wave gets progressively harder</li>
-                  <li>Score points by defeating enemies</li>
-                  <li>Special enemies are worth more points</li>
-                  <li>Your final score now determines your position on the leaderboard</li>
-                </ul>
-              </div>
-
-              <div className="bg-black/10 p-4 rounded-md">
-                <h3 className="font-bold mb-2 flex items-center gap-2">
-                  <Zap className="h-4 w-4" /> Controls
-                </h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>WASD / Arrows</div>
-                  <div>Move</div>
-                  <div>Mouse</div>
-                  <div>Aim</div>
-                  <div>Left Click / Space</div>
-                  <div>Shoot Arrow</div>
-                  <div>Right Click / Q</div>
-                  <div>Special Attack</div>
-                  <div>E Key</div>
-                  <div>Explosive Arrow (30s cooldown)</div>
-                  <div>Shift</div>
-                  <div>Dash</div>
-                  <div>ESC</div>
-                  <div>Pause</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="outline" className="border-2 border-black bg-transparent" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
-              onClick={handleConfirmStart}
-            >
-              Start Game ({gameMode === "hourly" ? "5" : gameMode === "daily" ? "10" : "0"} MUTB)
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
-  }
-
   // Render countdown screen
   if (showCountdown) {
     return (
-      <div className="flex items-center justify-center h-[600px] bg-gray-900 rounded-lg">
+      <div className="flex items-center justify-center h-full w-full bg-gray-900">
         <div className="text-center">
           <h2 className="text-white text-2xl mb-4">Get Ready!</h2>
           <div className="text-6xl text-white font-bold">
@@ -324,7 +219,7 @@ export default function LastStandGame({
   // Render game over screen
   if (showGameOver) {
     return (
-      <div className="flex items-center justify-center h-[600px] bg-gray-900/80 rounded-lg">
+      <div className="flex items-center justify-center h-full w-full bg-gray-900/80">
         <Card className="w-[400px] bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <CardHeader>
             <CardTitle className="font-mono text-center">GAME OVER</CardTitle>
@@ -377,6 +272,14 @@ export default function LastStandGame({
               </div>
             </div>
           </CardContent>
+          <CardFooter>
+            <Button
+              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+              onClick={handleExit}
+            >
+              Exit Game
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     )
@@ -384,7 +287,7 @@ export default function LastStandGame({
 
   // Render game
   return (
-    <div className="relative h-[600px] bg-gray-900 rounded-lg overflow-hidden">
+    <div className="relative h-full w-full bg-gray-900 overflow-hidden">
       <LastStandRenderer gameState={gameState} />
 
       {/* HUD */}
