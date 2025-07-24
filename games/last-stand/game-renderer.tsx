@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import type { LastStandGameState, Enemy, Player, Arrow } from "./game-state"
 import { generateEnemySprite } from "@/utils/enemy-sprite-generator"
-import { generateArcherSprite, generateBackgroundTile } from "@/utils/sprite-generator"
+import { generateArcherSprite } from "@/utils/sprite-generator"
 import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
 
 interface LastStandRendererProps {
@@ -16,6 +16,19 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
   const animatorsRef = useRef<Record<string, SpriteAnimator>>({})
   const enemyAnimatorsRef = useRef<Record<string, SpriteAnimator>>({})
   const lastUpdateTimeRef = useRef<number>(Date.now())
+
+  // Refs for new background elements
+  const backgroundElementsRef = useRef<any>(null)
+  const fogParticlesRef = useRef<any[]>([])
+
+  // Initialize background elements once
+  useEffect(() => {
+    if (!backgroundElementsRef.current && gameState.arenaSize.width > 0) {
+      const { width, height } = gameState.arenaSize
+      backgroundElementsRef.current = generateBackgroundElements(width, height)
+      fogParticlesRef.current = Array.from({ length: 30 }, () => createFogParticle(width, height))
+    }
+  }, [gameState.arenaSize])
 
   // Initialize animators
   useEffect(() => {
@@ -65,7 +78,6 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
       const now = Date.now()
       const deltaTime = (now - lastUpdateTimeRef.current) / 1000
       lastUpdateTimeRef.current = now
-      frameCountRef.current++
 
       // Update all animators
       Object.values(animatorsRef.current).forEach((animator) => {
@@ -95,8 +107,11 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Draw background
-    drawBackground(ctx, gameState.arenaSize.width, gameState.arenaSize.height)
+    // Update frame count for animations
+    frameCountRef.current++
+
+    // Draw new background
+    drawEnhancedBackground(ctx, gameState.arenaSize.width, gameState.arenaSize.height, frameCountRef.current)
 
     // Draw arrows
     gameState.arrows.forEach((arrow) => {
@@ -112,34 +127,189 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     drawPlayer(ctx, gameState.player, frameCountRef.current)
   }, [gameState])
 
-  // Draw background with tiles
-  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const tileSize = 40
+  // Helper functions to create background elements
+  const generateBackgroundElements = (width: number, height: number) => {
+    const elements = {
+      cracks: [] as any[],
+      runes: [] as any[],
+      scenery: [] as any[],
+    }
 
-    // Draw base background (darker for undead theme)
-    ctx.fillStyle = "#1a1a1a"
+    // Ground cracks
+    for (let i = 0; i < 15; i++) {
+      const startX = Math.random() * width
+      const startY = Math.random() * height
+      const crack = [{ x: startX, y: startY }]
+      let length = 0
+      const maxLength = 100 + Math.random() * 200
+      while (length < maxLength) {
+        const lastPoint = crack[crack.length - 1]
+        const angle = (Math.random() - 0.5) * 1.5 + (i * Math.PI) / 7.5
+        const segmentLength = 10 + Math.random() * 20
+        const nextPoint = {
+          x: lastPoint.x + Math.cos(angle) * segmentLength,
+          y: lastPoint.y + Math.sin(angle) * segmentLength,
+        }
+        if (nextPoint.x < 0 || nextPoint.x > width || nextPoint.y < 0 || nextPoint.y > height) break
+        crack.push(nextPoint)
+        length += segmentLength
+      }
+      elements.cracks.push(crack)
+    }
+
+    // Glowing runes
+    for (let i = 0; i < 5; i++) {
+      elements.runes.push({
+        x: width * 0.1 + Math.random() * width * 0.8,
+        y: height * 0.1 + Math.random() * height * 0.8,
+        size: 20 + Math.random() * 30,
+        rotation: Math.random() * Math.PI * 2,
+      })
+    }
+
+    // Scenery (tombstones, trees)
+    // Top/Bottom edges
+    for (let i = 0; i < 8; i++) {
+      elements.scenery.push({
+        type: Math.random() > 0.5 ? "tombstone" : "tree",
+        x: width * 0.1 + Math.random() * width * 0.8,
+        y: Math.random() > 0.5 ? Math.random() * height * 0.1 : height * 0.9 + Math.random() * height * 0.1,
+        size: 30 + Math.random() * 20,
+      })
+    }
+    // Left/Right edges
+    for (let i = 0; i < 5; i++) {
+      elements.scenery.push({
+        type: Math.random() > 0.5 ? "tombstone" : "tree",
+        x: Math.random() > 0.5 ? Math.random() * width * 0.1 : width * 0.9 + Math.random() * width * 0.1,
+        y: height * 0.1 + Math.random() * height * 0.8,
+        size: 30 + Math.random() * 20,
+      })
+    }
+
+    return elements
+  }
+
+  const createFogParticle = (width: number, height: number) => {
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      radius: 50 + Math.random() * 50,
+      speed: 0.1 + Math.random() * 0.2,
+      opacity: 0.02 + Math.random() * 0.03,
+    }
+  }
+
+  // New enhanced background drawing function
+  const drawEnhancedBackground = (ctx: CanvasRenderingContext2D, width: number, height: number, frame: number) => {
+    // 1. Base Layer: Dark gradient
+    const bgGradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width * 0.8)
+    bgGradient.addColorStop(0, "#1a2a1a")
+    bgGradient.addColorStop(1, "#0a100a")
+    ctx.fillStyle = bgGradient
     ctx.fillRect(0, 0, width, height)
 
-    // Draw tiles
-    for (let x = 0; x < width; x += tileSize) {
-      for (let y = 0; y < height; y += tileSize) {
-        // Use a deterministic pattern based on position
-        const tileType = (x + y) % 120 === 0 ? "graveyard" : "darkgrass"
-        generateBackgroundTile(ctx, x, y, tileSize, tileType)
+    // 2. Ground Texture: Cracks
+    if (backgroundElementsRef.current) {
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)"
+      ctx.lineWidth = 1.5
+      backgroundElementsRef.current.cracks.forEach((crack: any[]) => {
+        ctx.beginPath()
+        ctx.moveTo(crack[0].x, crack[0].y)
+        for (let i = 1; i < crack.length; i++) {
+          ctx.lineTo(crack[i].x, crack[i].y)
+        }
+        ctx.stroke()
+      })
+    }
+
+    // 3. Scenery Layer
+    if (backgroundElementsRef.current) {
+      backgroundElementsRef.current.scenery.forEach((item: any) => {
+        ctx.save()
+        ctx.translate(item.x, item.y)
+        if (item.type === "tombstone") {
+          // Shadow
+          ctx.fillStyle = "rgba(0, 0, 0, 0.4)"
+          ctx.beginPath()
+          ctx.ellipse(0, item.size * 0.4, item.size * 0.6, item.size * 0.2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Stone
+          ctx.fillStyle = "#4a4a52"
+          ctx.fillRect(-item.size / 2, -item.size / 2, item.size, item.size)
+          ctx.beginPath()
+          ctx.arc(0, -item.size / 2, item.size / 2, Math.PI, 0)
+          ctx.fill()
+          // Detail
+          ctx.fillStyle = "#3a3a42"
+          ctx.fillRect(-item.size * 0.3, -item.size * 0.1, item.size * 0.6, item.size * 0.2)
+        } else {
+          // tree
+          // Shadow
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+          ctx.beginPath()
+          ctx.ellipse(0, item.size * 0.5, item.size * 0.4, item.size * 0.15, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Trunk
+          ctx.fillStyle = "#3d2a1d"
+          ctx.beginPath()
+          ctx.moveTo(-item.size * 0.1, item.size * 0.5)
+          ctx.lineTo(item.size * 0.1, item.size * 0.5)
+          ctx.lineTo(item.size * 0.05, -item.size * 0.5)
+          ctx.lineTo(-item.size * 0.05, -item.size * 0.5)
+          ctx.closePath()
+          ctx.fill()
+        }
+        ctx.restore()
+      })
+    }
+
+    // 4. Effects Layer: Runes
+    if (backgroundElementsRef.current) {
+      backgroundElementsRef.current.runes.forEach((rune: any) => {
+        const pulse = Math.sin(frame * 0.02 + rune.size) * 0.3 + 0.7
+        ctx.save()
+        ctx.translate(rune.x, rune.y)
+        ctx.rotate(rune.rotation)
+        ctx.font = `${rune.size}px "Times New Roman"`
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        // Glowing effect
+        ctx.shadowColor = "#9400D3"
+        ctx.shadowBlur = 20 * pulse
+        ctx.fillStyle = `rgba(224, 176, 255, ${pulse * 0.5})`
+        ctx.fillText("ᛝ", 0, 0) // Example rune
+        ctx.restore()
+      })
+    }
+
+    // 5. Effects Layer: Animated Fog
+    ctx.fillStyle = "rgba(150, 160, 150, 1)"
+    fogParticlesRef.current.forEach((p) => {
+      p.x += p.speed
+      if (p.x - p.radius > width) {
+        p.x = -p.radius
       }
-    }
-
-    // Add some fog effect
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)"
-    for (let i = 0; i < 20; i++) {
-      const x = Math.random() * width
-      const y = Math.random() * height
-      const radius = 20 + Math.random() * 30
-
+      ctx.globalAlpha = p.opacity
       ctx.beginPath()
-      ctx.arc(x, y, radius, 0, Math.PI * 2)
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
       ctx.fill()
-    }
+    })
+    ctx.globalAlpha = 1.0
+
+    // 6. Vignette
+    const vignetteGradient = ctx.createRadialGradient(
+      width / 2,
+      height / 2,
+      width * 0.4,
+      width / 2,
+      height / 2,
+      width * 0.7,
+    )
+    vignetteGradient.addColorStop(0, "rgba(0,0,0,0)")
+    vignetteGradient.addColorStop(1, "rgba(0,0,0,0.6)")
+    ctx.fillStyle = vignetteGradient
+    ctx.fillRect(0, 0, width, height)
   }
 
   // Draw player
@@ -441,5 +611,5 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     ctx.fillText(label, x, y)
   }
 
-  return <canvas ref={canvasRef} width={800} height={600} className="w-full h-full rounded-lg" />
+  return <canvas ref={canvasRef} width={1280} height={720} className="w-full h-full" style={{ objectFit: "contain" }} />
 }

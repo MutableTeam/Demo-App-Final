@@ -13,6 +13,9 @@ import type { PlatformType } from "@/contexts/platform-context"
 import { useGameControls } from "@/hooks/use-game-controls"
 import { createAIController, AIDifficulty } from "@/utils/game-ai"
 
+const FPS = 60
+const MS_PER_FRAME = 1000 / FPS
+
 export default function GameComponent({
   playerId,
   playerName,
@@ -144,132 +147,184 @@ export default function GameComponent({
     }, 10000)
 
     // Start game loop
-    const gameLoop = (timestamp) => {
-      try {
-        debugManager.startFrame()
+    // const gameLoop = (timestamp) => {
+    //   try {
+    //     debugManager.startFrame()
 
-        const now = Date.now()
-        const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1) // Cap delta time
-        lastUpdateTimeRef.current = now
+    //     const now = Date.now()
+    //     const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1) // Cap delta time
+    //     lastUpdateTimeRef.current = now
 
-        if (gameStateRef.current) {
-          // Update AI players before updating the game state
-          Object.keys(aiControllersRef.current).forEach((aiId) => {
-            if (gameStateRef.current.players[aiId]) {
-              const aiController = aiControllersRef.current[aiId]
-              const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
-              gameStateRef.current.players[aiId].controls = controls
-              gameStateRef.current.players[aiId].rotation = targetRotation
-            }
-          })
+    //     if (gameStateRef.current) {
+    //       // Update AI players before updating the game state
+    //       Object.keys(aiControllersRef.current).forEach((aiId) => {
+    //         if (gameStateRef.current.players[aiId]) {
+    //           const aiController = aiControllersRef.current[aiId]
+    //           const { controls, targetRotation } = aiController.update(aiId, gameStateRef.current, deltaTime)
+    //           gameStateRef.current.players[aiId].controls = controls
+    //           gameStateRef.current.players[aiId].rotation = targetRotation
+    //         }
+    //       })
 
-          const newState = updateGameState(gameStateRef.current, deltaTime)
+    //       const newState = updateGameState(gameStateRef.current, deltaTime)
 
-          const localPlayer = newState.players[playerId]
-          if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
-            try {
-              if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
-                audioManager.playSound("bow-draw")
-                bowSoundPlayedRef.current = true
-              }
+    //       const localPlayer = newState.players[playerId]
+    //       if (localPlayer && audioInitializedRef.current && !audioManager.isSoundMuted()) {
+    //         try {
+    //           if (localPlayer.isDrawingBow && !bowSoundPlayedRef.current) {
+    //             audioManager.playSound("bow-draw")
+    //             bowSoundPlayedRef.current = true
+    //           }
 
-              if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
-                const currentTime = Date.now() / 1000
-                const drawTime = currentTime - localPlayer.drawStartTime
-                if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
-                  audioManager.playSound("bow-full-draw")
-                  fullDrawSoundPlayedRef.current = true
-                }
-                const minDrawTime = localPlayer.maxDrawTime * 0.3
-                if (drawTime >= minDrawTime && !minDrawSoundPlayedRef.current) {
-                  audioManager.playSound("bow-min-draw")
-                  minDrawSoundPlayedRef.current = true
-                }
-              }
+    //           if (localPlayer.isDrawingBow && localPlayer.drawStartTime) {
+    //             const currentTime = Date.now() / 1000
+    //             const drawTime = currentTime - localPlayer.drawStartTime
+    //             if (drawTime >= localPlayer.maxDrawTime && !fullDrawSoundPlayedRef.current) {
+    //               audioManager.playSound("bow-full-draw")
+    //               fullDrawSoundPlayedRef.current = true
+    //             }
+    //             const minDrawTime = localPlayer.maxDrawTime * 0.3
+    //             if (drawTime >= minDrawTime && !minDrawSoundPlayedRef.current) {
+    //               audioManager.playSound("bow-min-draw")
+    //               minDrawSoundPlayedRef.current = true
+    //             }
+    //           }
 
-              if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
-                const prevPlayer = gameStateRef.current.players[playerId]
-                if (prevPlayer.drawStartTime) {
-                  const currentTime = Date.now() / 1000
-                  const drawTime = currentTime - prevPlayer.drawStartTime
-                  const minDrawTime = prevPlayer.maxDrawTime * 0.3
-                  if (drawTime < minDrawTime) {
-                    audioManager.playSound("bow-weak-release")
-                  } else {
-                    audioManager.playSound("bow-release")
-                  }
-                } else {
-                  audioManager.playSound("bow-release")
-                }
-                bowSoundPlayedRef.current = false
-                fullDrawSoundPlayedRef.current = false
-                minDrawSoundPlayedRef.current = false
-              }
+    //           if (!localPlayer.isDrawingBow && gameStateRef.current.players[playerId]?.isDrawingBow) {
+    //             const prevPlayer = gameStateRef.current.players[playerId]
+    //             if (prevPlayer.drawStartTime) {
+    //               const currentTime = Date.now() / 1000
+    //               const drawTime = currentTime - prevPlayer.drawStartTime
+    //               const minDrawTime = prevPlayer.maxDrawTime * 0.3
+    //               if (drawTime < minDrawTime) {
+    //                 audioManager.playSound("bow-weak-release")
+    //               } else {
+    //                 audioManager.playSound("bow-release")
+    //               }
+    //             } else {
+    //               audioManager.playSound("bow-release")
+    //             }
+    //             bowSoundPlayedRef.current = false
+    //             fullDrawSoundPlayedRef.current = false
+    //             minDrawSoundPlayedRef.current = false
+    //           }
 
-              if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
-                audioManager.playSound("dash")
-              }
-              if (
-                localPlayer.animationState === "hit" &&
-                gameStateRef.current.players[playerId]?.animationState !== "hit"
-              ) {
-                audioManager.playSound("hit")
-              }
-              if (
-                localPlayer.animationState === "death" &&
-                gameStateRef.current.players[playerId]?.animationState !== "death"
-              ) {
-                audioManager.playSound("death")
-              }
-            } catch (error) {
-              debugManager.logError("AUDIO", "Error playing game sounds", error)
-            }
+    //           if (localPlayer.isDashing && !gameStateRef.current.players[playerId]?.isDashing) {
+    //             audioManager.playSound("dash")
+    //           }
+    //           if (
+    //             localPlayer.animationState === "hit" &&
+    //             gameStateRef.current.players[playerId]?.animationState !== "hit"
+    //           ) {
+    //             audioManager.playSound("hit")
+    //           }
+    //           if (
+    //             localPlayer.animationState === "death" &&
+    //             gameStateRef.current.players[playerId]?.animationState !== "death"
+    //           ) {
+    //             audioManager.playSound("death")
+    //           }
+    //         } catch (error) {
+    //           debugManager.logError("AUDIO", "Error playing game sounds", error)
+    //         }
+    //       }
+
+    //       gameStateRef.current = newState
+    //       setGameState(newState)
+
+    //       if (newState.isGameOver) {
+    //         if (!audioManager.isSoundMuted()) {
+    //           if (newState.winner === playerId) {
+    //             audioManager.playSound("victory")
+    //           } else {
+    //             audioManager.playSound("game-over")
+    //           }
+    //         }
+    //         audioManager.stopBackgroundMusic()
+    //         transitionDebugger.trackTransition("playing", "game-over", "GameComponent")
+    //         if (onGameEnd) {
+    //           onGameEnd(newState.winner)
+    //         }
+    //         debugManager.logInfo("GAME", "Game ended", {
+    //           winner: newState.winner,
+    //           gameTime: newState.gameTime,
+    //           playerCount: Object.keys(newState.players).length,
+    //         })
+    //       } else {
+    //         requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+    //           gameLoop,
+    //           `${componentIdRef.current}-game-loop`,
+    //         )
+    //       }
+    //     }
+    //   } catch (error) {
+    //     debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
+    //     debugManager.captureState(gameStateRef.current, "Critical Error State")
+    //     setTimeout(() => {
+    //       requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+    //         gameLoop,
+    //         `${componentIdRef.current}-game-loop`,
+    //       )
+    //     }, 1000)
+    //   }
+    // }
+
+    // requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
+    //   gameLoop,
+    //   `${componentIdRef.current}-game-loop`,
+    // )
+
+    let lag = 0
+    lastUpdateTimeRef.current = performance.now()
+
+    const gameLoop = () => {
+      if (!gameStateRef.current || gameStateRef.current.isGameOver) {
+        return
+      }
+
+      const currentTime = performance.now()
+      const elapsed = currentTime - lastUpdateTimeRef.current
+      lastUpdateTimeRef.current = currentTime
+      lag += elapsed
+
+      // Update game logic at a fixed rate
+      while (lag >= MS_PER_FRAME) {
+        const currentState = gameStateRef.current
+        if (!currentState) break
+
+        // Update AI players
+        Object.keys(aiControllersRef.current).forEach((aiId) => {
+          if (currentState.players[aiId]) {
+            const aiController = aiControllersRef.current[aiId]
+            const { controls, targetRotation } = aiController.update(aiId, currentState, MS_PER_FRAME / 1000)
+            currentState.players[aiId].controls = controls
+            currentState.players[aiId].rotation = targetRotation
           }
+        })
 
-          gameStateRef.current = newState
-          setGameState(newState)
+        // Update game state
+        const newState = updateGameState(currentState, MS_PER_FRAME / 1000)
+        gameStateRef.current = newState
 
-          if (newState.isGameOver) {
-            if (!audioManager.isSoundMuted()) {
-              if (newState.winner === playerId) {
-                audioManager.playSound("victory")
-              } else {
-                audioManager.playSound("game-over")
-              }
-            }
-            audioManager.stopBackgroundMusic()
-            transitionDebugger.trackTransition("playing", "game-over", "GameComponent")
-            if (onGameEnd) {
-              onGameEnd(newState.winner)
-            }
-            debugManager.logInfo("GAME", "Game ended", {
-              winner: newState.winner,
-              gameTime: newState.gameTime,
-              playerCount: Object.keys(newState.players).length,
-            })
-          } else {
-            requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-              gameLoop,
-              `${componentIdRef.current}-game-loop`,
-            )
-          }
+        lag -= MS_PER_FRAME
+      }
+
+      // Trigger a render with the latest state
+      setGameState(gameStateRef.current)
+
+      // Check for game over
+      if (gameStateRef.current.isGameOver) {
+        if (!audioManager.isSoundMuted()) {
+          audioManager.playSound(gameStateRef.current.winner === playerId ? "victory" : "game-over")
         }
-      } catch (error) {
-        debugManager.logError("GAME_LOOP", "Critical error in game loop", error)
-        debugManager.captureState(gameStateRef.current, "Critical Error State")
-        setTimeout(() => {
-          requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-            gameLoop,
-            `${componentIdRef.current}-game-loop`,
-          )
-        }, 1000)
+        audioManager.stopBackgroundMusic()
+        onGameEnd(gameStateRef.current.winner)
+      } else {
+        requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
       }
     }
 
-    requestAnimationFrameIdRef.current = transitionDebugger.safeRequestAnimationFrame(
-      gameLoop,
-      `${componentIdRef.current}-game-loop`,
-    )
+    requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
 
     if (!audioManager.isSoundMuted()) {
       try {
@@ -280,24 +335,10 @@ export default function GameComponent({
     }
 
     return () => {
-      transitionDebugger.trackTransition("any", "unmounting", "GameComponent")
       if (requestAnimationFrameIdRef.current !== null) {
-        transitionDebugger.safeCancelAnimationFrame(`${componentIdRef.current}-game-loop`)
-        requestAnimationFrameIdRef.current = null
-        transitionDebugger.trackCleanup("GameComponent", "Animation Frame", true)
+        cancelAnimationFrame(requestAnimationFrameIdRef.current)
       }
-      transitionDebugger.safeClearInterval(`${componentIdRef.current}-crash-detection`)
-      clearTimeout(tutorialTimer)
-      try {
-        audioManager.stopBackgroundMusic()
-        transitionDebugger.trackCleanup("GameComponent", "Background Music", true)
-      } catch (err) {
-        debugManager.logWarning("AUDIO", "Error stopping background music", err)
-        transitionDebugger.trackCleanup("GameComponent", "Background Music", false, err)
-      }
-      debugManager.logInfo("GAME", "Game cleanup completed")
-      transitionDebugger.trackTransition("unmounting", "unmounted", "GameComponent")
-      debugManager.trackComponentUnmount("GameComponent")
+      audioManager.stopBackgroundMusic()
     }
   }, [playerId, playerName, isHost, gameMode, initialGameState, onGameEnd, setGameState, platformType])
 

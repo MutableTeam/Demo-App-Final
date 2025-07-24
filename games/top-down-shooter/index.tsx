@@ -80,93 +80,62 @@ const createPlayer = (id, name, position, color) => {
   }
 }
 
-// Helper function to generate walls
-const generateWalls = () => {
+// Helper function to generate walls (obstacles) for a given arena size
+const generateWalls = (width: number, height: number) => {
   const walls = []
-  const thickness = 20
-  const width = 800
-  const height = 600
 
-  // Arena boundaries
-  walls.push({
-    id: "wall-top",
-    position: { x: width / 2, y: thickness / 2 },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
-    size: thickness,
-    health: Number.POSITIVE_INFINITY,
-    color: "#333333",
-    type: "wall",
-  })
+  // The player is kept in bounds by the game engine, so these "walls" are just obstacles.
+  // Let's create a more interesting layout for a 16:9 aspect ratio.
 
+  // Central obstacle
   walls.push({
-    id: "wall-bottom",
-    position: { x: width / 2, y: height - thickness / 2 },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
-    size: thickness,
-    health: Number.POSITIVE_INFINITY,
-    color: "#333333",
-    type: "wall",
-  })
-
-  walls.push({
-    id: "wall-left",
-    position: { x: thickness / 2, y: height / 2 },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
-    size: thickness,
-    health: Number.POSITIVE_INFINITY,
-    color: "#333333",
-    type: "wall",
-  })
-
-  walls.push({
-    id: "wall-right",
-    position: { x: width - thickness / 2, y: height / 2 },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
-    size: thickness,
-    health: Number.POSITIVE_INFINITY,
-    color: "#333333",
-    type: "wall",
-  })
-
-  // Add some obstacles
-  walls.push({
-    id: "obstacle-1",
+    id: "obstacle-center",
     position: { x: width / 2, y: height / 2 },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
+    size: 60,
+  })
+
+  // Four pillars
+  walls.push({
+    id: "obstacle-tl",
+    position: { x: width * 0.25, y: height * 0.25 },
     size: 40,
-    health: Number.POSITIVE_INFINITY,
-    color: "#555555",
-    type: "wall",
+  })
+  walls.push({
+    id: "obstacle-tr",
+    position: { x: width * 0.75, y: height * 0.25 },
+    size: 40,
+  })
+  walls.push({
+    id: "obstacle-bl",
+    position: { x: width * 0.25, y: height * 0.75 },
+    size: 40,
+  })
+  walls.push({
+    id: "obstacle-br",
+    position: { x: width * 0.75, y: height * 0.75 },
+    size: 40,
   })
 
+  // Side obstacles
   walls.push({
-    id: "obstacle-2",
-    position: { x: width / 4, y: height / 4 },
+    id: "obstacle-left",
+    position: { x: 80, y: height / 2 },
+    size: 30,
+  })
+  walls.push({
+    id: "obstacle-right",
+    position: { x: width - 80, y: height / 2 },
+    size: 30,
+  })
+
+  return walls.map((wall) => ({
+    ...wall,
     velocity: { x: 0, y: 0 },
     rotation: 0,
-    size: 30,
     health: Number.POSITIVE_INFINITY,
     color: "#555555",
     type: "wall",
-  })
-
-  walls.push({
-    id: "obstacle-3",
-    position: { x: (width / 4) * 3, y: (height / 4) * 3 },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
-    size: 30,
-    health: Number.POSITIVE_INFINITY,
-    color: "#555555",
-    type: "wall",
-  })
-
-  return walls
+  }))
 }
 
 // Initialize game state based on parameters
@@ -180,13 +149,17 @@ const initializeGameState = (params) => {
     playerCount: players.length,
   })
 
+  // New arena size for landscape mobile (16:9 aspect ratio)
+  const arenaWidth = 1280
+  const arenaHeight = 720
+
   // Create initial game state
   const initialState = {
     players: {},
     arrows: [],
-    walls: generateWalls(),
+    walls: generateWalls(arenaWidth, arenaHeight),
     pickups: [],
-    arenaSize: { width: 800, height: 600 },
+    arenaSize: { width: arenaWidth, height: arenaHeight },
     gameTime: 0,
     maxGameTime: 180, // 3 minutes
     isGameOver: false,
@@ -194,12 +167,13 @@ const initializeGameState = (params) => {
     gameMode: gameMode, // Store the game mode in the state
   }
 
-  // Calculate spawn positions in different corners
+  // Calculate dynamic spawn positions with padding
+  const spawnPadding = 150
   const positions = [
-    { x: 100, y: 100 },
-    { x: 700, y: 500 },
-    { x: 700, y: 100 },
-    { x: 100, y: 500 },
+    { x: spawnPadding, y: spawnPadding }, // Top-left
+    { x: arenaWidth - spawnPadding, y: arenaHeight - spawnPadding }, // Bottom-right
+    { x: arenaWidth - spawnPadding, y: spawnPadding }, // Top-right
+    { x: spawnPadding, y: arenaHeight - spawnPadding }, // Bottom-left
   ]
 
   // Assign different colors to players

@@ -150,9 +150,14 @@ export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef 
     const player = getPlayer()
     const canvas = document.querySelector("canvas")
     if (!player || !canvas) return
+
     const rect = canvas.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
+    // Scale mouse coordinates to match canvas resolution
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const mouseX = (e.clientX - rect.left) * scaleX
+    const mouseY = (e.clientY - rect.top) * scaleY
+
     player.rotation = Math.atan2(mouseY - player.position.y, mouseX - player.position.x)
   }
 

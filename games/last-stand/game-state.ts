@@ -125,7 +125,8 @@ export function createInitialLastStandState(
   playerName: string,
   gameMode: string,
 ): LastStandGameState {
-  const arenaSize = { width: 800, height: 600 }
+  // New arena size for 16:9 aspect ratio, suited for mobile landscape
+  const arenaSize = { width: 1280, height: 720 }
 
   return {
     playerId,

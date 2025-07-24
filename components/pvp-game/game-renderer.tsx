@@ -31,6 +31,218 @@ interface Particle {
   maxFrames: number
 }
 
+// --- Creative Background Generation ---
+
+// Seed for procedural generation to keep the background consistent
+const backgroundSeed = 12345
+let seed = backgroundSeed
+const prng = () => {
+  const x = Math.sin(seed++) * 10000
+  return x - Math.floor(x)
+}
+
+// Cache for pre-generated background details to improve performance
+let backgroundDetails: { type: string; x: number; y: number; size: number; color?: string; rotation?: number }[] = []
+let backgroundGenerated = false
+
+const generateBackgroundDetails = (width: number, height: number) => {
+  seed = backgroundSeed // Reset seed for consistency
+  backgroundDetails = []
+
+  // Generate grass details
+  for (let i = 0; i < 200; i++) {
+    backgroundDetails.push({
+      type: "grass_blade",
+      x: prng() * width,
+      y: prng() * height,
+      size: 2 + prng() * 3,
+    })
+  }
+
+  const arenaCenterX = width / 2
+  const arenaCenterY = height / 2
+  const arenaRadius = Math.min(width, height) * 0.45
+
+  // Generate rocks on the grass (outside the arena)
+  for (let i = 0; i < 25; i++) {
+    const x = prng() * width
+    const y = prng() * height
+    const dist = Math.sqrt(Math.pow(x - arenaCenterX, 2) + Math.pow(y - arenaCenterY, 2))
+    if (dist > arenaRadius) {
+      backgroundDetails.push({
+        type: "rock",
+        x,
+        y,
+        size: 5 + prng() * 10,
+      })
+    }
+  }
+
+  // Generate archery targets
+  const targetPositions = [
+    { x: 60, y: height / 2 },
+    { x: width - 60, y: height / 2 },
+    { x: width / 2, y: 60 },
+  ]
+  targetPositions.forEach((pos) => {
+    backgroundDetails.push({
+      type: "target",
+      x: pos.x,
+      y: pos.y,
+      size: 40,
+    })
+  })
+
+  backgroundGenerated = true
+}
+
+const drawCreativeBackground = (ctx: CanvasRenderingContext2D, width: number, height: number, frame: number) => {
+  if (!backgroundGenerated || width !== 1280) {
+    // Re-generate if dimensions change (e.g. from old 800x600)
+    generateBackgroundDetails(width, height)
+  }
+
+  // 1. Base Grass Layer
+  ctx.fillStyle = "#3A5920" // Dark grass
+  ctx.fillRect(0, 0, width, height)
+
+  // Draw grass details
+  backgroundDetails
+    .filter((d) => d.type === "grass_blade")
+    .forEach((detail) => {
+      ctx.fillStyle = "#4B7F2A"
+      ctx.beginPath()
+      ctx.moveTo(detail.x, detail.y)
+      ctx.lineTo(detail.x + detail.size / 2, detail.y - detail.size * 2)
+      ctx.lineTo(detail.x + detail.size, detail.y)
+      ctx.closePath()
+      ctx.fill()
+    })
+
+  // 2. Stone Arena Floor (circular)
+  const arenaCenterX = width / 2
+  const arenaCenterY = height / 2
+  const arenaRadius = Math.min(width, height) * 0.45
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(arenaCenterX, arenaCenterY, arenaRadius, 0, Math.PI * 2)
+  ctx.clip()
+
+  // Draw stone tiles
+  const stoneColor1 = "#787772"
+  const stoneColor2 = "#8A8983"
+  const tileSize = 60
+  for (let y = 0; y < height; y += tileSize) {
+    for (let x = 0; x < width; x += tileSize) {
+      ctx.fillStyle = (x / tileSize + y / tileSize) % 2 === 0 ? stoneColor1 : stoneColor2
+      ctx.fillRect(x, y, tileSize, tileSize)
+    }
+  }
+
+  // Draw cracks on the stone
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)"
+  ctx.lineWidth = 2
+  for (let i = 0; i < 15; i++) {
+    ctx.beginPath()
+    const startAngle = prng() * Math.PI * 2
+    const startRadius = prng() * arenaRadius
+    ctx.moveTo(arenaCenterX + Math.cos(startAngle) * startRadius, arenaCenterY + Math.sin(startAngle) * startRadius)
+    const endAngle = startAngle + (prng() - 0.5) * 0.5
+    const endRadius = startRadius + 20 + prng() * 50
+    ctx.lineTo(arenaCenterX + Math.cos(endAngle) * endRadius, arenaCenterY + Math.sin(endAngle) * endRadius)
+    ctx.stroke()
+  }
+
+  ctx.restore() // remove clipping mask
+
+  // Draw arena border
+  ctx.strokeStyle = "#4A4139" // Dark stone border
+  ctx.lineWidth = 10
+  ctx.beginPath()
+  ctx.arc(arenaCenterX, arenaCenterY, arenaRadius, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.strokeStyle = "#6B5D50" // Lighter highlight
+  ctx.lineWidth = 4
+  ctx.beginPath()
+  ctx.arc(arenaCenterX, arenaCenterY, arenaRadius - 3, 0, Math.PI * 2)
+  ctx.stroke()
+
+  // 3. Draw Scenery (outside the arena)
+
+  // Draw rocks
+  backgroundDetails
+    .filter((d) => d.type === "rock")
+    .forEach((detail) => {
+      ctx.fillStyle = "#5E5851"
+      ctx.beginPath()
+      ctx.arc(detail.x, detail.y, detail.size, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = "#6C665F"
+      ctx.beginPath()
+      ctx.arc(detail.x - detail.size * 0.2, detail.y - detail.size * 0.2, detail.size * 0.8, 0, Math.PI * 2)
+      ctx.fill()
+    })
+
+  // Draw targets
+  const drawTarget = (x: number, y: number, size: number) => {
+    ctx.fillStyle = "#D3B88C" // Wood color
+    ctx.fillRect(x - size / 2, y - size / 2, size, size)
+    ctx.fillStyle = "#FFFFFF"
+    ctx.beginPath()
+    ctx.arc(x, y, size * 0.4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = "#000000"
+    ctx.beginPath()
+    ctx.arc(x, y, size * 0.3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = "#FF0000"
+    ctx.beginPath()
+    ctx.arc(x, y, size * 0.15, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  backgroundDetails
+    .filter((d) => d.type === "target")
+    .forEach((detail) => {
+      drawTarget(detail.x, detail.y, detail.size)
+    })
+
+  // Draw Banners
+  const bannerPositions = [
+    { x: width * 0.25, y: 30, color: "#B32020" },
+    { x: width * 0.75, y: 30, color: "#2020B3" },
+    { x: width * 0.25, y: height - 30, color: "#20B320" },
+    { x: width * 0.75, y: height - 30, color: "#B3B320" },
+  ]
+  bannerPositions.forEach((banner) => {
+    ctx.fillStyle = "#654321" // Wood pole
+    ctx.fillRect(banner.x - 5, banner.y - 20, 10, 40)
+    ctx.fillStyle = banner.color
+    ctx.beginPath()
+    ctx.moveTo(banner.x, banner.y - 20)
+    ctx.lineTo(banner.x + 30, banner.y - 10)
+    ctx.lineTo(banner.x, banner.y)
+    ctx.closePath()
+    ctx.fill()
+  })
+
+  // 4. Vignette effect
+  const gradient = ctx.createRadialGradient(
+    arenaCenterX,
+    arenaCenterY,
+    arenaRadius * 0.7,
+    arenaCenterX,
+    arenaCenterY,
+    arenaRadius * 1.2,
+  )
+  gradient.addColorStop(0, "rgba(0,0,0,0)")
+  gradient.addColorStop(1, "rgba(0,0,0,0.3)")
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, width, height)
+}
+
+// --- End of Creative Background ---
+
 // Map game engine animation states to sprite animation states
 const mapAnimationState = (state: string): string => {
   const stateMap: Record<string, string> = {
@@ -57,35 +269,7 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
   const [particles, setParticles] = useState<Particle[]>([])
   const particlesRef = useRef<Particle[]>([])
   const [debugMode, setDebugMode] = useState<boolean>(false)
-
-  // Draw background with tiles
-  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    // Draw simple static background instead of animated tiles
-    ctx.fillStyle = "#1a3300"
-    ctx.fillRect(0, 0, width, height)
-
-    // Optional: Add a simple grid pattern without animation
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)"
-    ctx.lineWidth = 1
-
-    const gridSize = 40
-
-    // Draw vertical lines
-    for (let x = 0; x < width; x += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
-      ctx.stroke()
-    }
-
-    // Draw horizontal lines
-    for (let y = 0; y < height; y += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
-      ctx.stroke()
-    }
-  }
+  const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const drawWall = (ctx: CanvasRenderingContext2D, wall: GameObject) => {
     // Use our enhanced wall sprite
@@ -301,12 +485,12 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       ctx.closePath()
       ctx.fill()
 
-      // Pulsating highlight
-      const pulseSize = player.size + 5 + Math.sin(frameCountRef.current * 0.1) * 2
-      ctx.strokeStyle = "#FFFFFF"
+      // Replaced pulsating highlight with a static one
+      const staticHighlightSize = player.size + 6
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"
       ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.arc(0, 0, pulseSize, 0, Math.PI * 2)
+      ctx.arc(0, 0, staticHighlightSize, 0, Math.PI * 2)
       ctx.stroke()
     }
 
@@ -841,6 +1025,21 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
     }
   }
 
+  // Effect to pre-render the background to an offscreen canvas for performance
+  useEffect(() => {
+    const { width, height } = gameState.arenaSize
+    if (width > 0 && height > 0) {
+      const bgCanvas = document.createElement("canvas")
+      bgCanvas.width = width
+      bgCanvas.height = height
+      const bgCtx = bgCanvas.getContext("2d")
+      if (bgCtx) {
+        drawCreativeBackground(bgCtx, width, height)
+        backgroundCanvasRef.current = bgCanvas
+      }
+    }
+  }, [gameState.arenaSize])
+
   // Initialize animators for each player
   useEffect(() => {
     // Create animation set once
@@ -874,28 +1073,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       }
     })
   }, [gameState.players])
-
-  // Animation loop
-  useEffect(() => {
-    const updateAnimations = () => {
-      const now = Date.now()
-      const deltaTime = (now - lastUpdateTimeRef.current) / 1000
-      lastUpdateTimeRef.current = now
-      frameCountRef.current++
-
-      // Update all animators
-      Object.values(animatorsRef.current).forEach((animator) => {
-        animator.update(deltaTime)
-      })
-
-      // Update particles
-      updateParticles(deltaTime)
-    }
-
-    const animationInterval = setInterval(updateAnimations, 1000 / 60) // 60 FPS
-
-    return () => clearInterval(animationInterval)
-  }, [])
 
   // Handle container resizing
   useEffect(() => {
@@ -1026,10 +1203,8 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
   useEffect(() => {
     try {
       const canvas = canvasRef.current
-      if (!canvas) {
-        console.error("RENDERER", "Canvas reference is null")
-        return
-      }
+      const bgCanvas = backgroundCanvasRef.current
+      if (!canvas || !bgCanvas) return
 
       // Set canvas dimensions
       try {
@@ -1053,8 +1228,9 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
         return
       }
 
-      // Draw background with tiles
-      drawBackground(ctx, gameState.arenaSize.width, gameState.arenaSize.height)
+      // Clear and draw background from cache
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bgCanvas, 0, 0)
 
       // Draw walls
       gameState.walls.forEach((wall) => {
