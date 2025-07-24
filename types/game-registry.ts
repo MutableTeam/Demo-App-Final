@@ -22,6 +22,7 @@ export interface GameConfig {
   minWager: number
   maxPlayers: number
   gameType: string
+  gameCategory: "PvP" | "PvE" // Add this line
   modes: GameMode[]
   useEnhancedRenderer?: boolean
 }
@@ -74,6 +75,11 @@ class GameRegistry {
   // Get games by type
   getGamesByType(type: string): GameImplementation[] {
     return this.getAllGames().filter((game) => game.config.gameType === type)
+  }
+
+  // Get games by category
+  getGamesByCategory(category: "PvP" | "PvE"): GameImplementation[] {
+    return this.getAllGames().filter((game) => game.config.gameCategory === category)
   }
 }
 

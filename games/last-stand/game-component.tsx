@@ -9,16 +9,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Skull, Trophy, Clock, Heart, Zap } from "lucide-react"
 import { debugManager } from "@/utils/debug-utils"
-import {
-  audioManager,
-  playGameOverSound,
-  playBowReleaseSound,
-  playBowDrawSound,
-  playBowFullDrawSound,
-} from "@/utils/audio-manager"
+import { audioManager, playGameOverSound } from "@/utils/audio-manager"
 import CountdownTimer from "@/components/pvp-game/countdown-timer"
 import { formatTime } from "./utils"
-import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
+import { usePlatform } from "@/contexts/platform-context"
+import { useGameControls } from "@/hooks/use-game-controls"
+import { Joystick } from "react-joystick-component"
+import { gameInputHandler } from "@/utils/game-input-handler"
 
 interface LastStandGameProps {
   playerId: string
@@ -35,9 +32,12 @@ export default function LastStandGame({
   onGameEnd,
   onCancel,
 }: LastStandGameProps) {
+  const { platformType } = usePlatform()
+  const isMobile = platformType === "mobile"
+
   // Game state
   const [gameState, setGameState] = useState(() => createInitialLastStandState(playerId, playerName, gameMode))
-  const [showConfirmation, setShowConfirmation] = useState<boolean>(false)
+  const [showConfirmation, setShowConfirmation] = useState<boolean>(true)
   const [showCountdown, setShowCountdown] = useState<boolean>(false)
   const [showGameOver, setShowGameOver] = useState<boolean>(false)
   const [leaderboardTimeRemaining, setLeaderboardTimeRemaining] = useState<string>("00:00")
@@ -48,30 +48,22 @@ export default function LastStandGame({
   const gameStateRef = useRef(gameState)
   const lastUpdateTimeRef = useRef<number>(Date.now())
   const requestAnimationFrameIdRef = useRef<number | null>(null)
-  const keysPressed = useRef<Set<string>>(new Set())
-  const mousePositionRef = useRef({ x: 0, y: 0 })
-  const mouseButtonsRef = useRef({ left: false, right: false })
-  const frameCountRef = useRef<number>(0)
-  const animatorRef = useRef<SpriteAnimator | null>(null)
-  const specialCooldownRef = useRef<number>(0)
+
+  // Determine if the game is active to enable controls
+  const isGameActive = !showConfirmation && !showCountdown && !showGameOver && !isPaused
+
+  // Centralized game controls hook
+  useGameControls({
+    playerId: "player", // In Last Stand, the player key is 'player'
+    gameStateRef,
+    platformType: platformType || "desktop",
+    isEnabled: isGameActive,
+  })
 
   // Update game state ref when state changes
   useEffect(() => {
     gameStateRef.current = gameState
   }, [gameState])
-
-  // Initialize animator
-  useEffect(() => {
-    if (!animatorRef.current) {
-      const animationSet = createArcherAnimationSet()
-      animatorRef.current = new SpriteAnimator(animationSet)
-    }
-  }, [])
-
-  // Auto-start countdown when component mounts
-  useEffect(() => {
-    setShowCountdown(true)
-  }, [])
 
   // Handle confirmation
   const handleConfirmStart = () => {
@@ -87,21 +79,22 @@ export default function LastStandGame({
 
   // Start game
   const startGame = () => {
-    // Initialize game state with proper structure
     const initialState = createInitialLastStandState(playerId, playerName, gameMode)
-    setGameState(initialState)
-    gameStateRef.current = initialState
+    // The useGameControls hook expects the player to be in a `players` object
+    const adaptedState = {
+      ...initialState,
+      players: {
+        player: initialState.player,
+      },
+    }
+    setGameState(adaptedState)
+    gameStateRef.current = adaptedState
 
-    // Reset frame count and cooldowns
-    frameCountRef.current = 0
-    specialCooldownRef.current = 0
     setSpecialCooldown(0)
 
-    // Start game loop
     lastUpdateTimeRef.current = Date.now()
     requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
 
-    // Play background music
     if (!audioManager.isSoundMuted()) {
       try {
         audioManager.startBackgroundMusic()
@@ -119,84 +112,47 @@ export default function LastStandGame({
     }
 
     const now = Date.now()
-    const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1) // Cap delta time
+    const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1)
     lastUpdateTimeRef.current = now
-    frameCountRef.current++
 
-    // Update cooldowns
-    if (specialCooldownRef.current > 0) {
-      specialCooldownRef.current = Math.max(0, specialCooldownRef.current - deltaTime)
-      setSpecialCooldown(specialCooldownRef.current)
+    // The useGameControls hook updates the controls directly in gameStateRef.
+    // We just need to run the game engine.
+    const unadaptedState = {
+      ...gameStateRef.current,
+      player: gameStateRef.current.players.player,
     }
 
-    // Update player controls based on input
-    updatePlayerControls()
+    const newState = updateLastStandGameState(unadaptedState, deltaTime)
 
-    // Update game state
-    const newState = updateLastStandGameState(gameStateRef.current, deltaTime)
+    // Re-adapt state for the next frame
+    const adaptedState = {
+      ...newState,
+      players: {
+        player: newState.player,
+      },
+    }
 
-    // Check for game over
     if (newState.isGameOver && !gameStateRef.current.isGameOver) {
       handleGameOver(newState)
     }
 
-    // Update state
-    gameStateRef.current = newState
-    setGameState(newState)
+    gameStateRef.current = adaptedState
+    setGameState(adaptedState)
+    setSpecialCooldown(newState.player.specialCooldown || 0)
 
-    // Continue game loop
     if (!newState.isGameOver) {
       requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
     }
   }
 
-  // Update player controls based on input
-  const updatePlayerControls = () => {
-    const newState = { ...gameStateRef.current }
-
-    // Update movement controls
-    newState.player.controls.up = keysPressed.current.has("w") || keysPressed.current.has("ArrowUp")
-    newState.player.controls.down = keysPressed.current.has("s") || keysPressed.current.has("ArrowDown")
-    newState.player.controls.left = keysPressed.current.has("a") || keysPressed.current.has("ArrowLeft")
-    newState.player.controls.right = keysPressed.current.has("d") || keysPressed.current.has("ArrowRight")
-
-    // Update shooting controls
-    newState.player.controls.shoot = mouseButtonsRef.current.left || keysPressed.current.has(" ")
-    newState.player.controls.special = mouseButtonsRef.current.right || keysPressed.current.has("q")
-
-    // Add explosive arrow control (E key)
-    newState.player.controls.explosiveArrow = keysPressed.current.has("e") && specialCooldownRef.current === 0
-
-    // If explosive arrow is triggered, set cooldown
-    if (newState.player.controls.explosiveArrow) {
-      specialCooldownRef.current = 30 // 30 second cooldown
-      setSpecialCooldown(30)
-    }
-
-    newState.player.controls.dash = keysPressed.current.has("Shift")
-
-    // Calculate player rotation based on mouse position
-    if (mousePositionRef.current) {
-      const dx = mousePositionRef.current.x - newState.player.position.x
-      const dy = mousePositionRef.current.y - newState.player.position.y
-      newState.player.rotation = Math.atan2(dy, dx)
-    }
-
-    gameStateRef.current = newState
-  }
-
   // Handle game over
   const handleGameOver = (finalState) => {
     setShowGameOver(true)
-
-    // Stop background music
     try {
       audioManager.stopBackgroundMusic()
     } catch (error) {
       console.error("Failed to stop background music:", error)
     }
-
-    // Play game over sound
     if (!audioManager.isSoundMuted()) {
       try {
         playGameOverSound()
@@ -204,8 +160,6 @@ export default function LastStandGame({
         console.error("Failed to play game over sound:", error)
       }
     }
-
-    // Log game stats
     debugManager.logInfo("LAST_STAND", "Game over", {
       score: finalState.playerStats.score,
       wave: finalState.completedWaves,
@@ -213,27 +167,16 @@ export default function LastStandGame({
     })
   }
 
-  // Handle restart
-  const handleRestart = () => {
-    setShowGameOver(false)
-    setShowConfirmation(true)
-  }
-
   // Handle exit
   const handleExit = () => {
-    // Clean up
     if (requestAnimationFrameIdRef.current) {
       cancelAnimationFrame(requestAnimationFrameIdRef.current)
     }
-
-    // Stop background music
     try {
       audioManager.stopBackgroundMusic()
     } catch (error) {
       console.error("Failed to stop background music:", error)
     }
-
-    // Call onGameEnd with stats
     onGameEnd({
       score: gameState.playerStats.score,
       wave: gameState.completedWaves,
@@ -241,120 +184,26 @@ export default function LastStandGame({
     })
   }
 
-  // Set up keyboard and mouse controls
+  // Set up keyboard listener for pause
   useEffect(() => {
-    if (showConfirmation || showCountdown || showGameOver) return
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current.add(e.key)
-
-      // Handle pause
       if (e.key === "Escape") {
         setIsPaused((prev) => !prev)
       }
     }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current.delete(e.key)
-    }
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const canvas = document.querySelector("canvas")
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      mousePositionRef.current = {
-        x: ((e.clientX - rect.left) / rect.width) * canvas.width,
-        y: ((e.clientY - rect.top) / rect.height) * canvas.height,
-      }
-    }
-
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.button === 0) {
-        // Left click
-        mouseButtonsRef.current.left = true
-
-        // Play shoot sound
-        try {
-          playBowDrawSound()
-        } catch (error) {
-          console.error("Failed to play shoot sound:", error)
-        }
-      } else if (e.button === 2) {
-        // Right click
-        mouseButtonsRef.current.right = true
-
-        // Play special sound
-        try {
-          playBowFullDrawSound()
-        } catch (error) {
-          console.error("Failed to play special sound:", error)
-        }
-      }
-    }
-
-    const handleMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) {
-        // Left click
-        mouseButtonsRef.current.left = false
-
-        // Play release sound
-        try {
-          playBowReleaseSound()
-        } catch (error) {
-          console.error("Failed to play release sound:", error)
-        }
-      } else if (e.button === 2) {
-        // Right click
-        mouseButtonsRef.current.right = false
-      }
-    }
-
-    const handleContextMenu = (e: MouseEvent) => {
-      // Prevent context menu from appearing on right-click
-      e.preventDefault()
-    }
-
-    // Add event listeners
     window.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("keyup", handleKeyUp)
-    window.addEventListener("mousemove", handleMouseMove)
-    window.addEventListener("mousedown", handleMouseDown)
-    window.addEventListener("mouseup", handleMouseUp)
-    window.addEventListener("contextmenu", handleContextMenu)
-
-    // Clean up
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
-      window.removeEventListener("mousemove", handleMouseMove)
-      window.removeEventListener("mousedown", handleMouseDown)
-      window.removeEventListener("mouseup", handleMouseUp)
-      window.removeEventListener("contextmenu", handleContextMenu)
-
-      if (requestAnimationFrameIdRef.current) {
-        cancelAnimationFrame(requestAnimationFrameIdRef.current)
-      }
-
-      // Stop background music
-      try {
-        audioManager.stopBackgroundMusic()
-      } catch (error) {
-        console.error("Failed to stop background music:", error)
-      }
     }
-  }, [showConfirmation, showCountdown, showGameOver])
+  }, [])
 
   // Initialize audio
   useEffect(() => {
-    // Initialize audio
     try {
       audioManager.init()
     } catch (error) {
       console.error("Failed to initialize audio:", error)
     }
-
-    // Clean up
     return () => {
       try {
         audioManager.stopBackgroundMusic()
@@ -417,7 +266,7 @@ export default function LastStandGame({
                   <li>Each wave gets progressively harder</li>
                   <li>Score points by defeating enemies</li>
                   <li>Special enemies are worth more points</li>
-                  <li>Your final score determines your position on the leaderboard</li>
+                  <li>Your final score now determines your position on the leaderboard</li>
                 </ul>
               </div>
 
@@ -445,7 +294,7 @@ export default function LastStandGame({
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" className="border-2 border-black" onClick={onCancel}>
+            <Button variant="outline" className="border-2 border-black bg-transparent" onClick={onCancel}>
               Cancel
             </Button>
             <Button
@@ -537,13 +386,11 @@ export default function LastStandGame({
 
   // Render game
   return (
-    <div className="relative h-[600px] bg-gray-900 rounded-lg">
-      {/* Game renderer */}
+    <div className="relative h-[600px] bg-gray-900 rounded-lg overflow-hidden">
       <LastStandRenderer gameState={gameState} />
 
       {/* HUD */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between">
-        {/* Player stats */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between pointer-events-none">
         <div className="flex items-center gap-2">
           <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
             <Heart className="h-4 w-4 text-red-500" />
@@ -554,18 +401,14 @@ export default function LastStandGame({
               ></div>
             </div>
           </div>
-
           <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
             <Skull className="h-4 w-4" />
             <span className="font-mono">{gameState.enemies.length}</span>
           </div>
-
           <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
             <Trophy className="h-4 w-4 text-yellow-500" />
             <span className="font-mono">{gameState.playerStats.score}</span>
           </div>
-
-          {/* Explosive Arrow Cooldown */}
           <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
             <Zap className={`h-4 w-4 ${specialCooldown === 0 ? "text-orange-500" : "text-gray-400"}`} />
             <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
@@ -579,22 +422,58 @@ export default function LastStandGame({
             </span>
           </div>
         </div>
-
-        {/* Wave info */}
         <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
           <span className="font-mono">Wave {gameState.currentWave.number}</span>
         </div>
-
-        {/* Time */}
         <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
           <Clock className="h-4 w-4" />
           <span className="font-mono">{formatTime(gameState.gameTime)}</span>
         </div>
       </div>
 
+      {/* Mobile Controls */}
+      {isMobile && isGameActive && (
+        <>
+          <div className="absolute bottom-8 left-8">
+            <Joystick
+              size={120}
+              baseColor="rgba(255, 255, 255, 0.2)"
+              stickColor="rgba(255, 255, 255, 0.5)"
+              move={(e) => gameInputHandler.handleMovementJoystick(e)}
+              stop={(e) => gameInputHandler.handleMovementJoystick(e)}
+            />
+          </div>
+          <div className="absolute bottom-8 right-48 flex flex-col-reverse gap-4">
+            <button
+              className="w-16 h-16 rounded-full bg-blue-500/50 text-white font-bold border-2 border-blue-300 flex items-center justify-center active:bg-blue-400"
+              onTouchStart={() => gameInputHandler.handleActionPress("dash", true)}
+              onTouchEnd={() => gameInputHandler.handleActionPress("dash", false)}
+            >
+              X
+            </button>
+            <button
+              className="w-16 h-16 rounded-full bg-purple-500/50 text-white font-bold border-2 border-purple-300 flex items-center justify-center active:bg-purple-400"
+              onTouchStart={() => gameInputHandler.handleActionPress("special", true)}
+              onTouchEnd={() => gameInputHandler.handleActionPress("special", false)}
+            >
+              Y
+            </button>
+          </div>
+          <div className="absolute bottom-8 right-8">
+            <Joystick
+              size={120}
+              baseColor="rgba(255, 255, 255, 0.2)"
+              stickColor="rgba(255, 255, 255, 0.5)"
+              move={(e) => gameInputHandler.handleAimingJoystick(e)}
+              stop={(e) => gameInputHandler.handleAimingJoystick(e)}
+            />
+          </div>
+        </>
+      )}
+
       {/* Pause menu */}
       {isPaused && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50">
           <Card className="w-[300px] bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <CardHeader>
               <CardTitle className="font-mono text-center">PAUSED</CardTitle>
@@ -606,7 +485,7 @@ export default function LastStandGame({
               >
                 Resume
               </Button>
-              <Button variant="outline" className="w-full border-2 border-black" onClick={handleExit}>
+              <Button variant="outline" className="w-full border-2 border-black bg-transparent" onClick={handleExit}>
                 Exit Game
               </Button>
             </CardContent>
@@ -615,10 +494,12 @@ export default function LastStandGame({
       )}
 
       {/* Controls hint */}
-      <div className="absolute bottom-4 left-4 right-4 text-center text-white/70 text-sm bg-black/30 py-1 px-2 rounded-md">
-        WASD/Arrows to move | Mouse to aim | Left Click/Space to shoot | E for explosive arrow | Right Click/Q for
-        special | Shift to dash | ESC to pause
-      </div>
+      {!isMobile && (
+        <div className="absolute bottom-4 left-4 right-4 text-center text-white/70 text-sm bg-black/30 py-1 px-2 rounded-md pointer-events-none">
+          WASD/Arrows to move | Mouse to aim | Left Click/Space to shoot | E for explosive arrow | Right Click/Q for
+          special | Shift to dash | ESC to pause
+        </div>
+      )}
     </div>
   )
 }

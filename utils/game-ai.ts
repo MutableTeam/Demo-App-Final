@@ -19,8 +19,12 @@ interface AIState {
   isDrawing: boolean
   drawStartTime: number
   shotCooldown: number
-  actionCooldown: number // Time until next major action can be taken
-  lastMovementControls: { up: boolean; down: boolean; left: boolean; right: boolean }
+
+  // New state for smoother movement
+  movementMode: "idle" | "approaching" | "strafing" | "retreating"
+  movementModeChangeTime: number
+  strafeDirection: "cw" | "ccw" // Clockwise or Counter-Clockwise
+  lastActionTime: number // To add delays between actions
 }
 
 /**
@@ -40,8 +44,11 @@ export function createAIController(difficulty: AIDifficulty = AIDifficulty.MEDIU
     isDrawing: false,
     drawStartTime: 0,
     shotCooldown: 0,
-    actionCooldown: 0,
-    lastMovementControls: { up: false, down: false, left: false, right: false },
+    // New state
+    movementMode: "patrolling",
+    movementModeChangeTime: 0,
+    strafeDirection: Math.random() > 0.5 ? "cw" : "ccw",
+    lastActionTime: 0,
   }
 
   // Adjust parameters based on difficulty
@@ -87,18 +94,22 @@ function updateAI(
   state: AIState,
 ): { controls: any; targetRotation: number } {
   const player = gameState.players[playerId]
+  const now = Date.now()
+
+  const baseControls = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    shoot: false,
+    dash: false,
+    special: false,
+    explosiveArrow: false,
+  }
+
   if (!player || player.health <= 0 || player.lives <= 0 || player.animationState === "death") {
     return {
-      controls: {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        shoot: false,
-        dash: false,
-        special: false,
-        explosiveArrow: false,
-      },
+      controls: baseControls,
       targetRotation: player?.rotation || 0,
     }
   }
@@ -108,18 +119,15 @@ function updateAI(
   if (state.shotCooldown > 0) {
     state.shotCooldown -= deltaTime
   }
-  if (state.actionCooldown > 0) {
-    state.actionCooldown -= deltaTime
-  }
 
-  // 1. Decision Making: Re-evaluate targets periodically
-  if (state.lastDecisionTime > state.decisionInterval) {
-    state.lastDecisionTime = 0
+  // If enough time has passed, re-evaluate the target
+  if (now - state.lastDecisionTime > state.decisionInterval * 1000) {
+    state.lastDecisionTime = now
     findTarget(player, gameState, state)
   }
 
-  // 2. Action: Execute the current behavior (patrolling or attacking)
-  return executeAction(player, gameState, state, deltaTime)
+  // Execute the current behavior (patrolling or attacking)
+  return executeAction(player, gameState, state, deltaTime, baseControls)
 }
 
 /**
@@ -162,6 +170,33 @@ function findTarget(player: Player, gameState: GameState, state: AIState): void 
 }
 
 /**
+ * Manages the AI's movement state to prevent jittering.
+ */
+function updateMovementMode(player: Player, target: Player, state: AIState, distance: number) {
+  const now = Date.now()
+  if (now - state.movementModeChangeTime < 2000) {
+    // Only change mode every 2 seconds to prevent rapid switching
+    return
+  }
+
+  const preferredDistance = 250
+  const buffer = 50
+
+  if (distance > preferredDistance + buffer) {
+    state.movementMode = "approaching"
+  } else if (distance < preferredDistance - buffer) {
+    state.movementMode = "retreating"
+  } else {
+    state.movementMode = "strafing"
+    // Flip strafe direction occasionally
+    if (Math.random() < 0.2) {
+      state.strafeDirection = state.strafeDirection === "cw" ? "ccw" : "cw"
+    }
+  }
+  state.movementModeChangeTime = now
+}
+
+/**
  * Executes the AI's current action (attacking or patrolling).
  * This function determines movement, aiming, and shooting controls.
  */
@@ -170,49 +205,43 @@ function executeAction(
   gameState: GameState,
   state: AIState,
   deltaTime: number,
+  controls: any,
 ): { controls: any; targetRotation: number } {
-  const controls = {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-    shoot: false,
-    dash: false,
-    special: false,
-    explosiveArrow: false,
-  }
   let targetRotation = player.rotation
+  const now = Date.now()
 
-  // If we are in an action cooldown, continue previous movement to avoid jitter
-  if (state.actionCooldown > 0) {
-    Object.assign(controls, state.lastMovementControls)
+  // Enforce a brief pause after any major action to prevent jitter
+  if (now - state.lastActionTime < 300) {
+    return { controls, targetRotation }
   }
 
   if (state.action === "attacking" && state.targetId) {
     const target = gameState.players[state.targetId]
     if (target && target.health > 0 && target.animationState !== "death") {
       const distance = calculateDistance(player.position, target.position)
-      const preferredDistance = 250
+      updateMovementMode(player, target, state, distance)
 
       // Aiming: Always aim at the target
       const dx = target.position.x - player.position.x
       const dy = target.position.y - player.position.y
       targetRotation = Math.atan2(dy, dx)
 
-      // Movement logic (only if not in cooldown)
-      if (state.actionCooldown <= 0) {
-        if (distance > preferredDistance + 80) {
+      // Movement based on the current mode
+      switch (state.movementMode) {
+        case "approaching":
           moveTowards(controls, player.position, target.position)
-        } else if (distance < preferredDistance - 50) {
+          break
+        case "retreating":
           moveAway(controls, player.position, target.position)
-        } else {
-          strafe(controls, player.position, target.position)
-        }
+          break
+        case "strafing":
+          strafeSmoothly(controls, player.position, target.position, state.strafeDirection)
+          break
       }
 
       // Shooting Logic
       const canShoot = hasLineOfSight(player, target, gameState) && distance < 400 && state.shotCooldown <= 0
-      if (canShoot && state.actionCooldown <= 0) {
+      if (canShoot) {
         if (!state.isDrawing) {
           controls.shoot = true
           state.isDrawing = true
@@ -225,21 +254,20 @@ function executeAction(
             state.isDrawing = false
             state.lastShotTime = gameState.gameTime
             state.shotCooldown = 1.5 + Math.random()
-            state.actionCooldown = 0.3 // Brief pause after shooting
+            state.lastActionTime = now // Trigger action cooldown
           } else {
             controls.shoot = true
           }
         }
       } else if (state.isDrawing) {
-        // If target is lost or can't shoot, cancel draw
         controls.shoot = false
         state.isDrawing = false
       }
 
       // Dash logic
-      if (player.dashCooldown <= 0 && Math.random() < 0.01 && state.actionCooldown <= 0) {
+      if (player.dashCooldown <= 0 && Math.random() < 0.01) {
         controls.dash = true
-        state.actionCooldown = 0.5 // Pause after dashing
+        state.lastActionTime = now // Trigger action cooldown
       }
     } else {
       state.targetId = null
@@ -247,7 +275,7 @@ function executeAction(
     }
   }
 
-  if (state.action === "patrolling" && state.actionCooldown <= 0) {
+  if (state.action === "patrolling") {
     if (!state.patrolTarget || calculateDistance(player.position, state.patrolTarget) < 80) {
       state.patrolTarget = {
         x: Math.random() * (gameState.arenaSize.width - 100) + 50,
@@ -260,14 +288,6 @@ function executeAction(
     if (dx !== 0 || dy !== 0) {
       targetRotation = Math.atan2(dy, dx)
     }
-  }
-
-  // Store movement for next frame's potential cooldown
-  state.lastMovementControls = {
-    up: controls.up,
-    down: controls.down,
-    left: controls.left,
-    right: controls.right,
   }
 
   return { controls, targetRotation }
@@ -297,24 +317,26 @@ function moveAway(controls: any, currentPos: Vector2D, targetPos: Vector2D) {
   if (targetPos.x > currentPos.x + threshold) controls.left = true
 }
 
-function strafe(controls: any, currentPos: Vector2D, targetPos: Vector2D) {
+function strafeSmoothly(controls: any, currentPos: Vector2D, targetPos: Vector2D, direction: "cw" | "ccw") {
   const dx = targetPos.x - currentPos.x
   const dy = targetPos.y - currentPos.y
 
-  // Strafe perpendicular to the line between AI and target
-  if (Math.random() > 0.5) {
-    // Strafe left relative to target
-    controls.up = dx > 0
-    controls.down = dx < 0
-    controls.left = dy < 0
-    controls.right = dy > 0
-  } else {
-    // Strafe right
-    controls.up = dx < 0
-    controls.down = dx > 0
-    controls.left = dy > 0
-    controls.right = dy < 0
+  // Get the vector perpendicular to the line of sight
+  let perpDx = -dy
+  let perpDy = dx
+
+  if (direction === "ccw") {
+    perpDx = dy
+    perpDy = -dx
   }
+
+  // The target point for strafing is slightly ahead and to the side
+  const strafeTargetPos = {
+    x: currentPos.x + perpDx,
+    y: currentPos.y + perpDy,
+  }
+
+  moveTowards(controls, currentPos, strafeTargetPos)
 }
 
 function hasLineOfSight(player: Player, target: Player, gameState: GameState): boolean {

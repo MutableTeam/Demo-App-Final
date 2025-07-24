@@ -1,3 +1,7 @@
+"use client"
+
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { PocketIcon as Pool } from "lucide-react"
 import type { GameConfig, GameImplementation, GameInitParams } from "@/types/game-registry"
 import PixelPoolGameComponent from "./game-component"
@@ -14,6 +18,7 @@ const pixelPoolConfig: GameConfig = {
   minWager: 5,
   maxPlayers: 2,
   gameType: "turn-based",
+  gameCategory: "PvP", // Add this line
   modes: [
     {
       id: "classic",
@@ -43,6 +48,38 @@ const PixelPoolGame: GameImplementation = {
       status: "waiting",
     }
   },
+}
+
+const PixelPool: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  useEffect(() => {
+    setIsLoading(true)
+    const iframe = iframeRef.current
+
+    if (iframe) {
+      iframe.onload = () => {
+        setIsLoading(false)
+      }
+    }
+  }, [])
+
+  return (
+    <div>
+      <h1>{pixelPoolConfig.name}</h1>
+      <p>{pixelPoolConfig.description}</p>
+      {isLoading && <p>Loading...</p>}
+      <iframe
+        ref={iframeRef}
+        src={pixelPoolConfig.gameUrl}
+        width={pixelPoolConfig.width}
+        height={pixelPoolConfig.height}
+        style={{ border: "none" }}
+        title={pixelPoolConfig.name}
+      />
+    </div>
+  )
 }
 
 export default PixelPoolGame

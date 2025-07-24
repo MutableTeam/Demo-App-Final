@@ -337,3 +337,104 @@ img.responsive {
     --font-size-scale: 0.9;
   }
 }
+
+/* Mobile landscape optimizations */
+@media (max-width: 767px) and (orientation: landscape) {
+  /* Reduce card heights in landscape */
+  .flip-card {
+    height: auto !important;
+    min-height: 200px !important;
+    max-height: 240px !important;
+  }
+
+  /* Optimize game card content for landscape */
+  .flip-card-back .relative {
+    padding: 0.75rem !important;
+  }
+
+  .flip-card-back .flex-1 {
+    min-height: auto !important;
+  }
+
+  .flip-card-back .space-y-3 {
+    gap: 0.5rem !important;
+  }
+
+  .flip-card-back .space-y-4 {
+    gap: 0.5rem !important;
+  }
+
+  .flip-card-back p {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 1 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  /* Ensure buttons are always visible */
+  .flip-card-back button {
+    min-height: 36px !important;
+    font-size: 0.75rem !important;
+    padding: 0.5rem !important;
+  }
+
+  /* Reduce margins and padding */
+  .flip-card-back .mt-4,
+  .flip-card-back .mt-6 {
+    margin-top: 0.5rem !important;
+  }
+
+  /* Optimize text sizes */
+  .flip-card-back h3 {
+    font-size: 0.875rem !important;
+  }
+
+  .flip-card-back .text-xs,
+  .flip-card-back .text-sm,
+  .flip-card-back .text-base {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Landscape utility classes */
+@media (orientation: landscape) {
+  .landscape\:p-3 {
+    padding: 0.75rem !important;
+  }
+
+  .landscape\:space-y-2 > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  .landscape\:space-y-1 > * + * {
+    margin-top: 0.25rem !important;
+  }
+
+  .landscape\:mt-2 {
+    margin-top: 0.5rem !important;
+  }
+
+  .landscape\:text-xs {
+    font-size: 0.75rem !important;
+  }
+
+  .landscape\:text-sm {
+    font-size: 0.875rem !important;
+  }
+
+  .landscape\:min-h-\[36px\] {
+    min-height: 36px !important;
+  }
+
+  .landscape\:py-2 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .landscape\:line-clamp-1 {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 1 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+}

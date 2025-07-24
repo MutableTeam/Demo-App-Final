@@ -2,11 +2,10 @@ import { Target, Users } from "lucide-react"
 import { gameRegistry } from "@/types/game-registry"
 import GameComponent from "./game-component"
 import Instructions from "./instructions"
-import type { GameConfig } from "@/types/game-registry"
 import { debugManager } from "@/utils/debug-utils"
 
 // Game configuration
-const topDownShooterConfig: GameConfig = {
+const topDownShooterConfig = {
   id: "top-down-shooter",
   name: "Archer Arena",
   description: "A fast-paced top-down archery battle game",
@@ -16,6 +15,7 @@ const topDownShooterConfig: GameConfig = {
   minWager: 1,
   maxPlayers: 4,
   gameType: "action",
+  gameCategory: "PvP", // Add this line
   modes: [
     {
       id: "duel",

@@ -9,6 +9,17 @@ import {
 } from "./game-state"
 import { audioManager } from "@/utils/audio-manager"
 
+// A more explicit collision check function
+function checkCircleCollision(
+  entity1: { position: Vector2D; size: number },
+  entity2: { position: Vector2D; size: number },
+): boolean {
+  const dx = entity1.position.x - entity2.position.x
+  const dy = entity1.position.y - entity2.position.y
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  return distance < entity1.size + entity2.size
+}
+
 // Update game state
 export function updateLastStandGameState(state: LastStandGameState, deltaTime: number): LastStandGameState {
   // If game is over or paused, don't update
@@ -329,28 +340,53 @@ export function updateLastStandGameState(state: LastStandGameState, deltaTime: n
     }
   }
 
-  // Update enemies
+  // Update enemies with overhauled hit detection
   newState.enemies = newState.enemies.map((enemy) => {
-    // Create a deep copy of the enemy
     const updatedEnemy = {
       ...enemy,
       position: { ...enemy.position },
       velocity: { ...enemy.velocity },
     }
 
-    // Update enemy movement - move towards player
+    // Always update attack cooldown
+    if (updatedEnemy.attackCooldown > 0) {
+      updatedEnemy.attackCooldown -= deltaTime
+    }
+
+    // AI: Move towards player
     const dx = newState.player.position.x - updatedEnemy.position.x
     const dy = newState.player.position.y - updatedEnemy.position.y
     const distance = Math.sqrt(dx * dx + dy * dy)
-
-    // Set rotation to face player
     updatedEnemy.rotation = Math.atan2(dy, dx)
 
-    // Move towards player if not in attack range
-    const attackRange = updatedEnemy.size + newState.player.size + 10
+    // Check for collision with player for attacking
+    if (checkCircleCollision(updatedEnemy, newState.player)) {
+      // Collision detected: stop moving and attack
+      updatedEnemy.velocity.x = 0
+      updatedEnemy.velocity.y = 0
+      updatedEnemy.animationState = "attack"
 
-    if (distance > attackRange) {
-      // Move towards player
+      if (updatedEnemy.attackCooldown <= 0) {
+        // Cooldown is ready, let's attack!
+        if (!newState.player.isInvulnerable) {
+          newState.player.health -= updatedEnemy.damage
+          newState.player.isInvulnerable = true
+          newState.player.invulnerabilityTimer = 0.5 // 0.5s grace period
+          newState.player.animationState = "hit"
+          newState.player.hitAnimationTimer = 0.3
+          newState.player.lastAnimationChange = Date.now()
+
+          try {
+            audioManager.playSound("hit")
+          } catch (error) {
+            console.error("Failed to play player hit sound:", error)
+          }
+        }
+        // Reset cooldown after attacking
+        updatedEnemy.attackCooldown = 1.0 // 1 second between attacks
+      }
+    } else {
+      // No collision: move towards player
       const speed = updatedEnemy.speed
       const dirX = dx / distance
       const dirY = dy / distance
@@ -359,40 +395,8 @@ export function updateLastStandGameState(state: LastStandGameState, deltaTime: n
       updatedEnemy.velocity.y = dirY * speed
       updatedEnemy.animationState = "walk"
 
-      // Apply velocity
       updatedEnemy.position.x += updatedEnemy.velocity.x * deltaTime
       updatedEnemy.position.y += updatedEnemy.velocity.y * deltaTime
-    } else {
-      // In attack range, stop moving and attack
-      updatedEnemy.velocity.x = 0
-      updatedEnemy.velocity.y = 0
-      updatedEnemy.animationState = "attack"
-
-      // Attack player if cooldown is complete
-      if (updatedEnemy.attackCooldown <= 0) {
-        // Only damage player if not invulnerable
-        if (!newState.player.isInvulnerable) {
-          newState.player.health -= updatedEnemy.damage
-          newState.player.isInvulnerable = true
-          newState.player.invulnerabilityTimer = 0.5 // 0.5 seconds of invulnerability
-          newState.player.animationState = "hit"
-          newState.player.hitAnimationTimer = 0.3
-          newState.player.lastAnimationChange = Date.now()
-
-          // Play hit sound
-          try {
-            audioManager.playSound("hit")
-          } catch (error) {
-            console.error("Failed to play hit sound:", error)
-          }
-        }
-
-        // Reset attack cooldown
-        updatedEnemy.attackCooldown = 1.0 // 1 second between attacks
-      } else {
-        // Reduce attack cooldown
-        updatedEnemy.attackCooldown -= deltaTime
-      }
     }
 
     return updatedEnemy

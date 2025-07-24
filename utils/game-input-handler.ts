@@ -36,7 +36,6 @@ class GameInputHandler {
   private callbacks: {
     onStateChange?: (state: GameInputState) => void
   }
-  private isAiming = false // Tracks if the joystick is pulled past the threshold
 
   constructor() {
     this.state = {
@@ -48,9 +47,7 @@ class GameInputHandler {
     debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
   }
 
-  setCallbacks(callbacks: {
-    onStateChange?: (state: GameInputState) => void
-  }) {
+  setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
     this.callbacks = callbacks
   }
 
@@ -74,35 +71,35 @@ class GameInputHandler {
   }
 
   handleAimingJoystick(event: IJoystickUpdateEvent) {
-    const threshold = 0.2 // 20% power threshold
-    const distance = event ? event.distance : 0
-    const maxDistance = 50 // Assumed max radius of joystick
-    const currentPower = Math.min(distance / maxDistance, 1)
+    const { type, distance, x, y } = event
+    const chargeThreshold = 0.3 // 30% power threshold to initiate a shot
+    const maxDistance = 60 // Corresponds to half of the joystick's `size` prop (120)
 
-    if (currentPower > threshold) {
-      // Joystick is pulled back - INITIATE SHOT
-      if (!this.isAiming) {
-        this.isAiming = true
-        this.state.actions.shoot = true // Mimics mouse down
-        console.log("[InputHandler] Joystick pulled: Initiating shot (shoot: true)")
-      }
+    const power = Math.min((distance || 0) / maxDistance, 1)
 
-      // Update aiming angle and power
-      if (event.x !== null && event.y !== null) {
-        const joystickAngle = Math.atan2(event.y, event.x)
-        this.state.aiming.angle = joystickAngle + Math.PI // Fire opposite to pull
+    if (type === "stop") {
+      // Joystick released
+      if (this.state.aiming.active) {
+        debugManager.logInfo(
+          "INPUT",
+          `[AIM] Released. Firing with power ${this.state.aiming.power.toFixed(2)}. \`shoot\` is now false.`,
+        )
       }
-      this.state.aiming.power = currentPower
-      this.state.aiming.active = true
-    } else {
-      // Joystick is released - FIRE SHOT
-      if (this.isAiming) {
-        this.isAiming = false
-        this.state.actions.shoot = false // Mimics mouse up
-        console.log("[InputHandler] Joystick released: Firing shot (shoot: false)")
-      }
+      this.state.actions.shoot = false // Signals the game engine to fire
       this.state.aiming.active = false
       this.state.aiming.power = 0
+    } else if (type === "move" && power >= chargeThreshold) {
+      // AIMING: User is pulling back the joystick
+      if (!this.state.aiming.active) {
+        debugManager.logInfo("INPUT", "[AIM] Started aiming. `shoot` is now true.")
+      }
+      this.state.actions.shoot = true // Signals the game engine to start/continue drawing the bow
+      this.state.aiming.active = true
+      this.state.aiming.power = power
+      if (x !== null && y !== null) {
+        // Inverse direction for aiming: pull back to shoot forward
+        this.state.aiming.angle = Math.atan2(y, x) + Math.PI
+      }
     }
 
     this.notifyStateChange()
@@ -118,6 +115,7 @@ class GameInputHandler {
 
   private notifyStateChange() {
     if (this.callbacks.onStateChange) {
+      // Deep copy to prevent mutations from propagating unexpectedly.
       const stateCopy = JSON.parse(JSON.stringify(this.state))
       this.callbacks.onStateChange(stateCopy)
     }
@@ -130,7 +128,6 @@ class GameInputHandler {
       actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
-    this.isAiming = false
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
   }
 }

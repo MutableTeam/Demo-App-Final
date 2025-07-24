@@ -20,6 +20,10 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
+import { gameRegistry } from "@/types/game-registry"
+import { Users, Target } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { TOKENS } from "@/utils/image-paths"
 
 // Cyberpunk styled components
 const glitchAnim1 = keyframes`
@@ -228,6 +232,8 @@ export default function MutablePlatform({
   const [mutbBalance, setMutbBalance] = useState<number>(100) // Mock MUTB balance
   // Local state to track balance changes without waiting for blockchain updates
   const [localBalance, setLocalBalance] = useState<number | null>(balance)
+  const [gameCategory, setGameCategory] = useState<"PvP" | "PvE">("PvP")
+  const [wagerToken, setWagerToken] = useState<"MUTB" | "SOL">("MUTB")
 
   // Update useEffect to sync localBalance with balance from props
   useEffect(() => {
@@ -252,6 +258,11 @@ export default function MutablePlatform({
     trackEvent("developer_contact", { source: "develop_tab" })
     window.location.href =
       "mailto:mutablepvp@gmail.com?subject=Game%20Developer%20Submission&body=I'm%20interested%20in%20developing%20a%20game%20for%20the%20Mutable%20platform.%0A%0AGame%20Name:%20%0AGame%20Type:%20%0ABrief%20Description:%20%0A%0AThank%20you!"
+  }
+
+  // Get filtered games based on category
+  const getFilteredGames = () => {
+    return gameRegistry.getGamesByCategory(gameCategory)
   }
 
   return (
@@ -457,12 +468,136 @@ export default function MutablePlatform({
               )}
             </div>
           ) : (
-            <GameSelection
-              publicKey={publicKey}
-              balance={localBalance}
-              mutbBalance={mutbBalance}
-              onSelectGame={handleSelectGame}
-            />
+            <div className="space-y-6">
+              {/* Wager Token Selection */}
+              <div
+                className={cn(
+                  "flex items-center justify-between px-4 py-3 rounded-lg border",
+                  isCyberpunk
+                    ? "bg-black/30 border-cyan-500/30"
+                    : "bg-[#FFD54F] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
+                    Wager Token:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "text-sm font-mono",
+                        wagerToken === "MUTB"
+                          ? isCyberpunk
+                            ? "text-cyan-400 font-bold"
+                            : "text-black font-bold"
+                          : isCyberpunk
+                            ? "text-gray-500"
+                            : "text-gray-600",
+                      )}
+                    >
+                      MUTB
+                    </span>
+                    <Switch
+                      checked={wagerToken === "SOL"}
+                      onCheckedChange={(checked) => setWagerToken(checked ? "SOL" : "MUTB")}
+                      className={isCyberpunk ? "data-[state=checked]:bg-cyan-500" : ""}
+                    />
+                    <span
+                      className={cn(
+                        "text-sm font-mono",
+                        wagerToken === "SOL"
+                          ? isCyberpunk
+                            ? "text-cyan-400 font-bold"
+                            : "text-black font-bold"
+                          : isCyberpunk
+                            ? "text-gray-500"
+                            : "text-gray-600",
+                      )}
+                    >
+                      SOL
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {wagerToken === "MUTB" ? (
+                    <>
+                      <Image
+                        src={TOKENS.MUTABLE || "/placeholder.svg"}
+                        alt="MUTB"
+                        width={16}
+                        height={16}
+                        className="rounded-full"
+                      />
+                      <span
+                        className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}
+                      >
+                        {mutbBalance.toFixed(2)} MUTB
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
+                      <span
+                        className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}
+                      >
+                        {localBalance?.toFixed(4) || "0.0000"} SOL
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* PvP/PvE Toggle */}
+              <Tabs
+                defaultValue="PvP"
+                value={gameCategory}
+                onValueChange={(value) => setGameCategory(value as "PvP" | "PvE")}
+                className="w-full"
+              >
+                <TabsList
+                  className={cn(
+                    "grid w-full grid-cols-2 mb-6 max-w-md mx-auto p-0 h-auto",
+                    isCyberpunk ? "bg-black/30 border border-cyan-500/30" : "bg-[#FFD54F] border-2 border-black",
+                  )}
+                >
+                  <TabsTrigger
+                    value="PvP"
+                    className={cn(
+                      "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 py-2 px-1 h-auto flex-col",
+                      isCyberpunk
+                        ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
+                        : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
+                    )}
+                    onClick={withClickSound()}
+                  >
+                    <Users className="h-4 w-4" />
+                    <span>PvP</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="PvE"
+                    className={cn(
+                      "text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 py-2 px-1 h-auto flex-col",
+                      isCyberpunk
+                        ? "text-cyan-200/70 hover:bg-cyan-500/10 hover:text-cyan-200 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-100"
+                        : "text-black/70 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-black",
+                    )}
+                    onClick={withClickSound()}
+                  >
+                    <Target className="h-4 w-4" />
+                    <span>PvE</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <GameSelection
+                publicKey={publicKey}
+                balance={localBalance}
+                mutbBalance={mutbBalance}
+                onSelectGame={handleSelectGame}
+                games={getFilteredGames()}
+                wagerToken={wagerToken}
+              />
+            </div>
           )}
         </TabsContent>
 

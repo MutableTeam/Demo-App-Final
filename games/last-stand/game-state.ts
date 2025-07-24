@@ -87,7 +87,6 @@ export interface Enemy {
   size: number
   speed: number
   damage: number
-  lastAttackTime: number
   attackCooldown: number
   animationState: string
   value: number
@@ -310,8 +309,7 @@ export function createEnemy(
     size: stats.size,
     speed: stats.speed,
     damage: stats.damage,
-    lastAttackTime: Date.now(),
-    attackCooldown: 1000,
+    attackCooldown: 0.5 + Math.random() * 0.5, // Start with a random cooldown to desync attacks
     animationState: "walk",
     value: stats.value,
   }

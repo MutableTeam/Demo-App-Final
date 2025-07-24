@@ -41,20 +41,15 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         player.controls.explosiveArrow = inputState.actions.explosiveArrow
 
         // --- Map aiming and shooting logic ---
-        player.rotation = inputState.aiming.angle
+        // The game engine will interpret these state changes.
+        // `shoot: true` starts drawing the bow.
+        // The transition from `shoot: true` to `shoot: false` fires the arrow.
         player.controls.shoot = inputState.actions.shoot
 
-        // Manage the `isDrawingBow` state carefully.
-        // If the input handler says we are aiming, then we are drawing.
+        // Only update player rotation when aiming is active to prevent the character
+        // from snapping to a default angle when the joystick is released.
         if (inputState.aiming.active) {
-          player.isDrawingBow = true
-        }
-        // If a shoot command is issued, it implies a release, but we must keep
-        // `isDrawingBow` true for this frame so the engine can process the shot.
-        // The game engine will be responsible for setting `isDrawingBow` to false after firing.
-        // Only set `isDrawingBow` to false if we are explicitly not aiming AND not shooting.
-        else if (!inputState.actions.shoot) {
-          player.isDrawingBow = false
+          player.rotation = inputState.aiming.angle
         }
       }
 
