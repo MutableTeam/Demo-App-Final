@@ -14,8 +14,6 @@ import CountdownTimer from "@/components/pvp-game/countdown-timer"
 import { formatTime } from "./utils"
 import { usePlatform } from "@/contexts/platform-context"
 import { useGameControls } from "@/hooks/use-game-controls"
-import { Joystick } from "react-joystick-component"
-import { gameInputHandler } from "@/utils/game-input-handler"
 
 interface LastStandGameProps {
   playerId: string
@@ -430,46 +428,6 @@ export default function LastStandGame({
           <span className="font-mono">{formatTime(gameState.gameTime)}</span>
         </div>
       </div>
-
-      {/* Mobile Controls */}
-      {isMobile && isGameActive && (
-        <>
-          <div className="absolute bottom-8 left-8">
-            <Joystick
-              size={120}
-              baseColor="rgba(255, 255, 255, 0.2)"
-              stickColor="rgba(255, 255, 255, 0.5)"
-              move={(e) => gameInputHandler.handleMovementJoystick(e)}
-              stop={(e) => gameInputHandler.handleMovementJoystick(e)}
-            />
-          </div>
-          <div className="absolute bottom-8 right-48 flex flex-col-reverse gap-4">
-            <button
-              className="w-16 h-16 rounded-full bg-blue-500/50 text-white font-bold border-2 border-blue-300 flex items-center justify-center active:bg-blue-400"
-              onTouchStart={() => gameInputHandler.handleActionPress("dash", true)}
-              onTouchEnd={() => gameInputHandler.handleActionPress("dash", false)}
-            >
-              X
-            </button>
-            <button
-              className="w-16 h-16 rounded-full bg-purple-500/50 text-white font-bold border-2 border-purple-300 flex items-center justify-center active:bg-purple-400"
-              onTouchStart={() => gameInputHandler.handleActionPress("special", true)}
-              onTouchEnd={() => gameInputHandler.handleActionPress("special", false)}
-            >
-              Y
-            </button>
-          </div>
-          <div className="absolute bottom-8 right-8">
-            <Joystick
-              size={120}
-              baseColor="rgba(255, 255, 255, 0.2)"
-              stickColor="rgba(255, 255, 255, 0.5)"
-              move={(e) => gameInputHandler.handleAimingJoystick(e)}
-              stop={(e) => gameInputHandler.handleAimingJoystick(e)}
-            />
-          </div>
-        </>
-      )}
 
       {/* Pause menu */}
       {isPaused && (

@@ -97,8 +97,10 @@ class GameInputHandler {
       this.state.aiming.active = true
       this.state.aiming.power = power
       if (x !== null && y !== null) {
-        // Inverse direction for aiming: pull back to shoot forward
-        this.state.aiming.angle = Math.atan2(y, x) + Math.PI
+        // Direct aiming: shoot where the joystick is pointed.
+        // We negate 'y' to convert from the joystick's coordinate system (y-up)
+        // to the canvas's coordinate system (y-down).
+        this.state.aiming.angle = Math.atan2(-y, x)
       }
     }
 

@@ -124,21 +124,21 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
           {/* Right: Aiming Joystick & Actions */}
           <div className="w-[25%] h-full flex flex-col items-center justify-center p-4 pointer-events-auto">
-            <div className="w-full text-center">
+            <div className="flex flex-col items-center justify-center w-full">
               <span className={labelClasses}>Aim & Shoot</span>
-              <Joystick
-                size={120}
-                baseColor="rgba(255, 0, 255, 0.2)"
-                stickColor="rgba(255, 0, 255, 0.7)"
-                move={(e) => gameInputHandler.handleAimingJoystick(e)}
-                stop={(e) => gameInputHandler.handleAimingJoystick(e)}
-                start={(e) => gameInputHandler.handleAimingJoystick(e)}
-              />
+              <div className="flex items-center justify-center w-full my-2">
+                <Joystick
+                  size={120}
+                  baseColor="rgba(255, 0, 255, 0.2)"
+                  stickColor="rgba(255, 0, 255, 0.7)"
+                  move={(e) => gameInputHandler.handleAimingJoystick(e)}
+                  stop={(e) => gameInputHandler.handleAimingJoystick(e)}
+                  start={(e) => gameInputHandler.handleAimingJoystick(e)}
+                />
+              </div>
               <span className={subLabelClasses}>Pull to charge, release to fire</span>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 w-auto h-auto place-items-center mt-8">
-              {" "}
-              {/* Added mt-8 for spacing */}
               <ActionButton label="X" action="dash" title="Dash" className="col-start-1 row-start-1" />
               <ActionButton label="Y" action="special" title="Special" className="col-start-2 row-start-1" />
             </div>
@@ -186,16 +186,18 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           </div>
 
           {/* Bottom Right: Aiming Joystick */}
-          <div className={controlsBaseClasses}>
+          <div className="flex flex-col items-center justify-center space-y-3">
             <span className={labelClasses}>Aim</span>
-            <Joystick
-              size={100}
-              baseColor="rgba(255, 0, 255, 0.2)"
-              stickColor="rgba(255, 0, 255, 0.7)"
-              move={(e) => gameInputHandler.handleAimingJoystick(e)}
-              stop={(e) => gameInputHandler.handleAimingJoystick(e)}
-              start={(e) => gameInputHandler.handleAimingJoystick(e)}
-            />
+            <div className="flex items-center justify-center">
+              <Joystick
+                size={100}
+                baseColor="rgba(255, 0, 255, 0.2)"
+                stickColor="rgba(255, 0, 255, 0.7)"
+                move={(e) => gameInputHandler.handleAimingJoystick(e)}
+                stop={(e) => gameInputHandler.handleAimingJoystick(e)}
+                start={(e) => gameInputHandler.handleAimingJoystick(e)}
+              />
+            </div>
           </div>
         </div>
       </div>
