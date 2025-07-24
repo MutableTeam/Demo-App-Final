@@ -1,6 +1,7 @@
 "use client"
 
 import type { Vector2D, PlayerAnimationState } from "@/components/pvp-game/game-engine"
+import type { Upgrade } from "./upgrades"
 
 export interface LastStandGameState {
   playerId: string
@@ -9,10 +10,14 @@ export interface LastStandGameState {
   player: Player
   enemies: Enemy[]
   arrows: Arrow[]
+  companions: Companion[]
+  effects: VisualEffect[]
   arenaSize: { width: number; height: number }
   gameTime: number
   isGameOver: boolean
   isPaused: boolean
+  isLevelingUp: boolean
+  availableUpgrades: Upgrade[]
   startTime: number
   currentWave: Wave
   completedWaves: number
@@ -30,6 +35,26 @@ export interface Player {
   health: number
   maxHealth: number
   color: string
+  // Rogue-like stats
+  level: number
+  xp: number
+  xpToNextLevel: number
+  upgrades: { [key: string]: number } // Tracks level of each upgrade
+  // Base stats that can be modified by upgrades
+  damageMultiplier: number
+  moveSpeedMultiplier: number
+  xpMultiplier: number
+  critChance: number
+  healthRegen: number
+  dashCooldownTime: number
+  // Upgrade flags/levels
+  multiShot: number
+  piercing: number
+  ricochet: number
+  explosiveArrows: boolean
+  frostArrows: boolean
+  homingArrows: boolean
+  hasWolf: boolean
   // Animation state
   animationState: PlayerAnimationState
   lastAnimationChange: number
@@ -74,6 +99,13 @@ export interface Arrow {
   isWeakShot?: boolean
   distanceTraveled?: number
   range?: number
+  // Upgrade properties
+  piercingLeft: number
+  bouncesLeft: number
+  isExplosive: boolean
+  isFrost: boolean
+  isHoming: boolean
+  homingTarget?: Enemy
 }
 
 export interface Enemy {
@@ -90,6 +122,28 @@ export interface Enemy {
   attackCooldown: number
   animationState: string
   value: number
+  xpValue: number
+  isSlowed: boolean
+  slowTimer: number
+}
+
+export interface Companion {
+  id: string
+  type: "wolf"
+  position: Vector2D
+  target: Enemy | null
+  attackCooldown: number
+  speed: number
+  damage: number
+}
+
+export interface VisualEffect {
+  id: string
+  type: "explosion"
+  position: Vector2D
+  radius: number
+  duration: number
+  life: number
 }
 
 export interface Wave {
@@ -119,14 +173,21 @@ export interface LeaderboardEntry {
   timeAlive: number
 }
 
+// Calculate XP needed for the next level
+export function calculateXpForLevel(level: number): number {
+  // Level 2 requires 100 XP. Each subsequent level requires ~25% more.
+  if (level === 1) return 100
+  return Math.floor(100 * Math.pow(1.25, level - 1))
+}
+
 // Create initial game state
 export function createInitialLastStandState(
   playerId: string,
   playerName: string,
   gameMode: string,
 ): LastStandGameState {
-  // New arena size for 16:9 aspect ratio, suited for mobile landscape
   const arenaSize = { width: 1280, height: 720 }
+  const initialLevel = 1
 
   return {
     playerId,
@@ -142,14 +203,32 @@ export function createInitialLastStandState(
       health: 100,
       maxHealth: 100,
       color: "#4CAF50",
+      // Rogue-like stats
+      level: initialLevel,
+      xp: 0,
+      xpToNextLevel: calculateXpForLevel(initialLevel),
+      upgrades: {},
+      damageMultiplier: 1,
+      moveSpeedMultiplier: 1,
+      xpMultiplier: 1,
+      critChance: 0.05,
+      healthRegen: 0,
+      dashCooldownTime: 1.5,
+      multiShot: 0,
+      piercing: 0,
+      ricochet: 0,
+      explosiveArrows: false,
+      frostArrows: false,
+      homingArrows: false,
+      hasWolf: false,
       // Animation state
       animationState: "idle",
       lastAnimationChange: Date.now(),
       // Bow mechanics
       isDrawingBow: false,
       drawStartTime: null,
-      maxDrawTime: 1.5, // 1.5 seconds for max draw
-      minDrawTime: 0.45, // 30% of maxDrawTime
+      maxDrawTime: 1.5,
+      minDrawTime: 0.45,
       // Dash mechanics
       dashCooldown: 0,
       isDashing: false,
@@ -176,10 +255,14 @@ export function createInitialLastStandState(
     },
     enemies: [],
     arrows: [],
+    companions: [],
+    effects: [],
     arenaSize,
     gameTime: 0,
     isGameOver: false,
     isPaused: false,
+    isLevelingUp: false,
+    availableUpgrades: [],
     startTime: Date.now(),
     currentWave: generateWave(1, arenaSize),
     completedWaves: 0,
@@ -207,7 +290,7 @@ export function generateWave(waveNumber: number, arenaSize: { width: number; hei
     number: waveNumber,
     enemyCount: enemyCount,
     remainingEnemies: enemyCount,
-    spawnDelay: Math.max(1, 4 - waveNumber * 0.1), // Faster spawning as waves increase
+    spawnDelay: Math.max(0.5, 3 - waveNumber * 0.1),
     lastSpawnTime: 0,
     isComplete: false,
   }
@@ -215,49 +298,29 @@ export function generateWave(waveNumber: number, arenaSize: { width: number; hei
 
 // Get a random spawn position
 export function getRandomSpawnPosition(arenaSize: { width: number; height: number }): Vector2D {
-  const margin = 50 // Keep enemies away from edges
-  const side = Math.floor(Math.random() * 4) // 0: top, 1: right, 2: bottom, 3: left
+  const margin = 50
+  const side = Math.floor(Math.random() * 4)
 
   switch (side) {
-    case 0: // top
-      return {
-        x: margin + Math.random() * (arenaSize.width - 2 * margin),
-        y: margin / 2,
-      }
-    case 1: // right
-      return {
-        x: arenaSize.width - margin / 2,
-        y: margin + Math.random() * (arenaSize.height - 2 * margin),
-      }
-    case 2: // bottom
-      return {
-        x: margin + Math.random() * (arenaSize.width - 2 * margin),
-        y: arenaSize.height - margin / 2,
-      }
-    case 3: // left
-      return {
-        x: margin / 2,
-        y: margin + Math.random() * (arenaSize.height - 2 * margin),
-      }
+    case 0:
+      return { x: Math.random() * arenaSize.width, y: -margin }
+    case 1:
+      return { x: arenaSize.width + margin, y: Math.random() * arenaSize.height }
+    case 2:
+      return { x: Math.random() * arenaSize.width, y: arenaSize.height + margin }
+    case 3:
+      return { x: -margin, y: Math.random() * arenaSize.height }
     default:
-      return {
-        x: margin + Math.random() * (arenaSize.width - 2 * margin),
-        y: margin + Math.random() * (arenaSize.height - 2 * margin),
-      }
+      return { x: 0, y: 0 }
   }
 }
 
 // Get enemy type for wave
 export function getEnemyTypeForWave(waveNumber: number): "skeleton" | "zombie" | "ghost" | "necromancer" {
-  if (waveNumber % 10 === 0) {
-    return "necromancer"
-  } else if (waveNumber % 5 === 0) {
-    return "ghost"
-  } else if (waveNumber % 3 === 0) {
-    return "zombie"
-  } else {
-    return "skeleton"
-  }
+  if (waveNumber % 10 === 0) return "necromancer"
+  if (waveNumber % 5 === 0) return "ghost"
+  if (waveNumber % 3 === 0) return "zombie"
+  return "skeleton"
 }
 
 // Create an enemy
@@ -267,37 +330,15 @@ export function createEnemy(
   wave: number,
 ): Enemy {
   const baseStats = {
-    skeleton: {
-      health: 30 + wave * 5,
-      damage: 10 + wave,
-      speed: 80 + wave * 2,
-      value: 10,
-      size: 20,
-    },
-    zombie: {
-      health: 50 + wave * 8,
-      damage: 15 + wave * 1.5,
-      speed: 60 + wave,
-      value: 20,
-      size: 22,
-    },
-    ghost: {
-      health: 20 + wave * 3,
-      damage: 8 + wave * 0.5,
-      speed: 100 + wave * 3,
-      value: 15,
-      size: 18,
-    },
-    necromancer: {
-      health: 80 + wave * 10,
-      damage: 20 + wave * 2,
-      speed: 50 + wave,
-      value: 50,
-      size: 25,
-    },
+    skeleton: { health: 30, damage: 10, speed: 80, value: 10, xp: 50, size: 20 }, // XP set to 50
+    zombie: { health: 50, damage: 15, speed: 60, value: 20, xp: 80, size: 22 },
+    ghost: { health: 20, damage: 8, speed: 100, value: 15, xp: 70, size: 18 },
+    necromancer: { health: 80, damage: 20, speed: 50, value: 50, xp: 250, size: 25 },
   }
 
   const stats = baseStats[type]
+  const healthMultiplier = 1 + (wave - 1) * 0.1
+  const damageMultiplier = 1 + (wave - 1) * 0.05
 
   return {
     id: `enemy-${type}-${Date.now()}-${Math.random()}`,
@@ -305,13 +346,16 @@ export function createEnemy(
     position: { ...position },
     velocity: { x: 0, y: 0 },
     rotation: 0,
-    health: stats.health,
-    maxHealth: stats.health,
+    health: stats.health * healthMultiplier,
+    maxHealth: stats.health * healthMultiplier,
     size: stats.size,
     speed: stats.speed,
-    damage: stats.damage,
-    attackCooldown: 0.5 + Math.random() * 0.5, // Start with a random cooldown to desync attacks
+    damage: stats.damage * damageMultiplier,
+    attackCooldown: 0.5 + Math.random() * 0.5,
     animationState: "walk",
     value: stats.value,
+    xpValue: stats.xp,
+    isSlowed: false,
+    slowTimer: 0,
   }
 }

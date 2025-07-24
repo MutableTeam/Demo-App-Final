@@ -2,12 +2,15 @@ import {
   type LastStandGameState,
   type Player,
   type Arrow,
+  type Enemy,
   createEnemy,
   generateWave,
   getRandomSpawnPosition,
   getEnemyTypeForWave,
+  calculateXpForLevel,
 } from "./game-state"
 import { audioManager } from "@/utils/audio-manager"
+import { UPGRADES } from "./upgrades"
 
 // A more explicit collision check function
 function checkCircleCollision(
@@ -20,21 +23,80 @@ function checkCircleCollision(
   return distance < entity1.size + entity2.size
 }
 
+function applyUpgrade(state: LastStandGameState, upgradeId: string): LastStandGameState {
+  const upgrade = UPGRADES.find((u) => u.id === upgradeId)
+  if (!upgrade) return state
+
+  const newPlayerState = upgrade.apply(state.player)
+  const newUpgrades = { ...state.player.upgrades }
+  newUpgrades[upgrade.id] = (newUpgrades[upgrade.id] || 0) + 1
+
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      ...newPlayerState,
+      upgrades: newUpgrades,
+    },
+    isLevelingUp: false,
+    isPaused: false,
+  }
+}
+
+function checkForLevelUp(state: LastStandGameState): LastStandGameState {
+  const newState = { ...state }
+  while (newState.player.xp >= newState.player.xpToNextLevel) {
+    newState.player.xp -= newState.player.xpToNextLevel
+    newState.player.level++
+    newState.player.xpToNextLevel = calculateXpForLevel(newState.player.level)
+
+    // Trigger level up screen
+    newState.isLevelingUp = true
+    newState.isPaused = true
+
+    // Get 3 random upgrades
+    const available = UPGRADES.filter((u) => {
+      const currentLevel = newState.player.upgrades[u.id] || 0
+      return !u.maxLevel || currentLevel < u.maxLevel
+    })
+
+    const shuffled = available.sort(() => 0.5 - Math.random())
+    newState.availableUpgrades = shuffled.slice(0, 3)
+
+    // Heal player on level up
+    newState.player.health = Math.min(newState.player.maxHealth, newState.player.health + 25)
+  }
+  return newState
+}
+
 // Update game state
-export function updateLastStandGameState(state: LastStandGameState, deltaTime: number): LastStandGameState {
-  // If game is over or paused, don't update
-  if (state.isGameOver || state.isPaused) {
-    return state
+export function updateLastStandGameState(
+  state: LastStandGameState,
+  deltaTime: number,
+  actions: { type: "SELECT_UPGRADE"; payload: string }[] = [],
+): LastStandGameState {
+  let newState = { ...state }
+
+  // Process actions first
+  for (const action of actions) {
+    if (action.type === "SELECT_UPGRADE") {
+      newState = applyUpgrade(newState, action.payload)
+    }
+  }
+
+  if (newState.isGameOver || newState.isPaused) {
+    return newState
   }
 
   // Create a deep copy of the state to avoid mutation issues
-  const newState = {
-    ...state,
-    player: { ...state.player },
-    enemies: [...state.enemies],
-    arrows: [...state.arrows],
-    currentWave: { ...state.currentWave },
-    playerStats: { ...state.playerStats },
+  newState = {
+    ...newState,
+    player: { ...newState.player },
+    enemies: [...newState.enemies],
+    arrows: [...newState.arrows],
+    currentWave: { ...newState.currentWave },
+    playerStats: { ...newState.playerStats },
+    effects: [...newState.effects],
   }
 
   // Update game time
@@ -111,7 +173,7 @@ export function updateLastStandGameState(state: LastStandGameState, deltaTime: n
     }
   } else {
     // Normal movement (only if not dashing)
-    const speed = 200 // pixels per second
+    const speed = 200 * newState.player.moveSpeedMultiplier // pixels per second
 
     // Apply movement penalty when drawing bow
     const movementMultiplier = newState.player.isDrawingBow ? 0.4 : 1.0 // 40% speed when drawing bow
@@ -155,80 +217,57 @@ export function updateLastStandGameState(state: LastStandGameState, deltaTime: n
   }
 
   // Handle bow drawing
-  if (newState.player.controls.shoot) {
-    if (!newState.player.isDrawingBow) {
-      newState.player.isDrawingBow = true
-      newState.player.drawStartTime = Date.now() / 1000 // Convert to seconds
+  if (newState.player.controls.shoot && !newState.player.isDrawingBow) {
+    newState.player.isDrawingBow = true
+    newState.player.drawStartTime = Date.now() / 1000 // Convert to seconds
 
-      // Set animation to fire when starting to draw bow
-      newState.player.animationState = "fire"
-      newState.player.lastAnimationChange = Date.now()
+    // Set animation to fire when starting to draw bow
+    newState.player.animationState = "fire"
+    newState.player.lastAnimationChange = Date.now()
 
-      // Play draw sound
-      try {
-        audioManager.playSound("draw")
-      } catch (error) {
-        console.error("Failed to play draw sound:", error)
-      }
-    }
-  } else if (newState.player.isDrawingBow && newState.player.drawStartTime !== null) {
-    // Release arrow
-    const currentTime = Date.now() / 1000
-    const drawTime = currentTime - newState.player.drawStartTime
-
-    // Check if this is a weak shot (less than 30% draw)
-    const minDrawTime = newState.player.minDrawTime
-    const isWeakShot = drawTime < minDrawTime
-
-    // Calculate damage and speed based on draw time
-    const damage = calculateArrowDamage(drawTime, newState.player.maxDrawTime, isWeakShot)
-    const arrowSpeed = calculateArrowSpeed(drawTime, newState.player.maxDrawTime)
-
-    // Adjust arrow properties based on draw strength
-    let finalArrowSpeed = arrowSpeed
-    let arrowRange = 800 // Default range
-
-    if (isWeakShot) {
-      // Weak shots move slower and fall to ground quickly
-      finalArrowSpeed = arrowSpeed * 0.3
-      arrowRange = 200 // Much shorter range
-    }
-
-    const arrowVelocity = {
-      x: Math.cos(newState.player.rotation) * finalArrowSpeed,
-      y: Math.sin(newState.player.rotation) * finalArrowSpeed,
-    }
-
-    const arrowPosition = {
-      x: newState.player.position.x + Math.cos(newState.player.rotation) * (newState.player.size + 5),
-      y: newState.player.position.y + Math.sin(newState.player.rotation) * (newState.player.size + 5),
-    }
-
-    // Create the arrow
-    const arrow: Arrow = {
-      id: `arrow-${Date.now()}-${Math.random()}`,
-      position: { ...arrowPosition },
-      velocity: { ...arrowVelocity },
-      rotation: newState.player.rotation,
-      size: 5,
-      damage: damage,
-      ownerId: newState.player.id,
-      isWeakShot: isWeakShot,
-      distanceTraveled: 0,
-      range: arrowRange,
-    }
-
-    newState.arrows.push(arrow)
-    newState.playerStats.shotsFired++
-
-    // Play shoot sound
+    // Play draw sound
     try {
-      audioManager.playSound("shoot")
+      audioManager.playSound("draw")
     } catch (error) {
-      console.error("Failed to play shoot sound:", error)
+      console.error("Failed to play draw sound:", error)
     }
+  } else if (
+    !newState.player.controls.shoot &&
+    newState.player.isDrawingBow &&
+    newState.player.drawStartTime !== null
+  ) {
+    const drawTime = Date.now() / 1000 - newState.player.drawStartTime
+    const isWeakShot = drawTime < newState.player.minDrawTime
+    const damage = calculateArrowDamage(drawTime, newState.player, isWeakShot)
+    const speed = calculateArrowSpeed(drawTime, newState.player.maxDrawTime)
 
-    // Reset bow state
+    const spreadAngle = 0.15 // Angle for multi-shot
+    const numArrows = 1 + (newState.player.multiShot || 0) * 2
+    const startAngle = newState.player.rotation - (spreadAngle * (numArrows - 1)) / 2
+
+    for (let i = 0; i < numArrows; i++) {
+      const angle = startAngle + i * spreadAngle
+      const arrow: Arrow = {
+        id: `arrow-${Date.now()}-${Math.random()}`,
+        position: {
+          x: newState.player.position.x + Math.cos(angle) * (newState.player.size + 5),
+          y: newState.player.position.y + Math.sin(angle) * (newState.player.size + 5),
+        },
+        velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        rotation: angle,
+        size: 5,
+        damage: damage,
+        ownerId: newState.player.id,
+        isWeakShot,
+        piercingLeft: newState.player.piercing || 0,
+        bouncesLeft: newState.player.ricochet || 0,
+        isExplosive: newState.player.explosiveArrows,
+        isFrost: newState.player.frostArrows,
+        isHoming: newState.player.homingArrows,
+      }
+      newState.arrows.push(arrow)
+    }
+    newState.playerStats.shotsFired += numArrows
     newState.player.isDrawingBow = false
     newState.player.drawStartTime = null
   }
@@ -277,6 +316,11 @@ export function updateLastStandGameState(state: LastStandGameState, deltaTime: n
           isWeakShot: false,
           distanceTraveled: 0,
           range: 800,
+          piercingLeft: 0,
+          bouncesLeft: 0,
+          isExplosive: false,
+          isFrost: false,
+          isHoming: false,
         }
 
         newState.arrows.push(arrow)
@@ -340,186 +384,150 @@ export function updateLastStandGameState(state: LastStandGameState, deltaTime: n
     }
   }
 
-  // Update enemies with overhauled hit detection
-  newState.enemies = newState.enemies.map((enemy) => {
-    const updatedEnemy = {
-      ...enemy,
-      position: { ...enemy.position },
-      velocity: { ...enemy.velocity },
+  // Update enemies
+  newState.enemies.forEach((enemy) => {
+    if (enemy.slowTimer > 0) {
+      enemy.slowTimer -= deltaTime
+      if (enemy.slowTimer <= 0) enemy.isSlowed = false
     }
-
-    // Always update attack cooldown
-    if (updatedEnemy.attackCooldown > 0) {
-      updatedEnemy.attackCooldown -= deltaTime
-    }
-
-    // AI: Move towards player
-    const dx = newState.player.position.x - updatedEnemy.position.x
-    const dy = newState.player.position.y - updatedEnemy.position.y
+    const speedMultiplier = enemy.isSlowed ? 0.5 : 1
+    const dx = newState.player.position.x - enemy.position.x
+    const dy = newState.player.position.y - enemy.position.y
     const distance = Math.sqrt(dx * dx + dy * dy)
-    updatedEnemy.rotation = Math.atan2(dy, dx)
+    enemy.rotation = Math.atan2(dy, dx)
 
-    // Check for collision with player for attacking
-    if (checkCircleCollision(updatedEnemy, newState.player)) {
-      // Collision detected: stop moving and attack
-      updatedEnemy.velocity.x = 0
-      updatedEnemy.velocity.y = 0
-      updatedEnemy.animationState = "attack"
-
-      if (updatedEnemy.attackCooldown <= 0) {
-        // Cooldown is ready, let's attack!
+    if (checkCircleCollision(enemy, newState.player)) {
+      // Attack player
+      if (enemy.attackCooldown <= 0) {
         if (!newState.player.isInvulnerable) {
-          newState.player.health -= updatedEnemy.damage
+          newState.player.health -= enemy.damage
           newState.player.isInvulnerable = true
-          newState.player.invulnerabilityTimer = 0.5 // 0.5s grace period
-          newState.player.animationState = "hit"
-          newState.player.hitAnimationTimer = 0.3
-          newState.player.lastAnimationChange = Date.now()
-
-          try {
-            audioManager.playSound("hit")
-          } catch (error) {
-            console.error("Failed to play player hit sound:", error)
-          }
+          newState.player.invulnerabilityTimer = 0.5
         }
-        // Reset cooldown after attacking
-        updatedEnemy.attackCooldown = 1.0 // 1 second between attacks
+        enemy.attackCooldown = 1.0
       }
     } else {
-      // No collision: move towards player
-      const speed = updatedEnemy.speed
-      const dirX = dx / distance
-      const dirY = dy / distance
-
-      updatedEnemy.velocity.x = dirX * speed
-      updatedEnemy.velocity.y = dirY * speed
-      updatedEnemy.animationState = "walk"
-
-      updatedEnemy.position.x += updatedEnemy.velocity.x * deltaTime
-      updatedEnemy.position.y += updatedEnemy.velocity.y * deltaTime
+      // Move towards player
+      enemy.position.x += (dx / distance) * enemy.speed * speedMultiplier * deltaTime
+      enemy.position.y += (dy / distance) * enemy.speed * speedMultiplier * deltaTime
     }
-
-    return updatedEnemy
+    if (enemy.attackCooldown > 0) {
+      enemy.attackCooldown -= deltaTime
+    }
   })
 
-  // Update arrows
-  newState.arrows = newState.arrows.filter((arrow) => {
-    // Move arrow
+  // OPTIMIZED ARROW LOGIC
+  const nextArrows: Arrow[] = []
+  for (const arrow of newState.arrows) {
+    // Homing logic
+    if (arrow.isHoming && (!arrow.homingTarget || arrow.homingTarget.health <= 0)) {
+      let closestEnemy: Enemy | null = null
+      let minDistance = Number.POSITIVE_INFINITY
+      for (const enemy of newState.enemies) {
+        const d = Math.hypot(enemy.position.x - arrow.position.x, enemy.position.y - arrow.position.y)
+        if (d < minDistance) {
+          minDistance = d
+          closestEnemy = enemy
+        }
+      }
+      arrow.homingTarget = closestEnemy || undefined
+    }
+
+    if (arrow.isHoming && arrow.homingTarget) {
+      const targetVector = {
+        x: arrow.homingTarget.position.x - arrow.position.x,
+        y: arrow.homingTarget.position.y - arrow.position.y,
+      }
+      const magnitude = Math.hypot(targetVector.x, targetVector.y)
+      const desiredVel = { x: (targetVector.x / magnitude) * 600, y: (targetVector.y / magnitude) * 600 }
+      arrow.velocity.x = arrow.velocity.x * 0.95 + desiredVel.x * 0.05
+      arrow.velocity.y = arrow.velocity.y * 0.95 + desiredVel.y * 0.05
+      arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
+    }
+
     arrow.position.x += arrow.velocity.x * deltaTime
     arrow.position.y += arrow.velocity.y * deltaTime
 
-    // Update distance traveled
-    arrow.distanceTraveled =
-      (arrow.distanceTraveled || 0) +
-      Math.sqrt(Math.pow(arrow.velocity.x * deltaTime, 2) + Math.pow(arrow.velocity.y * deltaTime, 2))
+    let alive = true
+    const hitEnemiesThisFrame = new Set<string>()
 
-    // Check if arrow is out of bounds
-    if (
-      arrow.position.x < -50 ||
-      arrow.position.x > width + 50 ||
-      arrow.position.y < -50 ||
-      arrow.position.y > height + 50
-    ) {
-      return false
-    }
+    for (const enemy of newState.enemies) {
+      if (hitEnemiesThisFrame.has(enemy.id) || enemy.health <= 0) continue
 
-    // Check for weak shot range limit
-    if (arrow.isWeakShot && arrow.distanceTraveled > (arrow.range || 200)) {
-      return false
-    }
-
-    // Check collision with enemies
-    for (let i = 0; i < newState.enemies.length; i++) {
-      const enemy = newState.enemies[i]
-
-      const dx = arrow.position.x - enemy.position.x
-      const dy = arrow.position.y - enemy.position.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-
-      if (distance < arrow.size + enemy.size) {
-        // Hit enemy
-        const damage = arrow.damage || 10
-        enemy.health -= damage
-
-        // Play hit sound
-        try {
-          audioManager.playSound("hit")
-        } catch (error) {
-          console.error("Failed to play hit sound:", error)
+      if (checkCircleCollision(arrow, enemy)) {
+        hitEnemiesThisFrame.add(enemy.id)
+        enemy.health -= arrow.damage
+        if (arrow.isFrost) {
+          enemy.isSlowed = true
+          enemy.slowTimer = 2
         }
 
-        // Check if enemy is dead
-        if (enemy.health <= 0) {
-          // Remove enemy
-          newState.enemies.splice(i, 1)
-
-          // Add score
-          newState.playerStats.score += enemy.value
-          newState.playerStats.kills++
-
-          // Play death sound
-          try {
-            audioManager.playSound("death")
-          } catch (error) {
-            console.error("Failed to play death sound:", error)
-          }
+        if (arrow.isExplosive) {
+          // Explosion logic here
         }
 
-        // Count as hit for accuracy
-        newState.playerStats.shotsHit++
-
-        // Calculate accuracy
-        if (newState.playerStats.shotsFired > 0) {
-          newState.playerStats.accuracy = (newState.playerStats.shotsHit / newState.playerStats.shotsFired) * 100
+        arrow.piercingLeft--
+        if (arrow.piercingLeft < 0) {
+          alive = false
+          break
         }
-
-        // Arrow is consumed
-        return false
       }
     }
 
-    return true
-  })
+    if (!alive) continue
+
+    // Wall bouncing
+    if (arrow.position.x < 0 || arrow.position.x > width || arrow.position.y < 0 || arrow.position.y > height) {
+      if (arrow.bouncesLeft > 0) {
+        arrow.bouncesLeft--
+        if (arrow.position.x < 0 || arrow.position.x > width) arrow.velocity.x *= -1
+        if (arrow.position.y < 0 || arrow.position.y > height) arrow.velocity.y *= -1
+        arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
+      } else {
+        alive = false
+      }
+    }
+
+    if (alive) {
+      nextArrows.push(arrow)
+    }
+  }
+  newState.arrows = nextArrows
+
+  // Remove dead enemies and grant XP
+  const deadEnemies = newState.enemies.filter((e) => e.health <= 0)
+  if (deadEnemies.length > 0) {
+    newState.enemies = newState.enemies.filter((e) => e.health > 0)
+    for (const deadEnemy of deadEnemies) {
+      const xpGain = Math.floor(deadEnemy.xpValue * newState.player.xpMultiplier)
+      newState.player.xp += xpGain
+      newState.playerStats.kills++
+      newState.playerStats.score += deadEnemy.value
+    }
+    newState = checkForLevelUp(newState)
+  }
 
   // Check if player is dead
   if (newState.player.health <= 0 && !newState.isGameOver) {
     newState.isGameOver = true
     newState.player.animationState = "death"
     newState.player.lastAnimationChange = Date.now()
-
-    // Submit score to leaderboard
-    // This would normally call an API to submit the score
-    const leaderboardEntry = {
-      id: newState.player.id,
-      playerName: newState.player.name,
-      score: newState.playerStats.score,
-      wavesCompleted: newState.playerStats.wavesCompleted,
-      timeAlive: newState.playerStats.timeAlive,
-    }
-
-    // For now, just add to local leaderboard
-    newState.leaderboard.push(leaderboardEntry)
   }
 
   return newState
 }
 
 // Helper functions
-function calculateArrowDamage(drawTime: number, maxDrawTime: number, isWeakShot: boolean): number {
-  // Weak shots always do 1 damage
-  if (isWeakShot) {
-    return 1
-  }
-
-  // Normal damage calculation for regular shots
+function calculateArrowDamage(drawTime: number, player: Player, isWeakShot: boolean): number {
+  if (isWeakShot) return 1
   const minDamage = 5
   const maxDamage = 25
-  const drawPercentage = Math.min(drawTime / maxDrawTime, 1)
-  return minDamage + drawPercentage * (maxDamage - minDamage)
+  const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
+  const baseDamage = minDamage + drawPercentage * (maxDamage - minDamage)
+  return baseDamage * player.damageMultiplier
 }
 
 function calculateArrowSpeed(drawTime: number, maxDrawTime: number): number {
-  // Minimum speed is 300, max is 600 based on draw time
   const minSpeed = 300
   const maxSpeed = 600
   const drawPercentage = Math.min(drawTime / maxDrawTime, 1)

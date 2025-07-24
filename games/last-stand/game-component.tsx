@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { createInitialLastStandState } from "./game-state"
+import { createInitialLastStandState, type LastStandGameState } from "./game-state"
 import { updateLastStandGameState } from "./game-engine"
 import LastStandRenderer from "./game-renderer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skull, Trophy, Clock, Heart, Zap } from "lucide-react"
+import { Trophy, Clock, Heart, Star, ArrowUp } from "lucide-react"
 import { debugManager } from "@/utils/debug-utils"
 import { audioManager, playGameOverSound } from "@/utils/audio-manager"
 import CountdownTimer from "@/components/pvp-game/countdown-timer"
@@ -32,94 +32,56 @@ export default function LastStandGame({
   const { platformType } = usePlatform()
   const isMobile = platformType === "mobile"
 
-  // Game state
-  const [gameState, setGameState] = useState(() => createInitialLastStandState(playerId, playerName, gameMode))
-  const [showCountdown, setShowCountdown] = useState<boolean>(true) // Start with countdown instead of confirmation
+  const [gameState, setGameState] = useState<LastStandGameState>(() =>
+    createInitialLastStandState(playerId, playerName, gameMode),
+  )
+  const [showCountdown, setShowCountdown] = useState<boolean>(true)
   const [showGameOver, setShowGameOver] = useState<boolean>(false)
   const [isPaused, setIsPaused] = useState<boolean>(false)
-  const [specialCooldown, setSpecialCooldown] = useState<number>(0)
 
-  // Refs
   const gameStateRef = useRef(gameState)
   const lastUpdateTimeRef = useRef<number>(Date.now())
   const requestAnimationFrameIdRef = useRef<number | null>(null)
+  const gameActionsRef = useRef<any[]>([])
 
-  // Determine if the game is active to enable controls
-  const isGameActive = !showCountdown && !showGameOver && !isPaused
+  const isGameActive = !showCountdown && !showGameOver && !isPaused && !gameState.isLevelingUp
 
-  // Centralized game controls hook
   useGameControls({
-    playerId: "player", // In Last Stand, the player key is 'player'
+    playerId: "player",
     gameStateRef,
     platformType: platformType || "desktop",
     isEnabled: isGameActive,
   })
 
-  // Update game state ref when state changes
   useEffect(() => {
     gameStateRef.current = gameState
   }, [gameState])
 
-  // Handle countdown complete
   const handleCountdownComplete = () => {
     setShowCountdown(false)
     startGame()
   }
 
-  // Start game
   const startGame = () => {
     const initialState = createInitialLastStandState(playerId, playerName, gameMode)
-    // The useGameControls hook expects the player to be in a `players` object
-    const adaptedState = {
-      ...initialState,
-      players: {
-        player: initialState.player,
-      },
-    }
+    const adaptedState = { ...initialState, players: { player: initialState.player } }
     setGameState(adaptedState)
     gameStateRef.current = adaptedState
-
-    setSpecialCooldown(0)
-
     lastUpdateTimeRef.current = Date.now()
     requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
-
-    if (!audioManager.isSoundMuted()) {
-      try {
-        audioManager.startBackgroundMusic()
-      } catch (error) {
-        console.error("Failed to start background music:", error)
-      }
-    }
   }
 
-  // Game loop
   const gameLoop = () => {
-    if (isPaused) {
-      requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
-      return
-    }
-
     const now = Date.now()
     const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1)
     lastUpdateTimeRef.current = now
 
-    // The useGameControls hook updates the controls directly in gameStateRef.
-    // We just need to run the game engine.
-    const unadaptedState = {
-      ...gameStateRef.current,
-      player: gameStateRef.current.players.player,
-    }
+    const currentActions = gameActionsRef.current
+    gameActionsRef.current = []
 
-    const newState = updateLastStandGameState(unadaptedState, deltaTime)
-
-    // Re-adapt state for the next frame
-    const adaptedState = {
-      ...newState,
-      players: {
-        player: newState.player,
-      },
-    }
+    const unadaptedState = { ...gameStateRef.current, player: gameStateRef.current.players.player }
+    const newState = updateLastStandGameState(unadaptedState, deltaTime, currentActions)
+    const adaptedState = { ...newState, players: { player: newState.player } }
 
     if (newState.isGameOver && !gameStateRef.current.isGameOver) {
       handleGameOver(newState)
@@ -127,14 +89,13 @@ export default function LastStandGame({
 
     gameStateRef.current = adaptedState
     setGameState(adaptedState)
-    setSpecialCooldown(newState.player.specialCooldown || 0)
+    setIsPaused(newState.isPaused)
 
     if (!newState.isGameOver) {
       requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
     }
   }
 
-  // Handle game over
   const handleGameOver = (finalState) => {
     setShowGameOver(true)
     try {
@@ -156,15 +117,9 @@ export default function LastStandGame({
     })
   }
 
-  // Handle exit
   const handleExit = () => {
     if (requestAnimationFrameIdRef.current) {
       cancelAnimationFrame(requestAnimationFrameIdRef.current)
-    }
-    try {
-      audioManager.stopBackgroundMusic()
-    } catch (error) {
-      console.error("Failed to stop background music:", error)
     }
     onGameEnd({
       score: gameState.playerStats.score,
@@ -173,18 +128,20 @@ export default function LastStandGame({
     })
   }
 
-  // Set up keyboard listener for pause
+  const handleUpgradeSelect = (upgradeId: string) => {
+    gameActionsRef.current.push({ type: "SELECT_UPGRADE", payload: upgradeId })
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !gameState.isLevelingUp) {
         setIsPaused((prev) => !prev)
+        gameStateRef.current.isPaused = !gameStateRef.current.isPaused
       }
     }
     window.addEventListener("keydown", handleKeyDown)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [])
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [gameState.isLevelingUp])
 
   // Initialize audio
   useEffect(() => {
@@ -291,49 +248,76 @@ export default function LastStandGame({
       <LastStandRenderer gameState={gameState} />
 
       {/* HUD */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between pointer-events-none">
-        <div className="flex items-center gap-2">
-          <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
-            <Heart className="h-4 w-4 text-red-500" />
-            <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-red-500 rounded-full"
-                style={{ width: `${(gameState.player.health / gameState.player.maxHealth) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-          <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
-            <Skull className="h-4 w-4" />
-            <span className="font-mono">{gameState.enemies.length}</span>
-          </div>
-          <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-yellow-500" />
-            <span className="font-mono">{gameState.playerStats.score}</span>
-          </div>
-          <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
-            <Zap className={`h-4 w-4 ${specialCooldown === 0 ? "text-orange-500" : "text-gray-400"}`} />
-            <div className="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-orange-500 rounded-full transition-all duration-300"
-                style={{ width: `${(1 - specialCooldown / 30) * 100}%` }}
-              ></div>
-            </div>
-            <span className="font-mono text-xs">
-              {specialCooldown === 0 ? "READY" : Math.ceil(specialCooldown) + "s"}
+      <div className="absolute top-4 left-4 right-4 flex justify-between pointer-events-none text-white">
+        {/* Left HUD */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-md">
+            <Heart className="h-5 w-5 text-red-500" />
+            <span className="font-mono text-lg">
+              {Math.ceil(gameState.player.health)} / {gameState.player.maxHealth}
             </span>
           </div>
+          <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-md">
+            <Star className="h-5 w-5 text-yellow-400" />
+            <span className="font-mono text-lg">Lvl {gameState.player.level}</span>
+          </div>
+          <div className="w-48 h-3 bg-black/50 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-yellow-400 rounded-full transition-all duration-300"
+              style={{ width: `${(gameState.player.xp / gameState.player.xpToNextLevel) * 100}%` }}
+            />
+          </div>
         </div>
-        <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
-          <span className="font-mono">Wave {gameState.currentWave.number}</span>
-        </div>
-        <div className="bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-md flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          <span className="font-mono">{formatTime(gameState.gameTime)}</span>
+        {/* Right HUD */}
+        <div className="flex flex-col gap-2 items-end">
+          <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-md">
+            <span className="font-mono text-lg">Wave {gameState.currentWave.number}</span>
+          </div>
+          <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-md flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            <span className="font-mono text-lg">{formatTime(gameState.gameTime)}</span>
+          </div>
+          <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-md flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-yellow-500" />
+            <span className="font-mono text-lg">{gameState.playerStats.score}</span>
+          </div>
         </div>
       </div>
 
+      {/* Level Up Screen */}
+      {gameState.isLevelingUp && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center gap-6">
+            <h1
+              className="text-5xl font-bold text-yellow-400 tracking-widest"
+              style={{ textShadow: "0 0 10px #fef08a" }}
+            >
+              LEVEL UP!
+            </h1>
+            <div className="flex gap-6">
+              {gameState.availableUpgrades.map((upgrade) => (
+                <Card
+                  key={upgrade.id}
+                  className="w-64 bg-gray-900/80 border-2 border-yellow-400/50 hover:border-yellow-400 hover:bg-gray-800 transition-all cursor-pointer"
+                  onClick={() => handleUpgradeSelect(upgrade.id)}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-yellow-400 flex items-center gap-2">
+                      <ArrowUp /> {upgrade.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-300">{upgrade.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pause menu */}
-      {isPaused && (
+      {isPaused && !gameState.isLevelingUp && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50">
           <Card className="w-[300px] bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <CardHeader>

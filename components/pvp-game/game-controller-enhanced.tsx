@@ -73,7 +73,7 @@ export default function GameControllerEnhanced({
   isPaused = false,
   className,
 }: GameControllerEnhancedProps) {
-  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState())
+  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(gameMode))
   const gameStateRef = useRef<GameState>(gameState)
   const lastUpdateTimeRef = useRef<number>(Date.now())
   const requestAnimationFrameIdRef = useRef<number | null>(null)
@@ -145,7 +145,8 @@ export default function GameControllerEnhanced({
 
     audioManager.init().catch((err) => debugManager.logError("AUDIO", "Failed to initialize audio", err))
 
-    const localPlayer = createPlayer(playerId, playerName, { x: 100, y: 100 }, "#FF5252")
+    const initialState = createInitialGameState(gameMode)
+    const localPlayer = createPlayer(playerId, playerName, { x: 100, y: 100 }, "#FF5252", gameMode)
     const playerColors = ["#FF5252", "#4CAF50", "#2196F3", "#FFC107"]
     const playerPositions = [
       { x: 100, y: 100 },
@@ -154,7 +155,6 @@ export default function GameControllerEnhanced({
       { x: 100, y: 500 },
     ]
 
-    const initialState = createInitialGameState()
     initialState.players[playerId] = localPlayer
 
     let aiCount = 1
@@ -171,6 +171,7 @@ export default function GameControllerEnhanced({
         `AI ${i}`,
         playerPositions[i % playerPositions.length],
         playerColors[i % playerColors.length],
+        gameMode,
       )
 
       aiPlayer.controls = {
@@ -515,6 +516,8 @@ export default function GameControllerEnhanced({
           <CardContent>
             <p>Score: {gameStats.score}</p>
             <p>Time: {Math.floor(gameState.gameTime)}</p>
+            <p>Mode: {gameMode.toUpperCase()}</p>
+            {gameMode === "ffa" && <p className="text-red-400 font-bold">Last Man Standing!</p>}
           </CardContent>
         </Card>
       </div>

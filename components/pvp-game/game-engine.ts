@@ -93,7 +93,7 @@ export interface GameState {
 export const playerColors = ["red", "blue", "green", "yellow", "purple", "brown", "black"]
 
 // Update the createInitialGameState function to include maxGameTime
-export const createInitialGameState = (): GameState => {
+export const createInitialGameState = (gameMode = "ffa"): GameState => {
   return {
     players: {},
     arrows: [],
@@ -104,12 +104,13 @@ export const createInitialGameState = (): GameState => {
     maxGameTime: 120, // 2 minutes in seconds
     isGameOver: false,
     winner: null,
-    gameMode: "ffa", // Default game mode
+    gameMode: gameMode,
     explosions: [],
   }
 }
 
-export const createPlayer = (id: string, name: string, position: Vector2D, color: string): Player => {
+export const createPlayer = (id: string, name: string, position: Vector2D, color: string, gameMode = "ffa"): Player => {
+  const lives = gameMode === "ffa" ? 1 : 3
   return {
     id,
     name,
@@ -123,7 +124,7 @@ export const createPlayer = (id: string, name: string, position: Vector2D, color
     score: 0,
     kills: 0,
     deaths: 0,
-    lives: 3, // Default lives
+    lives: lives,
     cooldown: 0,
     // NEW DASH SYSTEM
     dashCooldown: 0,
@@ -385,8 +386,8 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
 
     newState.gameTime += deltaTime
 
-    // Check if time limit is reached
-    if (newState.gameTime >= newState.maxGameTime && !newState.isGameOver) {
+    // Check if time limit is reached in timed mode
+    if (newState.gameMode === "timed" && newState.gameTime >= newState.maxGameTime && !newState.isGameOver) {
       newState.isGameOver = true
 
       // Determine winner based on kills/score
@@ -691,14 +692,20 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
     // Check for game over conditions
     if (!newState.isGameOver) {
       const playersWithLives = Object.values(newState.players).filter((p) => p.lives > 0)
-      if (playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
+      if (newState.gameMode === "ffa" && playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
         newState.isGameOver = true
         newState.winner = playersWithLives.length === 1 ? playersWithLives[0].id : null
-      } else {
-        const topKiller = Object.values(newState.players).find((p) => p.kills >= 10)
-        if (topKiller) {
+      } else if (newState.gameMode !== "ffa") {
+        // Original win conditions for other modes
+        if (playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
           newState.isGameOver = true
-          newState.winner = topKiller.id
+          newState.winner = playersWithLives.length === 1 ? playersWithLives[0].id : null
+        } else {
+          const topKiller = Object.values(newState.players).find((p) => p.kills >= 10)
+          if (topKiller) {
+            newState.isGameOver = true
+            newState.winner = topKiller.id
+          }
         }
       }
     }
