@@ -17,24 +17,25 @@ export const lastStandConfig: GameConfig = {
       id: "practice",
       name: "Practice",
       description: "Practice mode - no entry fee",
-      entryFee: 0,
-      duration: 0, // No time limit
+      players: 1,
+      icon: <Target className="h-4 w-4" />,
+      minWager: 0,
     },
     {
       id: "hourly",
       name: "Hourly Challenge",
       description: "Compete for the highest score in 1 hour",
-      entryFee: 5,
-      duration: 60 * 60 * 1000, // 1 hour in milliseconds
-      leaderboardRefresh: "hourly",
+      players: 1,
+      icon: <Target className="h-4 w-4" />,
+      minWager: 5,
     },
     {
       id: "daily",
       name: "Daily Challenge",
       description: "Compete for the highest score in 24 hours",
-      entryFee: 10,
-      duration: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-      leaderboardRefresh: "daily",
+      players: 1,
+      icon: <Target className="h-4 w-4" />,
+      minWager: 10,
     },
   ],
 }
