@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import type { GameState } from "./game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
 import { cn } from "@/lib/utils"
@@ -20,7 +20,6 @@ export default function EnhancedGameRenderer({
 }: EnhancedGameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
-  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
   // Canvas rendering logic
   useEffect(() => {
@@ -197,29 +196,17 @@ export default function EnhancedGameRenderer({
     }
   }, [gameState, localPlayerId, debugMode, platformType])
 
-  // Update canvas size to fit its container
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const parent = canvas.parentElement
-    if (!parent) return
-
-    const resizeObserver = new ResizeObserver(() => {
-      setCanvasSize({ width: parent.clientWidth, height: parent.clientHeight })
-    })
-    resizeObserver.observe(parent)
-
-    return () => resizeObserver.disconnect()
-  }, [])
-
   return (
     <canvas
       ref={canvasRef}
-      width={canvasSize.width}
-      height={canvasSize.height}
+      width={gameState.arenaSize.width}
+      height={gameState.arenaSize.height}
       className={cn("absolute top-0 left-0 w-full h-full bg-transparent")}
-      style={{ imageRendering: "pixelated", touchAction: "none" }}
+      style={{
+        imageRendering: "pixelated",
+        touchAction: "none",
+        objectFit: "contain",
+      }}
     />
   )
 }
