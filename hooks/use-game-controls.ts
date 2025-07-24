@@ -64,10 +64,6 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         case "e":
           player.controls.explosiveArrow = true
           break
-        case "q":
-        case "contextmenu": // Allow Q as an alternative for special
-          player.controls.special = true
-          break
         case " ": // Space for shoot
           player.controls.shoot = true
           break
@@ -100,9 +96,6 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
         case "e":
           player.controls.explosiveArrow = false
           break
-        case "q":
-          player.controls.special = false
-          break
         case " ":
           player.controls.shoot = false
           break
@@ -129,14 +122,12 @@ export function useGameControls({ playerId, gameStateRef, platformType, isEnable
       const player = getPlayer()
       if (!player || !player.controls) return
       if (e.button === 0) player.controls.shoot = true // Left click
-      if (e.button === 2) player.controls.special = true // Right click
     }
 
     const handleMouseUp = (e: MouseEvent) => {
       const player = getPlayer()
       if (!player || !player.controls) return
       if (e.button === 0) player.controls.shoot = false
-      if (e.button === 2) player.controls.special = false
     }
 
     const handleContextMenu = (e: MouseEvent) => e.preventDefault()
