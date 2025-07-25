@@ -3,17 +3,9 @@
 import { debugManager } from "./debug-utils"
 import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
+import type { EventData } from "nipplejs"
 
-// --- Interfaces for NippleJS Data ---
-interface NippleData {
-  angle: {
-    radian: number
-    degree: number
-  }
-  force: number
-}
-
-// --- Interfaces for Game Input State ---
+// --- Interfaces for Mobile Input ---
 export interface AimingState {
   angle: number // radians
   power: number // 0 to 1
@@ -33,6 +25,7 @@ export interface GameInputState {
   actions: {
     shoot: boolean
     dash: boolean
+    special: boolean
     explosiveArrow: boolean
   }
 }
@@ -48,7 +41,7 @@ class GameInputHandler {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, explosiveArrow: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
     debugManager.logInfo("INPUT", "GameInputHandler initialized.")
@@ -59,17 +52,19 @@ class GameInputHandler {
   }
 
   // --- NippleJS Handlers ---
-  handleNippleMovement(data: NippleData) {
+  handleNippleMovement(data: EventData) {
     const { force, angle } = data
+    const threshold = 0.1 // Deadzone
+
     const newState: MovementState = { up: false, down: false, left: false, right: false }
 
-    if (force > 0.1) {
-      // deadzone
-      const degree = angle.degree
-      if (degree >= 45 && degree < 135) newState.up = true
-      if (degree >= 225 && degree < 315) newState.down = true
-      if (degree >= 135 && degree < 225) newState.left = true
-      if (degree >= 315 || degree < 45) newState.right = true
+    if (force > threshold) {
+      const deg = angle.degree
+      // More robust direction detection
+      if (deg >= 45 && deg <= 135) newState.up = true
+      if (deg >= 225 && deg <= 315) newState.down = true
+      if (deg >= 135 && deg <= 225) newState.left = true
+      if (deg >= 315 || deg <= 45) newState.right = true
     }
 
     this.state.movement = newState
@@ -77,21 +72,28 @@ class GameInputHandler {
   }
 
   handleNippleAimingStart() {
-    this.state.actions.shoot = true
+    this.state.actions.shoot = true // Signal to start drawing bow
     this.state.aiming.active = true
+    debugManager.logInfo("INPUT", "[AIM] NippleJS aim started. `shoot` is now true.")
     this.notifyStateChange()
   }
 
-  handleNippleAimingMove(data: NippleData) {
-    const { angle, force } = data
-    this.state.aiming.angle = angle.radian
-    this.state.aiming.power = force
-    this.state.aiming.active = true
-    this.state.actions.shoot = true // Keep shoot active while aiming
+  handleNippleAimingMove(data: EventData) {
+    const { force, angle } = data
+    this.state.aiming.power = Math.min(force, 1.0)
+    // Negate the radian to convert from nipplejs's Y-up system
+    // to the game's Y-down coordinate system.
+    this.state.aiming.angle = -angle.radian
     this.notifyStateChange()
   }
 
   handleNippleAimingEnd() {
+    if (this.state.aiming.active) {
+      debugManager.logInfo(
+        "INPUT",
+        `[AIM] NippleJS aim ended. Firing with power ${this.state.aiming.power.toFixed(2)}. \`shoot\` is now false.`,
+      )
+    }
     this.state.actions.shoot = false // Signal to fire
     this.state.aiming.active = false
     this.state.aiming.power = 0
@@ -118,7 +120,7 @@ class GameInputHandler {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, explosiveArrow: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
@@ -127,7 +129,7 @@ class GameInputHandler {
 
 export const gameInputHandler = new GameInputHandler()
 
-// --- Desktop Input Handler Function ---
+// --- Desktop Input Handler Function (remains unchanged) ---
 export interface InputHandlerOptions {
   playerId: string
   gameStateRef: React.MutableRefObject<any>
@@ -143,7 +145,6 @@ export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef 
     if (!player || !canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    // Scale mouse coordinates to match canvas resolution
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
     const mouseX = (e.clientX - rect.left) * scaleX
@@ -156,12 +157,14 @@ export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef 
     const player = getPlayer()
     if (!player) return
     if (e.button === 0) player.controls.shoot = true
+    else if (e.button === 2) player.controls.special = true
   }
 
   const handleMouseUp = (e: MouseEvent) => {
     const player = getPlayer()
     if (!player) return
     if (e.button === 0) player.controls.shoot = false
+    else if (e.button === 2) player.controls.special = false
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {

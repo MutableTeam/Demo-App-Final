@@ -29,7 +29,7 @@ export default function LastStandGame({
   onGameEnd,
   onCancel,
 }: LastStandGameProps) {
-  const { platformType } = usePlatform()
+  const { platformType, setUiActive } = usePlatform()
   const isMobile = platformType === "mobile"
 
   const [gameState, setGameState] = useState<LastStandGameState>(() =>
@@ -52,6 +52,20 @@ export default function LastStandGame({
     platformType: platformType || "desktop",
     isEnabled: isGameActive,
   })
+
+  // Effect to control UI state for mobile controls
+  useEffect(() => {
+    if (isMobile) {
+      const isOverlayVisible = showGameOver || isPaused || gameState.isLevelingUp
+      setUiActive(isOverlayVisible)
+    }
+    // Cleanup function to reset UI state when component unmounts
+    return () => {
+      if (isMobile) {
+        setUiActive(false)
+      }
+    }
+  }, [isMobile, showGameOver, isPaused, gameState.isLevelingUp, setUiActive])
 
   useEffect(() => {
     gameStateRef.current = gameState

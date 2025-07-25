@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback, useMemo } from "react"
 
 export type PlatformType = "desktop" | "mobile"
 
@@ -9,6 +9,8 @@ interface PlatformContextType {
   isSelected: boolean
   setPlatform: (platform: PlatformType) => void
   resetPlatform: () => void
+  isUiActive: boolean
+  setUiActive: (isActive: boolean) => void
 }
 
 const PlatformContext = createContext<PlatformContextType>({
@@ -16,6 +18,8 @@ const PlatformContext = createContext<PlatformContextType>({
   isSelected: false,
   setPlatform: () => {},
   resetPlatform: () => {},
+  isUiActive: false,
+  setUiActive: () => {},
 })
 
 export const usePlatform = () => useContext(PlatformContext)
@@ -27,6 +31,7 @@ interface PlatformProviderProps {
 export function PlatformProvider({ children }: PlatformProviderProps) {
   const [platformType, setPlatformType] = useState<PlatformType | null>(null)
   const [isSelected, setIsSelected] = useState(false)
+  const [isUiActive, setUiActive] = useState(false)
 
   // Load platform preference from localStorage on mount
   useEffect(() => {
@@ -37,28 +42,29 @@ export function PlatformProvider({ children }: PlatformProviderProps) {
     }
   }, [])
 
-  const setPlatform = (platform: PlatformType) => {
+  const setPlatform = useCallback((platform: PlatformType) => {
     setPlatformType(platform)
     setIsSelected(true)
     localStorage.setItem("mutable-platform-type", platform)
-  }
+  }, [])
 
-  const resetPlatform = () => {
+  const resetPlatform = useCallback(() => {
     setPlatformType(null)
     setIsSelected(false)
     localStorage.removeItem("mutable-platform-type")
-  }
+  }, [])
 
-  return (
-    <PlatformContext.Provider
-      value={{
-        platformType,
-        isSelected,
-        setPlatform,
-        resetPlatform,
-      }}
-    >
-      {children}
-    </PlatformContext.Provider>
+  const value = useMemo(
+    () => ({
+      platformType,
+      isSelected,
+      setPlatform,
+      resetPlatform,
+      isUiActive,
+      setUiActive,
+    }),
+    [platformType, isSelected, setPlatform, resetPlatform, isUiActive],
   )
+
+  return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>
 }

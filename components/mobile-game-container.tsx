@@ -3,11 +3,12 @@
 import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
-import { gameInputHandler } from "@/utils/game-input-handler"
+import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
 import { RotateCw } from "lucide-react"
 import nipplejs from "nipplejs"
 import type { JoystickManager } from "nipplejs"
+import { usePlatform } from "@/contexts/platform-context"
 
 interface MobileGameContainerProps {
   children: React.ReactNode
@@ -19,10 +20,6 @@ const orbitron = Orbitron({
   weight: ["400", "700"],
 })
 
-/**
- * A warning component to display when the device is in portrait mode,
- * instructing the user to rotate to landscape.
- */
 function PortraitWarning() {
   return (
     <div className="fixed inset-0 bg-black z-[200] flex flex-col items-center justify-center text-white p-4">
@@ -37,7 +34,7 @@ function PortraitWarning() {
 
 interface ActionButtonProps {
   label: string
-  action: "dash" | "explosiveArrow" // Removed 'special'
+  action: keyof GameInputState["actions"]
   className?: string
   title?: string
 }
@@ -65,7 +62,7 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
     <div className="flex flex-col items-center gap-1">
       <button
         className={cn(
-          "w-20 h-20 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-all duration-75",
+          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-75",
           "touch-none select-none active:scale-95 active:brightness-125",
           "bg-gray-800/70 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] backdrop-blur-sm",
           "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
@@ -93,6 +90,7 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
 }
 
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
+  const { isUiActive } = usePlatform()
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const leftZoneRef = useRef<HTMLDivElement>(null)
   const rightZoneRef = useRef<HTMLDivElement>(null)
@@ -108,15 +106,15 @@ export default function MobileGameContainer({ children, className }: MobileGameC
   }, [])
 
   useEffect(() => {
-    if (orientation !== "landscape") return
+    if (orientation !== "landscape" || isUiActive) {
+      return
+    }
 
     let moveManager: JoystickManager | undefined
     let aimManager: JoystickManager | undefined
 
-    // Delay initialization to ensure DOM is ready
     const timer = setTimeout(() => {
       if (leftZoneRef.current && rightZoneRef.current) {
-        // --- Movement Joystick (Left side) ---
         moveManager = nipplejs.create({
           zone: leftZoneRef.current,
           mode: "dynamic",
@@ -124,22 +122,25 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           color: "rgba(0, 255, 255, 0.5)",
           size: 150,
         })
-
         moveManager.on("move", (_, data) => gameInputHandler.handleNippleMovement(data))
         moveManager.on("end", () =>
-          gameInputHandler.handleNippleMovement({ force: 0, angle: { radian: 0, degree: 0 } }),
+          gameInputHandler.handleNippleMovement({
+            force: 0,
+            angle: { radian: 0, degree: 0 },
+            distance: 0,
+            position: { x: 0, y: 0 },
+            identifier: 0,
+          }),
         )
 
-        // --- Aiming Joystick (Right side) ---
         aimManager = nipplejs.create({
           zone: rightZoneRef.current,
           mode: "dynamic",
           position: { left: "50%", top: "50%" },
           color: "rgba(255, 0, 255, 0.5)",
           size: 150,
-          threshold: 0.1, // Fire on release
+          threshold: 0.1,
         })
-
         aimManager.on("start", () => gameInputHandler.handleNippleAimingStart())
         aimManager.on("move", (_, data) => gameInputHandler.handleNippleAimingMove(data))
         aimManager.on("end", () => gameInputHandler.handleNippleAimingEnd())
@@ -151,28 +152,28 @@ export default function MobileGameContainer({ children, className }: MobileGameC
       moveManager?.destroy()
       aimManager?.destroy()
     }
-  }, [orientation])
+  }, [orientation, isUiActive])
 
   if (orientation === "portrait") {
     return <PortraitWarning />
   }
 
-  // Landscape Fullscreen Layout
   return (
     <div className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden", className)}>
-      {/* Game Canvas takes up the full screen */}
       <div className="absolute inset-0 z-0">{children}</div>
 
-      {/* Touch Zones for Dynamic Joysticks */}
-      <div ref={leftZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
-      <div ref={rightZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
-
-      {/* Static Controls (Dash Button) */}
-      <div className="absolute bottom-6 right-24 sm:bottom-8 sm:right-32 z-20 pointer-events-none">
-        <div className="pointer-events-auto">
-          <ActionButton label="X" action="dash" title="Dash" />
-        </div>
-      </div>
+      {!isUiActive && (
+        <>
+          <div ref={leftZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
+          <div ref={rightZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
+          <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-20 pointer-events-none">
+            <div className="pointer-events-auto flex flex-col items-center gap-4">
+              <ActionButton label="X" action="dash" title="Dash" />
+              <ActionButton label="Y" action="special" title="Special" />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
