@@ -96,6 +96,7 @@ export interface Arrow {
   size: number
   damage: number
   ownerId: string
+  lifetime: number
   isWeakShot?: boolean
   distanceTraveled?: number
   range?: number
@@ -105,7 +106,7 @@ export interface Arrow {
   isExplosive: boolean
   isFrost: boolean
   isHoming: boolean
-  homingTarget?: Enemy
+  homingTargetId?: string | null
 }
 
 export interface Enemy {
@@ -281,16 +282,20 @@ export function createInitialLastStandState(
 
 // Generate a wave of enemies
 export function generateWave(waveNumber: number, arenaSize: { width: number; height: number }): Wave {
-  let enemyCount = 5 + waveNumber * 2
+  // Increased enemy count and faster scaling
+  let enemyCount = 8 + waveNumber * 3
   if (waveNumber > 10) {
-    enemyCount = 25 + (waveNumber - 10) * 3
+    enemyCount = 38 + (waveNumber - 10) * 4
   }
+
+  // Decreased spawn delay for faster pace
+  const spawnDelay = Math.max(0.2, 2.5 - waveNumber * 0.1)
 
   return {
     number: waveNumber,
     enemyCount: enemyCount,
     remainingEnemies: enemyCount,
-    spawnDelay: Math.max(0.5, 3 - waveNumber * 0.1),
+    spawnDelay: spawnDelay,
     lastSpawnTime: 0,
     isComplete: false,
   }

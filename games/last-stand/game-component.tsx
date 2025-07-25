@@ -43,6 +43,7 @@ export default function LastStandGame({
   const gameStateRef = useRef(gameState)
   const lastUpdateTimeRef = useRef<number>(Date.now())
   const requestAnimationFrameIdRef = useRef<number | null>(null)
+  const gameActionsRef = useRef<{ type: string; payload: any }[]>([])
 
   const isGameActive = !showCountdown && !showGameOver && !isPaused && !gameState.isLevelingUp
 
@@ -103,25 +104,28 @@ export default function LastStandGame({
   }
 
   const gameLoop = useCallback(() => {
-    if (!gameStateRef.current || gameStateRef.current.isPaused) {
-      requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
-      return
-    }
-
     const now = Date.now()
     const deltaTime = Math.min((now - lastUpdateTimeRef.current) / 1000, 0.1)
     lastUpdateTimeRef.current = now
 
+    const currentActions = gameActionsRef.current
+    gameActionsRef.current = []
+
+    // The engine will handle the paused state internally.
+    // It will process actions (like selecting an upgrade to unpause),
+    // and only advance game time if not paused.
     const unadaptedState = { ...gameStateRef.current, player: gameStateRef.current.players.player }
-    const newState = updateLastStandGameState(unadaptedState, deltaTime, [])
+    const newState = updateLastStandGameState(unadaptedState, deltaTime, currentActions)
     const adaptedState = { ...newState, players: { player: newState.player } }
 
     if (newState.isGameOver && !gameStateRef.current.isGameOver) {
       handleGameOver(newState)
     }
 
+    // Update the React state from the new engine state
     gameStateRef.current = adaptedState
     setGameState(adaptedState)
+    setIsPaused(adaptedState.isPaused) // Sync the component's pause state
 
     if (!newState.isGameOver) {
       requestAnimationFrameIdRef.current = requestAnimationFrame(gameLoop)
@@ -151,26 +155,11 @@ export default function LastStandGame({
   }
 
   const handleUpgradeSelect = (upgradeId: string) => {
-    const currentState = gameStateRef.current
-    const upgrade = currentState.availableUpgrades.find((u) => u.id === upgradeId)
-    if (upgrade && currentState.players.player) {
-      const nextState = JSON.parse(JSON.stringify(currentState))
-      const player = nextState.players.player
-
-      if (upgrade.stat === "maxHealth") player.maxHealth += upgrade.value
-      if (upgrade.stat === "moveSpeed") player.moveSpeed += upgrade.value
-      player.health = player.maxHealth
-
-      nextState.isLevelingUp = false
-      nextState.isPaused = false
-
-      setGameState(nextState)
-      gameStateRef.current = nextState
-      setIsPaused(false)
-    }
+    gameActionsRef.current.push({ type: "SELECT_UPGRADE", payload: upgradeId })
   }
 
   const handleResume = () => {
+    // This directly modifies the state, which is fine for the manual pause menu
     setIsPaused(false)
     if (gameStateRef.current) {
       gameStateRef.current.isPaused = false

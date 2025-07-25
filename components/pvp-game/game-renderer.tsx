@@ -270,6 +270,8 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
   const particlesRef = useRef<Particle[]>([])
   const [debugMode, setDebugMode] = useState<boolean>(false)
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const animationFrameId = useRef<number | null>(null)
+  const lastParticleUpdateTime = useRef<number>(performance.now())
 
   const drawWall = (ctx: CanvasRenderingContext2D, wall: GameObject) => {
     // Use our enhanced wall sprite
@@ -1074,6 +1076,26 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
     })
   }, [gameState.players])
 
+  // Animation loop for particles
+  useEffect(() => {
+    const animateParticles = (now: number) => {
+      const deltaTime = (now - lastParticleUpdateTime.current) / 1000
+      lastParticleUpdateTime.current = now
+
+      updateParticles(deltaTime)
+
+      animationFrameId.current = requestAnimationFrame(animateParticles)
+    }
+
+    animationFrameId.current = requestAnimationFrame(animateParticles)
+
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current)
+      }
+    }
+  }, []) // Run this effect only once
+
   // Handle container resizing
   useEffect(() => {
     const handleResize = () => {
@@ -1149,11 +1171,12 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
         let newVy = particle.vy
 
         if (particle.type === "hit") {
-          newVx *= 0.95 // Apply friction
-          newVy *= 0.95
+          newVx *= 0.98 // Slower decay
+          newVy *= 0.98
+          newVy += 50 * deltaTime // Gravity
         } else if (particle.type === "trail") {
-          newVx *= 0.9
-          newVy *= 0.9
+          newVx *= 0.85
+          newVy *= 0.85
         }
 
         // Increment frame
@@ -1168,8 +1191,8 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
           frame: newFrame,
         }
       })
-      // Ensure particles are removed before they cause negative radius
-      .filter((particle) => particle.frame < particle.maxFrames && particle.frame < 29)
+      // Filter out old particles
+      .filter((particle) => particle.frame < particle.maxFrames)
 
     particlesRef.current = updatedParticles
     setParticles(updatedParticles)

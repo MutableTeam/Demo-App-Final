@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { LastStandGameState, Enemy, Player, Arrow } from "./game-state"
+import type { LastStandGameState, Enemy, Player, Arrow, Companion, VisualEffect } from "./game-state"
 import { generateEnemySprite } from "@/utils/enemy-sprite-generator"
 import { generateArcherSprite } from "@/utils/sprite-generator"
 import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
@@ -113,9 +113,21 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     // Draw new background
     drawEnhancedBackground(ctx, gameState.arenaSize.width, gameState.arenaSize.height, frameCountRef.current)
 
+    // Draw visual effects (explosions)
+    gameState.effects.forEach((effect) => {
+      if (effect.type === "explosion") {
+        drawExplosion(ctx, effect)
+      }
+    })
+
     // Draw arrows
     gameState.arrows.forEach((arrow) => {
       drawArrow(ctx, arrow)
+    })
+
+    // Draw companions
+    gameState.companions.forEach((companion) => {
+      drawCompanion(ctx, companion, frameCountRef.current)
     })
 
     // Draw enemies
@@ -312,6 +324,33 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     ctx.fillRect(0, 0, width, height)
   }
 
+  // Draw explosion effect
+  const drawExplosion = (ctx: CanvasRenderingContext2D, effect: VisualEffect) => {
+    const progress = 1 - effect.life / effect.duration // 0 to 1
+    const currentRadius = effect.radius * progress
+    const alpha = 1 - progress
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(effect.position.x, effect.position.y, currentRadius, 0, Math.PI * 2)
+
+    const gradient = ctx.createRadialGradient(
+      effect.position.x,
+      effect.position.y,
+      0,
+      effect.position.x,
+      effect.position.y,
+      currentRadius,
+    )
+    gradient.addColorStop(0, `rgba(255, 220, 100, ${alpha * 0.9})`)
+    gradient.addColorStop(0.5, `rgba(255, 150, 50, ${alpha * 0.7})`)
+    gradient.addColorStop(1, `rgba(255, 50, 0, 0)`)
+
+    ctx.fillStyle = gradient
+    ctx.fill()
+    ctx.restore()
+  }
+
   // Draw player
   const drawPlayer = (ctx: CanvasRenderingContext2D, player: Player, frame: number) => {
     ctx.save()
@@ -391,7 +430,7 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
         player.position.x - 20,
         player.position.y + player.size + 20,
         "DASH",
-        player.dashCooldown / 1.5,
+        player.dashCooldown / player.dashCooldownTime,
       )
     }
 
@@ -429,10 +468,57 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
       generateEnemySprite(ctx, enemy.position.x, enemy.position.y, enemy.size, enemy.type, animationState, frame)
     }
 
+    // Draw frost effect if slowed
+    if (enemy.isSlowed) {
+      const pulse = Math.sin(frame * 0.1) * 0.15 + 0.35 // Pulsing opacity
+      ctx.fillStyle = `rgba(173, 216, 230, ${pulse})` // Light blue with pulsing alpha
+      ctx.beginPath()
+      ctx.arc(0, 0, enemy.size + 2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
     ctx.restore()
 
     // Draw health bar
     drawHealthBar(ctx, enemy.position.x, enemy.position.y - enemy.size - 10, enemy.health, enemy.maxHealth, 30, 3)
+  }
+
+  // Draw companion
+  const drawCompanion = (ctx: CanvasRenderingContext2D, companion: Companion, frame: number) => {
+    if (companion.type === "wolf") {
+      ctx.save()
+      ctx.translate(companion.position.x, companion.position.y)
+
+      // Simple running animation
+      const bob = Math.sin(frame * 0.3) * 2
+
+      // Body
+      ctx.fillStyle = "#6D6D6D" // Dark grey
+      ctx.beginPath()
+      ctx.ellipse(0, bob, 15, 8, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Head
+      ctx.beginPath()
+      ctx.arc(-12, -4 + bob, 6, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Ears
+      ctx.beginPath()
+      ctx.moveTo(-16, -8 + bob)
+      ctx.lineTo(-12, -12 + bob)
+      ctx.lineTo(-10, -8 + bob)
+      ctx.fill()
+
+      // Tail
+      ctx.beginPath()
+      ctx.moveTo(14, bob)
+      ctx.quadraticCurveTo(20, bob - 8, 16, bob - 12)
+      ctx.quadraticCurveTo(18, bob - 4, 14, bob)
+      ctx.fill()
+
+      ctx.restore()
+    }
   }
 
   // Draw arrow

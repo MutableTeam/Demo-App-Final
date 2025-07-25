@@ -689,6 +689,14 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
       return true
     })
 
+    // Update explosions
+    newState.explosions = newState.explosions
+      .map((explosion) => ({
+        ...explosion,
+        time: explosion.time + deltaTime,
+      }))
+      .filter((explosion) => explosion.time <= explosion.maxTime)
+
     // Check for game over conditions
     if (!newState.isGameOver) {
       const playersWithLives = Object.values(newState.players).filter((p) => p.lives > 0)

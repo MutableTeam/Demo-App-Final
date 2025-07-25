@@ -3,6 +3,8 @@ import {
   type Player,
   type Arrow,
   type Enemy,
+  type Companion,
+  type VisualEffect,
   createEnemy,
   generateWave,
   getRandomSpawnPosition,
@@ -30,6 +32,19 @@ function applyUpgrade(state: LastStandGameState, upgradeId: string): LastStandGa
   const newPlayerState = upgrade.apply(state.player)
   const newUpgrades = { ...state.player.upgrades }
   newUpgrades[upgrade.id] = (newUpgrades[upgrade.id] || 0) + 1
+
+  // Reset controls and velocity to prevent sticky movement after unpausing
+  newPlayerState.controls = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    shoot: false,
+    dash: false,
+    special: false,
+  }
+  newPlayerState.velocity = { x: 0, y: 0 }
+  newPlayerState.animationState = "idle" // Reset to idle state
 
   return {
     ...state,
@@ -75,40 +90,23 @@ export function updateLastStandGameState(
   deltaTime: number,
   actions: { type: "SELECT_UPGRADE"; payload: string }[] = [],
 ): LastStandGameState {
-  let newState = { ...state }
+  let newState = JSON.parse(JSON.stringify(state))
 
-  // Process actions first
+  // Process actions first. This can change the paused state.
   for (const action of actions) {
     if (action.type === "SELECT_UPGRADE") {
       newState = applyUpgrade(newState, action.payload)
     }
   }
 
+  // If after processing actions, we are still paused or the game is over, do nothing else.
   if (newState.isGameOver || newState.isPaused) {
     return newState
-  }
-
-  // Create a deep copy of the state to avoid mutation issues
-  newState = {
-    ...newState,
-    player: { ...newState.player },
-    enemies: [...newState.enemies],
-    arrows: [...newState.arrows],
-    currentWave: { ...newState.currentWave },
-    playerStats: { ...newState.playerStats },
-    effects: [...newState.effects],
   }
 
   // Update game time
   newState.gameTime += deltaTime
   newState.playerStats.timeAlive = newState.gameTime
-
-  // Update player position and velocity
-  newState.player.position = { ...newState.player.position }
-  newState.player.velocity = { ...newState.player.velocity }
-  if (newState.player.dashVelocity) {
-    newState.player.dashVelocity = { ...newState.player.dashVelocity }
-  }
 
   // Update player cooldowns
   if (newState.player.dashCooldown > 0) {
@@ -132,15 +130,12 @@ export function updateLastStandGameState(
 
   // Handle player dash
   if (newState.player.controls.dash && newState.player.dashCooldown <= 0 && !newState.player.isDashing) {
-    // Start dash
     newState.player.isDashing = true
     newState.player.dashStartTime = Date.now() / 1000
     newState.player.dashVelocity = calculateDashVelocity(newState.player)
-    newState.player.dashCooldown = 1.5 // 1.5 second cooldown
+    newState.player.dashCooldown = newState.player.dashCooldownTime
     newState.player.animationState = "dash"
     newState.player.lastAnimationChange = Date.now()
-
-    // Play dash sound
     try {
       audioManager.playSound("dash")
     } catch (error) {
@@ -150,16 +145,12 @@ export function updateLastStandGameState(
 
   if (newState.player.isDashing && newState.player.dashStartTime !== null) {
     const currentTime = Date.now() / 1000
-    const dashDuration = 0.15 // 150ms dash
+    const dashDuration = 0.15
 
-    // Check if dash should end
     if (currentTime - newState.player.dashStartTime >= dashDuration) {
-      // End dash
       newState.player.isDashing = false
       newState.player.dashStartTime = null
       newState.player.dashVelocity = null
-
-      // Return to appropriate animation
       if (newState.player.velocity.x !== 0 || newState.player.velocity.y !== 0) {
         newState.player.animationState = "run"
       } else {
@@ -167,28 +158,21 @@ export function updateLastStandGameState(
       }
       newState.player.lastAnimationChange = Date.now()
     } else if (newState.player.dashVelocity) {
-      // Apply dash movement
       newState.player.position.x += newState.player.dashVelocity.x * deltaTime
       newState.player.position.y += newState.player.dashVelocity.y * deltaTime
     }
   } else {
-    // Normal movement (only if not dashing)
-    const speed = 200 * newState.player.moveSpeedMultiplier // pixels per second
-
-    // Apply movement penalty when drawing bow
-    const movementMultiplier = newState.player.isDrawingBow ? 0.4 : 1.0 // 40% speed when drawing bow
-
-    // Reset velocity
+    // Normal movement
+    const speed = 200 * newState.player.moveSpeedMultiplier
+    const movementMultiplier = newState.player.isDrawingBow ? 0.4 : 1.0
     newState.player.velocity.x = 0
     newState.player.velocity.y = 0
 
-    // Apply controls to velocity
     if (newState.player.controls.up) newState.player.velocity.y = -speed * movementMultiplier
     if (newState.player.controls.down) newState.player.velocity.y = speed * movementMultiplier
     if (newState.player.controls.left) newState.player.velocity.x = -speed * movementMultiplier
     if (newState.player.controls.right) newState.player.velocity.x = speed * movementMultiplier
 
-    // Normalize diagonal movement
     if (newState.player.velocity.x !== 0 && newState.player.velocity.y !== 0) {
       const magnitude = Math.sqrt(
         newState.player.velocity.x * newState.player.velocity.x +
@@ -198,11 +182,9 @@ export function updateLastStandGameState(
       newState.player.velocity.y = (newState.player.velocity.y / magnitude) * speed * movementMultiplier
     }
 
-    // Apply velocity
     newState.player.position.x += newState.player.velocity.x * deltaTime
     newState.player.position.y += newState.player.velocity.y * deltaTime
 
-    // Update animation state based on movement
     if (newState.player.hitAnimationTimer <= 0) {
       if (newState.player.velocity.x !== 0 || newState.player.velocity.y !== 0) {
         if (newState.player.animationState !== "run" && !newState.player.isDrawingBow) {
@@ -219,13 +201,9 @@ export function updateLastStandGameState(
   // Handle bow drawing
   if (newState.player.controls.shoot && !newState.player.isDrawingBow) {
     newState.player.isDrawingBow = true
-    newState.player.drawStartTime = Date.now() / 1000 // Convert to seconds
-
-    // Set animation to fire when starting to draw bow
+    newState.player.drawStartTime = Date.now() / 1000
     newState.player.animationState = "fire"
     newState.player.lastAnimationChange = Date.now()
-
-    // Play draw sound
     try {
       audioManager.playSound("draw")
     } catch (error) {
@@ -241,8 +219,8 @@ export function updateLastStandGameState(
     const damage = calculateArrowDamage(drawTime, newState.player, isWeakShot)
     const speed = calculateArrowSpeed(drawTime, newState.player.maxDrawTime)
 
-    const spreadAngle = 0.15 // Angle for multi-shot
-    const numArrows = 1 + (newState.player.multiShot || 0) * 2
+    const spreadAngle = 0.15
+    const numArrows = 1 + (newState.player.multiShot || 0)
     const startAngle = newState.player.rotation - (spreadAngle * (numArrows - 1)) / 2
 
     for (let i = 0; i < numArrows; i++) {
@@ -258,90 +236,20 @@ export function updateLastStandGameState(
         size: 5,
         damage: damage,
         ownerId: newState.player.id,
+        lifetime: 6,
         isWeakShot,
         piercingLeft: newState.player.piercing || 0,
         bouncesLeft: newState.player.ricochet || 0,
         isExplosive: newState.player.explosiveArrows,
         isFrost: newState.player.frostArrows,
         isHoming: newState.player.homingArrows,
+        homingTargetId: null,
       }
       newState.arrows.push(arrow)
     }
     newState.playerStats.shotsFired += numArrows
     newState.player.isDrawingBow = false
     newState.player.drawStartTime = null
-  }
-
-  // Handle special attack
-  if (newState.player.controls.special) {
-    if (!newState.player.isChargingSpecial && newState.player.specialAttackCooldown <= 0) {
-      newState.player.isChargingSpecial = true
-      newState.player.specialChargeStartTime = Date.now() / 1000
-
-      // Set animation to fire when charging special
-      newState.player.animationState = "fire"
-      newState.player.lastAnimationChange = Date.now()
-    }
-  } else if (newState.player.isChargingSpecial && newState.player.specialChargeStartTime !== null) {
-    // Release special attack (3 arrows in quick succession)
-    const currentTime = Date.now() / 1000
-    const chargeTime = currentTime - newState.player.specialChargeStartTime
-
-    // Only trigger if charged for at least 0.5 seconds
-    if (chargeTime >= 0.5) {
-      const arrowSpeed = 500 // Fixed speed for special attack
-      const spreadAngle = 0.1 // Small spread between arrows
-
-      // Fire 3 arrows with slight spread
-      for (let i = -1; i <= 1; i++) {
-        const angle = newState.player.rotation + i * spreadAngle
-        const arrowVelocity = {
-          x: Math.cos(angle) * arrowSpeed,
-          y: Math.sin(angle) * arrowSpeed,
-        }
-
-        const arrowPosition = {
-          x: newState.player.position.x + Math.cos(angle) * (newState.player.size + 5),
-          y: newState.player.position.y + Math.sin(angle) * (newState.player.size + 5),
-        }
-
-        const arrow: Arrow = {
-          id: `arrow-special-${Date.now()}-${Math.random()}-${i}`,
-          position: { ...arrowPosition },
-          velocity: { ...arrowVelocity },
-          rotation: angle,
-          size: 5,
-          damage: 15,
-          ownerId: newState.player.id,
-          isWeakShot: false,
-          distanceTraveled: 0,
-          range: 800,
-          piercingLeft: 0,
-          bouncesLeft: 0,
-          isExplosive: false,
-          isFrost: false,
-          isHoming: false,
-        }
-
-        newState.arrows.push(arrow)
-      }
-
-      newState.playerStats.shotsFired += 3
-
-      // Play special attack sound
-      try {
-        audioManager.playSound("special")
-      } catch (error) {
-        console.error("Failed to play special sound:", error)
-      }
-
-      // Set cooldown for special attack
-      newState.player.specialAttackCooldown = 5 // 5 seconds cooldown
-    }
-
-    // Reset special attack state
-    newState.player.isChargingSpecial = false
-    newState.player.specialChargeStartTime = null
   }
 
   // Keep player within arena bounds
@@ -357,29 +265,22 @@ export function updateLastStandGameState(
 
   // Update wave spawning
   if (!newState.currentWave.isComplete) {
-    // Check if it's time to spawn a new enemy
     if (
       newState.currentWave.remainingEnemies > 0 &&
       newState.gameTime - newState.currentWave.lastSpawnTime >= newState.currentWave.spawnDelay
     ) {
-      // Spawn a new enemy
       const spawnPosition = getRandomSpawnPosition(newState.arenaSize)
       const enemyType = getEnemyTypeForWave(newState.currentWave.number)
       const enemy = createEnemy(enemyType, spawnPosition, newState.currentWave.number)
-
       newState.enemies.push(enemy)
       newState.currentWave.remainingEnemies--
       newState.currentWave.lastSpawnTime = newState.gameTime
     }
 
-    // Check if wave is complete
     if (newState.currentWave.remainingEnemies === 0 && newState.enemies.length === 0) {
-      // Wave complete
       newState.currentWave.isComplete = true
       newState.completedWaves++
       newState.playerStats.wavesCompleted++
-
-      // Generate next wave
       newState.currentWave = generateWave(newState.currentWave.number + 1, newState.arenaSize)
     }
   }
@@ -397,7 +298,6 @@ export function updateLastStandGameState(
     enemy.rotation = Math.atan2(dy, dx)
 
     if (checkCircleCollision(enemy, newState.player)) {
-      // Attack player
       if (enemy.attackCooldown <= 0) {
         if (!newState.player.isInvulnerable) {
           newState.player.health -= enemy.damage
@@ -407,7 +307,6 @@ export function updateLastStandGameState(
         enemy.attackCooldown = 1.0
       }
     } else {
-      // Move towards player
       enemy.position.x += (dx / distance) * enemy.speed * speedMultiplier * deltaTime
       enemy.position.y += (dy / distance) * enemy.speed * speedMultiplier * deltaTime
     }
@@ -416,33 +315,106 @@ export function updateLastStandGameState(
     }
   })
 
-  // OPTIMIZED ARROW LOGIC
-  const nextArrows: Arrow[] = []
-  for (const arrow of newState.arrows) {
-    // Homing logic
-    if (arrow.isHoming && (!arrow.homingTarget || arrow.homingTarget.health <= 0)) {
-      let closestEnemy: Enemy | null = null
-      let minDistance = Number.POSITIVE_INFINITY
-      for (const enemy of newState.enemies) {
-        const d = Math.hypot(enemy.position.x - arrow.position.x, enemy.position.y - arrow.position.y)
-        if (d < minDistance) {
-          minDistance = d
-          closestEnemy = enemy
+  // Handle wolf companion
+  if (newState.player.hasWolf && !newState.companions.some((c) => c.type === "wolf")) {
+    const wolf: Companion = {
+      id: `wolf-${newState.player.id}`,
+      type: "wolf",
+      position: { x: newState.player.position.x - 30, y: newState.player.position.y },
+      target: null,
+      attackCooldown: 0,
+      speed: 150,
+      damage: 10,
+    }
+    newState.companions.push(wolf)
+  }
+
+  // Update companions
+  newState.companions.forEach((companion) => {
+    if (companion.type === "wolf") {
+      if (!companion.target || companion.target.health <= 0) {
+        let closestEnemy: Enemy | null = null
+        let minDistance = 300
+        newState.enemies.forEach((enemy) => {
+          const d = Math.hypot(enemy.position.x - companion.position.x, enemy.position.y - companion.position.y)
+          if (d < minDistance) {
+            minDistance = d
+            closestEnemy = enemy
+          }
+        })
+        companion.target = closestEnemy
+      }
+
+      if (companion.target) {
+        const dx = companion.target.position.x - companion.position.x
+        const dy = companion.target.position.y - companion.position.y
+        const distance = Math.hypot(dx, dy)
+
+        if (distance < 25) {
+          if (companion.attackCooldown <= 0) {
+            companion.target.health -= companion.damage
+            companion.attackCooldown = 1.0
+          }
+        } else {
+          companion.position.x += (dx / distance) * companion.speed * deltaTime
+          companion.position.y += (dy / distance) * companion.speed * deltaTime
+        }
+      } else {
+        const dx = newState.player.position.x - companion.position.x
+        const dy = newState.player.position.y - companion.position.y
+        const distance = Math.hypot(dx, dy)
+        if (distance > 50) {
+          companion.position.x += (dx / distance) * companion.speed * 0.8 * deltaTime
+          companion.position.y += (dy / distance) * companion.speed * 0.8 * deltaTime
         }
       }
-      arrow.homingTarget = closestEnemy || undefined
+
+      if (companion.attackCooldown > 0) {
+        companion.attackCooldown -= deltaTime
+      }
+    }
+  })
+
+  // Update arrows
+  const nextArrows: Arrow[] = []
+  for (const arrow of newState.arrows) {
+    arrow.lifetime -= deltaTime
+    if (arrow.lifetime <= 0) {
+      continue
     }
 
-    if (arrow.isHoming && arrow.homingTarget) {
-      const targetVector = {
-        x: arrow.homingTarget.position.x - arrow.position.x,
-        y: arrow.homingTarget.position.y - arrow.position.y,
+    if (arrow.isHoming) {
+      let targetEnemy = newState.enemies.find((e) => e.id === arrow.homingTargetId)
+
+      if (!targetEnemy || targetEnemy.health <= 0) {
+        let closestEnemy: Enemy | null = null
+        let minDistance = 400 // Search radius
+        for (const enemy of newState.enemies) {
+          if (enemy.health > 0) {
+            const d = Math.hypot(enemy.position.x - arrow.position.x, enemy.position.y - arrow.position.y)
+            if (d < minDistance) {
+              minDistance = d
+              closestEnemy = enemy
+            }
+          }
+        }
+        arrow.homingTargetId = closestEnemy ? closestEnemy.id : null
+        targetEnemy = closestEnemy || undefined
       }
-      const magnitude = Math.hypot(targetVector.x, targetVector.y)
-      const desiredVel = { x: (targetVector.x / magnitude) * 600, y: (targetVector.y / magnitude) * 600 }
-      arrow.velocity.x = arrow.velocity.x * 0.95 + desiredVel.x * 0.05
-      arrow.velocity.y = arrow.velocity.y * 0.95 + desiredVel.y * 0.05
-      arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
+
+      if (targetEnemy) {
+        const targetVector = {
+          x: targetEnemy.position.x - arrow.position.x,
+          y: targetEnemy.position.y - arrow.position.y,
+        }
+        const magnitude = Math.hypot(targetVector.x, targetVector.y)
+        if (magnitude > 0) {
+          const desiredVel = { x: (targetVector.x / magnitude) * 600, y: (targetVector.y / magnitude) * 600 }
+          arrow.velocity.x = arrow.velocity.x * 0.95 + desiredVel.x * 0.05
+          arrow.velocity.y = arrow.velocity.y * 0.95 + desiredVel.y * 0.05
+          arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
+        }
+      }
     }
 
     arrow.position.x += arrow.velocity.x * deltaTime
@@ -463,7 +435,26 @@ export function updateLastStandGameState(
         }
 
         if (arrow.isExplosive) {
-          // Explosion logic here
+          const explosion: VisualEffect = {
+            id: `explosion-${Date.now()}`,
+            type: "explosion",
+            position: { ...arrow.position },
+            radius: 75,
+            duration: 0.3,
+            life: 0.3,
+          }
+          newState.effects.push(explosion)
+
+          newState.enemies.forEach((e) => {
+            if (e.id !== enemy.id) {
+              const dist = Math.hypot(e.position.x - explosion.position.x, e.position.y - explosion.position.y)
+              if (dist < explosion.radius + e.size) {
+                e.health -= 15
+              }
+            }
+          })
+          alive = false
+          break
         }
 
         arrow.piercingLeft--
@@ -476,7 +467,6 @@ export function updateLastStandGameState(
 
     if (!alive) continue
 
-    // Wall bouncing
     if (arrow.position.x < 0 || arrow.position.x > width || arrow.position.y < 0 || arrow.position.y > height) {
       if (arrow.bouncesLeft > 0) {
         arrow.bouncesLeft--
@@ -493,6 +483,14 @@ export function updateLastStandGameState(
     }
   }
   newState.arrows = nextArrows
+
+  // Update and remove visual effects
+  newState.effects = newState.effects
+    .map((effect) => ({
+      ...effect,
+      life: effect.life - deltaTime,
+    }))
+    .filter((effect) => effect.life > 0)
 
   // Remove dead enemies and grant XP
   const deadEnemies = newState.enemies.filter((e) => e.health <= 0)
@@ -534,26 +532,22 @@ function calculateArrowSpeed(drawTime: number, maxDrawTime: number): number {
   return minSpeed + drawPercentage * (maxSpeed - minSpeed)
 }
 
-// Calculate dash velocity based on input or facing direction
 function calculateDashVelocity(player: Player): Vector2D {
-  const DASH_SPEED = 800 // Fixed dash speed
+  const DASH_SPEED = 800
   const dashVelocity: Vector2D = { x: 0, y: 0 }
 
-  // First try to use movement input direction
   if (player.controls.up || player.controls.down || player.controls.left || player.controls.right) {
     if (player.controls.up) dashVelocity.y -= 1
     if (player.controls.down) dashVelocity.y += 1
     if (player.controls.left) dashVelocity.x -= 1
     if (player.controls.right) dashVelocity.x += 1
 
-    // Normalize the direction vector
     const magnitude = Math.sqrt(dashVelocity.x * dashVelocity.x + dashVelocity.y * dashVelocity.y)
     if (magnitude > 0) {
       dashVelocity.x = (dashVelocity.x / magnitude) * DASH_SPEED
       dashVelocity.y = (dashVelocity.y / magnitude) * DASH_SPEED
     }
   } else {
-    // If no movement input, use facing direction
     dashVelocity.x = Math.cos(player.rotation) * DASH_SPEED
     dashVelocity.y = Math.sin(player.rotation) * DASH_SPEED
   }
@@ -561,7 +555,6 @@ function calculateDashVelocity(player: Player): Vector2D {
   return dashVelocity
 }
 
-// Define Vector2D interface
 interface Vector2D {
   x: number
   y: number
