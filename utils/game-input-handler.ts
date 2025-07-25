@@ -25,6 +25,7 @@ export interface GameInputState {
   actions: {
     shoot: boolean
     dash: boolean
+    special: boolean
     explosiveArrow: boolean
   }
 }
@@ -40,7 +41,7 @@ class GameInputHandler {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, explosiveArrow: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
     debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
@@ -126,7 +127,7 @@ class GameInputHandler {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, explosiveArrow: false },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
     }
     this.callbacks = {}
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
@@ -164,12 +165,14 @@ export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef 
     const player = getPlayer()
     if (!player) return
     if (e.button === 0) player.controls.shoot = true
+    else if (e.button === 2) player.controls.special = true
   }
 
   const handleMouseUp = (e: MouseEvent) => {
     const player = getPlayer()
     if (!player) return
     if (e.button === 0) player.controls.shoot = false
+    else if (e.button === 2) player.controls.special = false
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {

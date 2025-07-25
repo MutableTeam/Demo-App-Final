@@ -115,6 +115,10 @@ export function updateLastStandGameState(
     newState.player.dashCooldown -= deltaTime
   }
 
+  if (newState.player.specialAttackCooldown > 0) {
+    newState.player.specialAttackCooldown -= deltaTime
+  }
+
   if (newState.player.hitAnimationTimer > 0) {
     newState.player.hitAnimationTimer -= deltaTime
   }
@@ -266,6 +270,78 @@ export function updateLastStandGameState(
     newState.playerStats.shotsFired += numArrows
     newState.player.isDrawingBow = false
     newState.player.drawStartTime = null
+  }
+
+  // Handle special attack
+  if (newState.player.controls.special) {
+    if (!newState.player.isChargingSpecial && newState.player.specialAttackCooldown <= 0) {
+      newState.player.isChargingSpecial = true
+      newState.player.specialChargeStartTime = Date.now() / 1000
+
+      // Set animation to fire when charging special
+      newState.player.animationState = "fire"
+      newState.player.lastAnimationChange = Date.now()
+    }
+  } else if (newState.player.isChargingSpecial && newState.player.specialChargeStartTime !== null) {
+    // Release special attack (3 arrows in quick succession)
+    const currentTime = Date.now() / 1000
+    const chargeTime = currentTime - newState.player.specialChargeStartTime
+
+    // Only trigger if charged for at least 0.5 seconds
+    if (chargeTime >= 0.5) {
+      const arrowSpeed = 500 // Fixed speed for special attack
+      const spreadAngle = 0.1 // Small spread between arrows
+
+      // Fire 3 arrows with slight spread
+      for (let i = -1; i <= 1; i++) {
+        const angle = newState.player.rotation + i * spreadAngle
+        const arrowVelocity = {
+          x: Math.cos(angle) * arrowSpeed,
+          y: Math.sin(angle) * arrowSpeed,
+        }
+
+        const arrowPosition = {
+          x: newState.player.position.x + Math.cos(angle) * (newState.player.size + 5),
+          y: newState.player.position.y + Math.sin(angle) * (newState.player.size + 5),
+        }
+
+        const arrow: Arrow = {
+          id: `arrow-special-${Date.now()}-${Math.random()}-${i}`,
+          position: { ...arrowPosition },
+          velocity: { ...arrowVelocity },
+          rotation: angle,
+          size: 5,
+          damage: 15,
+          ownerId: newState.player.id,
+          isWeakShot: false,
+          distanceTraveled: 0,
+          range: 800,
+          piercingLeft: 0,
+          bouncesLeft: 0,
+          isExplosive: false,
+          isFrost: false,
+          isHoming: false,
+        }
+
+        newState.arrows.push(arrow)
+      }
+
+      newState.playerStats.shotsFired += 3
+
+      // Play special attack sound
+      try {
+        audioManager.playSound("special")
+      } catch (error) {
+        console.error("Failed to play special sound:", error)
+      }
+
+      // Set cooldown for special attack
+      newState.player.specialAttackCooldown = 5 // 5 seconds cooldown
+    }
+
+    // Reset special attack state
+    newState.player.isChargingSpecial = false
+    newState.player.specialChargeStartTime = null
   }
 
   // Keep player within arena bounds
