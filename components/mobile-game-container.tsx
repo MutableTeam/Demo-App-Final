@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { usePlatform } from "@/contexts/platform-context"
 import { gameInputHandler } from "@/utils/game-input-handler"
 import { Button } from "@/components/ui/button"
-import { Zap, ChevronsRight } from "lucide-react"
+import { ChevronsRight } from "lucide-react"
 import type nipplejs from "nipplejs"
 import { RotateCw } from "lucide-react"
 import { Orbitron } from "next/font/google"
@@ -129,18 +129,11 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
           {/* Action Buttons */}
           <div className="absolute bottom-6 right-5 flex flex-col items-center gap-4 z-20">
             <Button
-              className="w-20 h-20 rounded-full bg-blue-500/50 text-white backdrop-blur-sm"
+              className="w-16 h-16 rounded-full bg-blue-500/50 text-white backdrop-blur-sm"
               onTouchStart={() => gameInputHandler.handleButtonPress("dash")}
               onTouchEnd={() => gameInputHandler.handleButtonRelease("dash")}
             >
-              <ChevronsRight size={40} />
-            </Button>
-            <Button
-              className="w-20 h-20 rounded-full bg-red-500/50 text-white backdrop-blur-sm"
-              onTouchStart={() => gameInputHandler.handleButtonPress("special")}
-              onTouchEnd={() => gameInputHandler.handleButtonRelease("special")}
-            >
-              <Zap size={40} />
+              <ChevronsRight size={32} />
             </Button>
           </div>
         </>
