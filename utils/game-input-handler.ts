@@ -44,11 +44,39 @@ class GameInputHandler {
   handleNippleMovement(data: EventData) {
     if (data.angle) {
       const angle = data.angle.degree
-      // Use wider ranges for diagonals
-      this.state.movement.up = angle > 45 && angle < 135
-      this.state.movement.down = angle > 225 && angle < 315
-      this.state.movement.left = angle > 135 && angle < 225
-      this.state.movement.right = angle < 45 || angle > 315
+      const movement = { up: false, down: false, left: false, right: false }
+
+      // 8-way direction detection
+      if (angle > 337.5 || angle <= 22.5) {
+        // Right
+        movement.right = true
+      } else if (angle > 22.5 && angle <= 67.5) {
+        // Up-Right
+        movement.up = true
+        movement.right = true
+      } else if (angle > 67.5 && angle <= 112.5) {
+        // Up
+        movement.up = true
+      } else if (angle > 112.5 && angle <= 157.5) {
+        // Up-Left
+        movement.up = true
+        movement.left = true
+      } else if (angle > 157.5 && angle <= 202.5) {
+        // Left
+        movement.left = true
+      } else if (angle > 202.5 && angle <= 247.5) {
+        // Down-Left
+        movement.down = true
+        movement.left = true
+      } else if (angle > 247.5 && angle <= 292.5) {
+        // Down
+        movement.down = true
+      } else if (angle > 292.5 && angle <= 337.5) {
+        // Down-Right
+        movement.down = true
+        movement.right = true
+      }
+      this.state.movement = movement
     }
     this.notifyStateChange()
   }
