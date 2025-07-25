@@ -76,8 +76,6 @@ export interface Player {
   hitAnimationTimer: number
   isInvulnerable: boolean
   invulnerabilityTimer: number
-  isStunned: boolean
-  stunTimer: number
   // Controls
   controls: {
     up: boolean
@@ -105,18 +103,14 @@ export interface Arrow {
   piercingLeft: number
   bouncesLeft: number
   isExplosive: boolean
-  explosionRadius?: number
   isFrost: boolean
   isHoming: boolean
   homingTarget?: Enemy
-  lifespan?: number
 }
-
-export type EnemyType = "skeleton" | "zombie" | "ghost" | "necromancer" | "goblin_sapper" | "wraith" | "behemoth"
 
 export interface Enemy {
   id: string
-  type: EnemyType
+  type: "skeleton" | "zombie" | "ghost" | "necromancer"
   position: Vector2D
   velocity: Vector2D
   rotation: number
@@ -131,11 +125,6 @@ export interface Enemy {
   xpValue: number
   isSlowed: boolean
   slowTimer: number
-  // For special abilities
-  isPhased?: boolean
-  phaseTimer?: number
-  isChargingAttack?: boolean
-  chargeTimer?: number
 }
 
 export interface Companion {
@@ -150,26 +139,20 @@ export interface Companion {
 
 export interface VisualEffect {
   id: string
-  type: "explosion" | "stomp"
+  type: "explosion"
   position: Vector2D
   radius: number
   duration: number
   life: number
-  damage?: number
 }
 
 export interface Wave {
   number: number
   enemyCount: number
   remainingEnemies: number
-  spawnDelay: number // Delay between bursts
+  spawnDelay: number
   lastSpawnTime: number
   isComplete: boolean
-  // New properties for creative spawning
-  enemyPool: EnemyType[]
-  bursts: { count: number; delay: number }
-  isSpawningBurst: boolean
-  enemiesSpawnedInBurst: number
 }
 
 export interface PlayerStats {
@@ -259,8 +242,6 @@ export function createInitialLastStandState(
       hitAnimationTimer: 0,
       isInvulnerable: false,
       invulnerabilityTimer: 0,
-      isStunned: false,
-      stunTimer: 0,
       // Controls
       controls: {
         up: false,
@@ -298,30 +279,20 @@ export function createInitialLastStandState(
   }
 }
 
-// Generate a wave of enemies with burst mechanics
+// Generate a wave of enemies
 export function generateWave(waveNumber: number, arenaSize: { width: number; height: number }): Wave {
-  // More aggressive scaling
-  const baseEnemyCount = 10
-  const enemyCount = Math.floor(baseEnemyCount * (1 + (waveNumber - 1) * 0.35)) * 2
-
-  // Spawn rate increases faster (this is now the delay between bursts)
-  const spawnDelay = Math.max(0.5, 2.0 - waveNumber * 0.1)
-
-  // Burst properties get more intense over time
-  const burstCount = Math.min(2 + Math.floor(waveNumber / 4), 8)
-  const burstDelay = Math.max(0.1, 0.3 - waveNumber * 0.01)
+  let enemyCount = 5 + waveNumber * 2
+  if (waveNumber > 10) {
+    enemyCount = 25 + (waveNumber - 10) * 3
+  }
 
   return {
     number: waveNumber,
     enemyCount: enemyCount,
     remainingEnemies: enemyCount,
-    spawnDelay: spawnDelay,
+    spawnDelay: Math.max(0.5, 3 - waveNumber * 0.1),
     lastSpawnTime: 0,
     isComplete: false,
-    enemyPool: getEnemyPoolForWave(waveNumber),
-    bursts: { count: burstCount, delay: burstDelay },
-    isSpawningBurst: false,
-    enemiesSpawnedInBurst: 0,
   }
 }
 
@@ -344,34 +315,30 @@ export function getRandomSpawnPosition(arenaSize: { width: number; height: numbe
   }
 }
 
-// Get a pool of available enemy types for a given wave
-export function getEnemyPoolForWave(waveNumber: number): EnemyType[] {
-  const pool: EnemyType[] = ["skeleton"]
-  if (waveNumber >= 2) pool.push("goblin_sapper")
-  if (waveNumber >= 3) pool.push("zombie")
-  if (waveNumber >= 5) pool.push("ghost")
-  if (waveNumber >= 7) pool.push("wraith")
-  if (waveNumber > 0 && waveNumber % 8 === 0) pool.push("behemoth")
-  if (waveNumber > 0 && waveNumber % 10 === 0) pool.push("necromancer")
-  return pool
+// Get enemy type for wave
+export function getEnemyTypeForWave(waveNumber: number): "skeleton" | "zombie" | "ghost" | "necromancer" {
+  if (waveNumber % 10 === 0) return "necromancer"
+  if (waveNumber % 5 === 0) return "ghost"
+  if (waveNumber % 3 === 0) return "zombie"
+  return "skeleton"
 }
 
 // Create an enemy
-export function createEnemy(type: EnemyType, position: Vector2D, wave: number): Enemy {
+export function createEnemy(
+  type: "skeleton" | "zombie" | "ghost" | "necromancer",
+  position: Vector2D,
+  wave: number,
+): Enemy {
   const baseStats = {
-    skeleton: { health: 30, damage: 10, speed: 80, value: 10, xp: 50, size: 20 },
+    skeleton: { health: 30, damage: 10, speed: 80, value: 10, xp: 50, size: 20 }, // XP set to 50
     zombie: { health: 50, damage: 15, speed: 60, value: 20, xp: 80, size: 22 },
     ghost: { health: 20, damage: 8, speed: 100, value: 15, xp: 70, size: 18 },
     necromancer: { health: 80, damage: 20, speed: 50, value: 50, xp: 250, size: 25 },
-    goblin_sapper: { health: 15, damage: 40, speed: 120, value: 25, xp: 60, size: 16 },
-    wraith: { health: 40, damage: 12, speed: 90, value: 30, xp: 100, size: 20 },
-    behemoth: { health: 200, damage: 25, speed: 40, value: 100, xp: 500, size: 40 },
   }
 
   const stats = baseStats[type]
-  const healthMultiplier = 1 + (wave - 1) * 0.15
-  const damageMultiplier = 1 + (wave - 1) * 0.08
-  const speedMultiplier = 1 + (wave - 1) * 0.02
+  const healthMultiplier = 1 + (wave - 1) * 0.1
+  const damageMultiplier = 1 + (wave - 1) * 0.05
 
   return {
     id: `enemy-${type}-${Date.now()}-${Math.random()}`,
@@ -382,7 +349,7 @@ export function createEnemy(type: EnemyType, position: Vector2D, wave: number): 
     health: stats.health * healthMultiplier,
     maxHealth: stats.health * healthMultiplier,
     size: stats.size,
-    speed: stats.speed * speedMultiplier,
+    speed: stats.speed,
     damage: stats.damage * damageMultiplier,
     attackCooldown: 0.5 + Math.random() * 0.5,
     animationState: "walk",

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { LastStandGameState, Enemy, Player, Arrow, VisualEffect } from "./game-state"
+import type { LastStandGameState, Enemy, Player, Arrow } from "./game-state"
 import { generateEnemySprite } from "@/utils/enemy-sprite-generator"
 import { generateArcherSprite } from "@/utils/sprite-generator"
 import { createArcherAnimationSet, SpriteAnimator } from "@/utils/sprite-animation"
@@ -125,11 +125,6 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
 
     // Draw player
     drawPlayer(ctx, gameState.player, frameCountRef.current)
-
-    // Draw visual effects
-    gameState.effects.forEach((effect) => {
-      drawVisualEffect(ctx, effect)
-    })
   }, [gameState])
 
   // Helper functions to create background elements
@@ -549,67 +544,6 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     }
 
     ctx.restore()
-  }
-
-  // Draw visual effect
-  const drawVisualEffect = (ctx: CanvasRenderingContext2D, effect: VisualEffect) => {
-    if (effect.type === "explosion") {
-      const progress = 1 - effect.life / effect.duration
-      const currentRadius = effect.radius * progress
-      const alpha = 1 - progress
-
-      ctx.save()
-      ctx.globalCompositeOperation = "lighter"
-
-      // Inner core
-      const coreGradient = ctx.createRadialGradient(
-        effect.position.x,
-        effect.position.y,
-        0,
-        effect.position.x,
-        effect.position.y,
-        currentRadius * 0.5,
-      )
-      coreGradient.addColorStop(0, `rgba(255, 255, 200, ${alpha * 0.9})`)
-      coreGradient.addColorStop(1, `rgba(255, 200, 50, ${alpha * 0.5})`)
-      ctx.fillStyle = coreGradient
-      ctx.beginPath()
-      ctx.arc(effect.position.x, effect.position.y, currentRadius * 0.5, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Outer shockwave
-      const shockwaveGradient = ctx.createRadialGradient(
-        effect.position.x,
-        effect.position.y,
-        currentRadius * 0.4,
-        effect.position.x,
-        effect.position.y,
-        currentRadius,
-      )
-      shockwaveGradient.addColorStop(0, `rgba(255, 150, 0, ${alpha * 0.6})`)
-      shockwaveGradient.addColorStop(1, `rgba(255, 50, 0, 0)`)
-      ctx.fillStyle = shockwaveGradient
-      ctx.beginPath()
-      ctx.arc(effect.position.x, effect.position.y, currentRadius, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Debris/Sparks
-      if (progress < 0.5) {
-        const numSparks = 20
-        for (let i = 0; i < numSparks; i++) {
-          const angle = (i / numSparks) * Math.PI * 2 + progress * 5
-          const distance = currentRadius * (1 + Math.random() * 0.2)
-          const x = effect.position.x + Math.cos(angle) * distance
-          const y = effect.position.y + Math.sin(angle) * distance
-          ctx.fillStyle = `rgba(255, 220, 150, ${alpha * (1 - progress * 2)})`
-          ctx.beginPath()
-          ctx.arc(x, y, 1 + Math.random() * 2, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
-
-      ctx.restore()
-    }
   }
 
   // Draw health bar
