@@ -1,13 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { cn } from "@/lib/utils"
-import { gameInputHandler } from "@/utils/game-input-handler"
+import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
 import { Orbitron } from "next/font/google"
+import { Joystick } from "react-joystick-component"
 import { RotateCw } from "lucide-react"
-import nipplejs from "nipplejs"
-import type { JoystickManager } from "nipplejs"
 
 interface MobileGameContainerProps {
   children: React.ReactNode
@@ -37,7 +36,7 @@ function PortraitWarning() {
 
 interface ActionButtonProps {
   label: string
-  action: "dash" | "explosiveArrow" // Removed 'special'
+  action: keyof GameInputState["actions"]
   className?: string
   title?: string
 }
@@ -65,7 +64,7 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
     <div className="flex flex-col items-center gap-1">
       <button
         className={cn(
-          "w-20 h-20 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-all duration-75",
+          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-75",
           "touch-none select-none active:scale-95 active:brightness-125",
           "bg-gray-800/70 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] backdrop-blur-sm",
           "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
@@ -94,8 +93,6 @@ function ActionButton({ label, action, className, title }: ActionButtonProps) {
 
 export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
-  const leftZoneRef = useRef<HTMLDivElement>(null)
-  const rightZoneRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -107,52 +104,6 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     return () => window.removeEventListener("resize", handleOrientationChange)
   }, [])
 
-  useEffect(() => {
-    if (orientation !== "landscape") return
-
-    let moveManager: JoystickManager | undefined
-    let aimManager: JoystickManager | undefined
-
-    // Delay initialization to ensure DOM is ready
-    const timer = setTimeout(() => {
-      if (leftZoneRef.current && rightZoneRef.current) {
-        // --- Movement Joystick (Left side) ---
-        moveManager = nipplejs.create({
-          zone: leftZoneRef.current,
-          mode: "dynamic",
-          position: { left: "50%", top: "50%" },
-          color: "rgba(0, 255, 255, 0.5)",
-          size: 150,
-        })
-
-        moveManager.on("move", (_, data) => gameInputHandler.handleNippleMovement(data))
-        moveManager.on("end", () =>
-          gameInputHandler.handleNippleMovement({ force: 0, angle: { radian: 0, degree: 0 } }),
-        )
-
-        // --- Aiming Joystick (Right side) ---
-        aimManager = nipplejs.create({
-          zone: rightZoneRef.current,
-          mode: "dynamic",
-          position: { left: "50%", top: "50%" },
-          color: "rgba(255, 0, 255, 0.5)",
-          size: 150,
-          threshold: 0.1, // Fire on release
-        })
-
-        aimManager.on("start", () => gameInputHandler.handleNippleAimingStart())
-        aimManager.on("move", (_, data) => gameInputHandler.handleNippleAimingMove(data))
-        aimManager.on("end", () => gameInputHandler.handleNippleAimingEnd())
-      }
-    }, 100)
-
-    return () => {
-      clearTimeout(timer)
-      moveManager?.destroy()
-      aimManager?.destroy()
-    }
-  }, [orientation])
-
   if (orientation === "portrait") {
     return <PortraitWarning />
   }
@@ -163,14 +114,41 @@ export default function MobileGameContainer({ children, className }: MobileGameC
       {/* Game Canvas takes up the full screen */}
       <div className="absolute inset-0 z-0">{children}</div>
 
-      {/* Touch Zones for Dynamic Joysticks */}
-      <div ref={leftZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
-      <div ref={rightZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
-
-      {/* Static Controls (Dash Button) */}
-      <div className="absolute bottom-6 right-24 sm:bottom-8 sm:right-32 z-20 pointer-events-none">
+      {/* Controls Overlay */}
+      <div className="absolute inset-0 z-10 flex justify-between items-end p-6 sm:p-8 pointer-events-none">
+        {/* Left Controls: Movement Joystick */}
         <div className="pointer-events-auto">
-          <ActionButton label="X" action="dash" title="Dash" />
+          <div className="flex flex-col items-center gap-2">
+            <Joystick
+              size={120}
+              baseColor="rgba(0, 255, 255, 0.15)"
+              stickColor="rgba(0, 255, 255, 0.6)"
+              move={(e) => gameInputHandler.handleMovementJoystick(e)}
+              stop={(e) => gameInputHandler.handleMovementJoystick(e)}
+            />
+            <span className={`text-sm font-bold text-cyan-300/80 uppercase ${orbitron.className}`}>Move</span>
+          </div>
+        </div>
+
+        {/* Right Controls: Actions and Aiming */}
+        <div className="pointer-events-auto">
+          <div className="flex flex-col items-center gap-6">
+            <div className="grid grid-cols-2 gap-4">
+              <ActionButton label="X" action="dash" title="Dash" />
+              <ActionButton label="Y" action="special" title="Special" />
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Joystick
+                size={120}
+                baseColor="rgba(255, 0, 255, 0.15)"
+                stickColor="rgba(255, 0, 255, 0.6)"
+                move={(e) => gameInputHandler.handleAimingJoystick(e)}
+                stop={(e) => gameInputHandler.handleAimingJoystick(e)}
+                start={(e) => gameInputHandler.handleAimingJoystick(e)}
+              />
+              <span className={`text-sm font-bold text-pink-300/80 uppercase ${orbitron.className}`}>Aim & Shoot</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

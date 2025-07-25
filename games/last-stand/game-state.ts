@@ -175,9 +175,7 @@ export interface LeaderboardEntry {
 
 // Calculate XP needed for the next level
 export function calculateXpForLevel(level: number): number {
-  // Level 2 requires 100 XP. Each subsequent level requires ~25% more.
-  if (level === 1) return 100
-  return Math.floor(100 * Math.pow(1.25, level - 1))
+  return Math.floor(100 * Math.pow(1.2, level - 1))
 }
 
 // Create initial game state
@@ -330,10 +328,10 @@ export function createEnemy(
   wave: number,
 ): Enemy {
   const baseStats = {
-    skeleton: { health: 30, damage: 10, speed: 80, value: 10, xp: 50, size: 20 }, // XP set to 50
-    zombie: { health: 50, damage: 15, speed: 60, value: 20, xp: 80, size: 22 },
-    ghost: { health: 20, damage: 8, speed: 100, value: 15, xp: 70, size: 18 },
-    necromancer: { health: 80, damage: 20, speed: 50, value: 50, xp: 250, size: 25 },
+    skeleton: { health: 30, damage: 10, speed: 80, value: 10, xp: 5, size: 20 },
+    zombie: { health: 50, damage: 15, speed: 60, value: 20, xp: 8, size: 22 },
+    ghost: { health: 20, damage: 8, speed: 100, value: 15, xp: 7, size: 18 },
+    necromancer: { health: 80, damage: 20, speed: 50, value: 50, xp: 25, size: 25 },
   }
 
   const stats = baseStats[type]
