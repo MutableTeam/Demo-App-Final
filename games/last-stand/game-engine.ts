@@ -45,7 +45,7 @@ function applyUpgrade(state: LastStandGameState, upgradeId: string): LastStandGa
 
 function checkForLevelUp(state: LastStandGameState): LastStandGameState {
   const newState = { ...state }
-  if (newState.player.xp >= newState.player.xpToNextLevel) {
+  while (newState.player.xp >= newState.player.xpToNextLevel) {
     newState.player.xp -= newState.player.xpToNextLevel
     newState.player.level++
     newState.player.xpToNextLevel = calculateXpForLevel(newState.player.level)
@@ -113,10 +113,6 @@ export function updateLastStandGameState(
   // Update player cooldowns
   if (newState.player.dashCooldown > 0) {
     newState.player.dashCooldown -= deltaTime
-  }
-
-  if (newState.player.specialAttackCooldown > 0) {
-    newState.player.specialAttackCooldown -= deltaTime
   }
 
   if (newState.player.hitAnimationTimer > 0) {
@@ -272,73 +268,6 @@ export function updateLastStandGameState(
     newState.player.drawStartTime = null
   }
 
-  // Handle special attack
-  if (newState.player.controls.special) {
-    if (!newState.player.isChargingSpecial && newState.player.specialAttackCooldown <= 0) {
-      newState.player.isChargingSpecial = true
-      newState.player.specialChargeStartTime = Date.now() / 1000
-
-      // Set animation to fire when charging special
-      newState.player.animationState = "fire"
-      newState.player.lastAnimationChange = Date.now()
-    }
-  } else if (newState.player.isChargingSpecial && newState.player.specialChargeStartTime !== null) {
-    // Release special attack (3 arrows in quick succession)
-    const currentTime = Date.now() / 1000
-    const chargeTime = currentTime - newState.player.specialChargeStartTime
-
-    // Only trigger if charged for at least 0.5 seconds
-    if (chargeTime >= 0.5) {
-      const arrowSpeed = 500 // Fixed speed for special attack
-      const spreadAngle = 0.1 // Small spread between arrows
-
-      // Fire 3 arrows with slight spread
-      for (let i = -1; i <= 1; i++) {
-        const angle = newState.player.rotation + i * spreadAngle
-        const arrowVelocity = {
-          x: Math.cos(angle) * arrowSpeed,
-          y: Math.sin(angle) * arrowSpeed,
-        }
-
-        const arrowPosition = {
-          x: newState.player.position.x + Math.cos(angle) * (newState.player.size + 5),
-          y: newState.player.position.y + Math.sin(angle) * (newState.player.size + 5),
-        }
-
-        const arrow: Arrow = {
-          id: `arrow-special-${Date.now()}-${Math.random()}-${i}`,
-          position: { ...arrowPosition },
-          velocity: { ...arrowVelocity },
-          rotation: angle,
-          size: 5,
-          damage: 15,
-          ownerId: newState.player.id,
-          isWeakShot: false,
-          distanceTraveled: 0,
-          range: 800,
-        }
-
-        newState.arrows.push(arrow)
-      }
-
-      newState.playerStats.shotsFired += 3
-
-      // Play special attack sound
-      try {
-        audioManager.playSound("special")
-      } catch (error) {
-        console.error("Failed to play special sound:", error)
-      }
-
-      // Set cooldown for special attack
-      newState.player.specialAttackCooldown = 5 // 5 seconds cooldown
-    }
-
-    // Reset special attack state
-    newState.player.isChargingSpecial = false
-    newState.player.specialChargeStartTime = null
-  }
-
   // Keep player within arena bounds
   const { width, height } = newState.arenaSize
   newState.player.position.x = Math.max(
@@ -379,148 +308,134 @@ export function updateLastStandGameState(
     }
   }
 
-  // Update enemies with overhauled hit detection
-  newState.enemies = newState.enemies
-    .map((enemy) => {
-      if (enemy.slowTimer > 0) {
-        enemy.slowTimer -= deltaTime
-        if (enemy.slowTimer <= 0) enemy.isSlowed = false
-      }
-      const speedMultiplier = enemy.isSlowed ? 0.5 : 1
-      const dx = newState.player.position.x - enemy.position.x
-      const dy = newState.player.position.y - enemy.position.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      enemy.rotation = Math.atan2(dy, dx)
+  // Update enemies
+  newState.enemies.forEach((enemy) => {
+    if (enemy.slowTimer > 0) {
+      enemy.slowTimer -= deltaTime
+      if (enemy.slowTimer <= 0) enemy.isSlowed = false
+    }
+    const speedMultiplier = enemy.isSlowed ? 0.5 : 1
+    const dx = newState.player.position.x - enemy.position.x
+    const dy = newState.player.position.y - enemy.position.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    enemy.rotation = Math.atan2(dy, dx)
 
-      if (!checkCircleCollision(enemy, newState.player)) {
-        enemy.position.x += (dx / distance) * enemy.speed * speedMultiplier * deltaTime
-        enemy.position.y += (dy / distance) * enemy.speed * speedMultiplier * deltaTime
-      }
-      return enemy
-    })
-    .filter((enemy) => enemy.health > 0)
-
-  // Update arrows
-  newState.arrows = newState.arrows
-    .map((arrow) => {
-      // Homing logic
-      if (arrow.isHoming && (!arrow.homingTarget || arrow.homingTarget.health <= 0)) {
-        // Find closest enemy
-        let closestEnemy: Enemy | null = null
-        let minDistance = Number.POSITIVE_INFINITY
-        for (const enemy of newState.enemies) {
-          const dx = enemy.position.x - arrow.position.x
-          const dy = enemy.position.y - arrow.position.y
-          const dist = dx * dx + dy * dy
-          if (dist < minDistance) {
-            minDistance = dist
-            closestEnemy = enemy
-          }
+    if (checkCircleCollision(enemy, newState.player)) {
+      // Attack player
+      if (enemy.attackCooldown <= 0) {
+        if (!newState.player.isInvulnerable) {
+          newState.player.health -= enemy.damage
+          newState.player.isInvulnerable = true
+          newState.player.invulnerabilityTimer = 0.5
         }
-        arrow.homingTarget = closestEnemy || undefined
+        enemy.attackCooldown = 1.0
       }
+    } else {
+      // Move towards player
+      enemy.position.x += (dx / distance) * enemy.speed * speedMultiplier * deltaTime
+      enemy.position.y += (dy / distance) * enemy.speed * speedMultiplier * deltaTime
+    }
+    if (enemy.attackCooldown > 0) {
+      enemy.attackCooldown -= deltaTime
+    }
+  })
 
-      if (arrow.isHoming && arrow.homingTarget) {
-        const targetVector = {
-          x: arrow.homingTarget.position.x - arrow.position.x,
-          y: arrow.homingTarget.position.y - arrow.position.y,
-        }
-        const magnitude = Math.sqrt(targetVector.x ** 2 + targetVector.y ** 2)
-        const desiredVel = { x: (targetVector.x / magnitude) * 600, y: (targetVector.y / magnitude) * 600 }
-        arrow.velocity.x = arrow.velocity.x * 0.95 + desiredVel.x * 0.05
-        arrow.velocity.y = arrow.velocity.y * 0.95 + desiredVel.y * 0.05
-        arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
-      }
-
-      arrow.position.x += arrow.velocity.x * deltaTime
-      arrow.position.y += arrow.velocity.y * deltaTime
-      return arrow
-    })
-    .filter((arrow) => {
-      // Collision with enemies
+  // OPTIMIZED ARROW LOGIC
+  const nextArrows: Arrow[] = []
+  for (const arrow of newState.arrows) {
+    // Homing logic
+    if (arrow.isHoming && (!arrow.homingTarget || arrow.homingTarget.health <= 0)) {
+      let closestEnemy: Enemy | null = null
+      let minDistance = Number.POSITIVE_INFINITY
       for (const enemy of newState.enemies) {
-        if (checkCircleCollision(arrow, enemy)) {
-          enemy.health -= arrow.damage
-          if (arrow.isFrost) {
-            enemy.isSlowed = true
-            enemy.slowTimer = 2 // 2 seconds slow
-          }
-          if (enemy.health <= 0) {
-            const xpGain = Math.floor(enemy.xpValue * newState.player.xpMultiplier)
-            newState.player.xp += xpGain
-            newState.playerStats.kills++
-            newState.playerStats.score += enemy.value
-            newState = checkForLevelUp(newState)
-          }
-          if (arrow.isExplosive) {
-            newState.effects.push({
-              id: `explosion-${Date.now()}`,
-              type: "explosion",
-              position: arrow.position,
-              radius: 50,
-              duration: 0.3,
-              life: 0.3,
-            })
-            // Damage enemies in radius
-            for (const otherEnemy of newState.enemies) {
-              if (
-                otherEnemy.id !== enemy.id &&
-                checkCircleCollision({ ...otherEnemy }, { position: arrow.position, size: 50 })
-              ) {
-                otherEnemy.health -= arrow.damage * 0.5 // Explosion does 50% damage
-              }
-            }
-          }
-          arrow.piercingLeft--
-          return arrow.piercingLeft >= 0
+        const d = Math.hypot(enemy.position.x - arrow.position.x, enemy.position.y - arrow.position.y)
+        if (d < minDistance) {
+          minDistance = d
+          closestEnemy = enemy
         }
       }
+      arrow.homingTarget = closestEnemy || undefined
+    }
 
-      // Wall bouncing (ricochet)
-      if (
-        arrow.position.x < 0 ||
-        arrow.position.x > newState.arenaSize.width ||
-        arrow.position.y < 0 ||
-        arrow.position.y > newState.arenaSize.height
-      ) {
-        if (arrow.bouncesLeft > 0) {
-          arrow.bouncesLeft--
-          if (arrow.position.x < 0 || arrow.position.x > newState.arenaSize.width) arrow.velocity.x *= -1
-          if (arrow.position.y < 0 || arrow.position.y > newState.arenaSize.height) arrow.velocity.y *= -1
-          arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
-          return true
-        }
-        return false
+    if (arrow.isHoming && arrow.homingTarget) {
+      const targetVector = {
+        x: arrow.homingTarget.position.x - arrow.position.x,
+        y: arrow.homingTarget.position.y - arrow.position.y,
       }
-      return true
-    })
+      const magnitude = Math.hypot(targetVector.x, targetVector.y)
+      const desiredVel = { x: (targetVector.x / magnitude) * 600, y: (targetVector.y / magnitude) * 600 }
+      arrow.velocity.x = arrow.velocity.x * 0.95 + desiredVel.x * 0.05
+      arrow.velocity.y = arrow.velocity.y * 0.95 + desiredVel.y * 0.05
+      arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
+    }
 
-  // Update effects
-  newState.effects = newState.effects
-    .map((effect) => {
-      effect.life -= deltaTime
-      return effect
-    })
-    .filter((effect) => effect.life > 0)
+    arrow.position.x += arrow.velocity.x * deltaTime
+    arrow.position.y += arrow.velocity.y * deltaTime
+
+    let alive = true
+    const hitEnemiesThisFrame = new Set<string>()
+
+    for (const enemy of newState.enemies) {
+      if (hitEnemiesThisFrame.has(enemy.id) || enemy.health <= 0) continue
+
+      if (checkCircleCollision(arrow, enemy)) {
+        hitEnemiesThisFrame.add(enemy.id)
+        enemy.health -= arrow.damage
+        if (arrow.isFrost) {
+          enemy.isSlowed = true
+          enemy.slowTimer = 2
+        }
+
+        if (arrow.isExplosive) {
+          // Explosion logic here
+        }
+
+        arrow.piercingLeft--
+        if (arrow.piercingLeft < 0) {
+          alive = false
+          break
+        }
+      }
+    }
+
+    if (!alive) continue
+
+    // Wall bouncing
+    if (arrow.position.x < 0 || arrow.position.x > width || arrow.position.y < 0 || arrow.position.y > height) {
+      if (arrow.bouncesLeft > 0) {
+        arrow.bouncesLeft--
+        if (arrow.position.x < 0 || arrow.position.x > width) arrow.velocity.x *= -1
+        if (arrow.position.y < 0 || arrow.position.y > height) arrow.velocity.y *= -1
+        arrow.rotation = Math.atan2(arrow.velocity.y, arrow.velocity.x)
+      } else {
+        alive = false
+      }
+    }
+
+    if (alive) {
+      nextArrows.push(arrow)
+    }
+  }
+  newState.arrows = nextArrows
+
+  // Remove dead enemies and grant XP
+  const deadEnemies = newState.enemies.filter((e) => e.health <= 0)
+  if (deadEnemies.length > 0) {
+    newState.enemies = newState.enemies.filter((e) => e.health > 0)
+    for (const deadEnemy of deadEnemies) {
+      const xpGain = Math.floor(deadEnemy.xpValue * newState.player.xpMultiplier)
+      newState.player.xp += xpGain
+      newState.playerStats.kills++
+      newState.playerStats.score += deadEnemy.value
+    }
+    newState = checkForLevelUp(newState)
+  }
 
   // Check if player is dead
   if (newState.player.health <= 0 && !newState.isGameOver) {
     newState.isGameOver = true
     newState.player.animationState = "death"
     newState.player.lastAnimationChange = Date.now()
-
-    // Submit score to leaderboard
-    // This would normally call an API to submit the score
-    const leaderboardEntry = {
-      id: newState.player.id,
-      playerName: newState.player.name,
-      score: newState.playerStats.score,
-      wavesCompleted: newState.playerStats.wavesCompleted,
-      timeAlive: newState.playerStats.timeAlive,
-    }
-
-    // For now, just add to local leaderboard
-    newState.leaderboard.push(leaderboardEntry)
   }
 
   return newState

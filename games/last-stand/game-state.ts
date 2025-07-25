@@ -1,28 +1,16 @@
-"use client"
+export interface Vector2D {
+  x: number
+  y: number
+}
 
-import type { Vector2D, PlayerAnimationState } from "@/components/pvp-game/game-engine"
-import type { Upgrade } from "./upgrades"
-
-export interface LastStandGameState {
-  playerId: string
-  playerName: string
-  gameMode: string
-  player: Player
-  enemies: Enemy[]
-  arrows: Arrow[]
-  companions: Companion[]
-  effects: VisualEffect[]
-  arenaSize: { width: number; height: number }
-  gameTime: number
-  isGameOver: boolean
-  isPaused: boolean
-  isLevelingUp: boolean
-  availableUpgrades: Upgrade[]
-  startTime: number
-  currentWave: Wave
-  completedWaves: number
-  playerStats: PlayerStats
-  leaderboard: LeaderboardEntry[]
+export interface Controls {
+  up: boolean
+  down: boolean
+  left: boolean
+  right: boolean
+  shoot: boolean
+  dash: boolean
+  explosiveArrow: boolean
 }
 
 export interface Player {
@@ -34,58 +22,33 @@ export interface Player {
   size: number
   health: number
   maxHealth: number
-  color: string
-  // Rogue-like stats
+  controls: Controls
+  isDrawingBow: boolean
+  drawStartTime: number | null
+  minDrawTime: number
+  maxDrawTime: number
+  isDashing: boolean
+  dashStartTime: number | null
+  dashVelocity: Vector2D | null
+  dashCooldown: number
+  animationState: "idle" | "run" | "fire" | "dash" | "death" | "hit"
+  lastAnimationChange: number
+  hitAnimationTimer: number
+  isInvulnerable: boolean
+  invulnerabilityTimer: number
   level: number
   xp: number
   xpToNextLevel: number
-  upgrades: { [key: string]: number } // Tracks level of each upgrade
-  // Base stats that can be modified by upgrades
   damageMultiplier: number
   moveSpeedMultiplier: number
   xpMultiplier: number
-  critChance: number
-  healthRegen: number
-  dashCooldownTime: number
-  // Upgrade flags/levels
   multiShot: number
   piercing: number
   ricochet: number
   explosiveArrows: boolean
   frostArrows: boolean
   homingArrows: boolean
-  hasWolf: boolean
-  // Animation state
-  animationState: PlayerAnimationState
-  lastAnimationChange: number
-  // Bow mechanics
-  isDrawingBow: boolean
-  drawStartTime: number | null
-  maxDrawTime: number
-  minDrawTime: number
-  // Dash mechanics
-  dashCooldown: number
-  isDashing: boolean
-  dashStartTime: number | null
-  dashVelocity: Vector2D | null
-  // Special attack
-  isChargingSpecial: boolean
-  specialChargeStartTime: number | null
-  specialAttackCooldown: number
-  // State timers
-  hitAnimationTimer: number
-  isInvulnerable: boolean
-  invulnerabilityTimer: number
-  // Controls
-  controls: {
-    up: boolean
-    down: boolean
-    left: boolean
-    right: boolean
-    shoot: boolean
-    dash: boolean
-    special: boolean
-  }
+  upgrades: Record<string, number>
 }
 
 export interface Arrow {
@@ -96,59 +59,37 @@ export interface Arrow {
   size: number
   damage: number
   ownerId: string
-  isWeakShot?: boolean
-  distanceTraveled?: number
-  range?: number
-  // Upgrade properties
+  isWeakShot: boolean
   piercingLeft: number
   bouncesLeft: number
   isExplosive: boolean
   isFrost: boolean
   isHoming: boolean
   homingTarget?: Enemy
+  distanceTraveled?: number
+  range?: number
 }
 
 export interface Enemy {
   id: string
-  type: "skeleton" | "zombie" | "ghost" | "necromancer"
+  type: "grunt" | "brute" | "scout"
   position: Vector2D
-  velocity: Vector2D
   rotation: number
+  size: number
   health: number
   maxHealth: number
-  size: number
   speed: number
   damage: number
   attackCooldown: number
-  animationState: string
   value: number
   xpValue: number
   isSlowed: boolean
   slowTimer: number
 }
 
-export interface Companion {
-  id: string
-  type: "wolf"
-  position: Vector2D
-  target: Enemy | null
-  attackCooldown: number
-  speed: number
-  damage: number
-}
-
-export interface VisualEffect {
-  id: string
-  type: "explosion"
-  position: Vector2D
-  radius: number
-  duration: number
-  life: number
-}
-
 export interface Wave {
   number: number
-  enemyCount: number
+  totalEnemies: number
   remainingEnemies: number
   spawnDelay: number
   lastSpawnTime: number
@@ -156,204 +97,193 @@ export interface Wave {
 }
 
 export interface PlayerStats {
+  kills: number
+  score: number
+  timeAlive: number
+  wavesCompleted: number
   shotsFired: number
   shotsHit: number
   accuracy: number
-  wavesCompleted: number
-  timeAlive: number
-  score: number
-  kills: number
 }
 
-export interface LeaderboardEntry {
+export interface Upgrade {
   id: string
-  playerName: string
-  score: number
-  wavesCompleted: number
-  timeAlive: number
+  name: string
+  description: string
+  maxLevel?: number
+  apply: (player: Player) => Partial<Player>
 }
 
-// Calculate XP needed for the next level
+export interface GameEffect {
+  id: string
+  type: "explosion" | "text"
+  position: Vector2D
+  duration: number
+  startTime: number
+  // For text effect
+  text?: string
+  color?: string
+}
+
+export interface LastStandGameState {
+  gameId: string
+  gameMode: "practice" | "ranked"
+  player: Player
+  players: { [key: string]: Player } // For compatibility with useGameControls
+  enemies: Enemy[]
+  arrows: Arrow[]
+  arenaSize: { width: number; height: number }
+  gameTime: number
+  isGameOver: boolean
+  isPaused: boolean
+  currentWave: Wave
+  completedWaves: number
+  playerStats: PlayerStats
+  isLevelingUp: boolean
+  availableUpgrades: Upgrade[]
+  effects: GameEffect[]
+}
+
 export function calculateXpForLevel(level: number): number {
   return Math.floor(100 * Math.pow(1.2, level - 1))
 }
 
-// Create initial game state
 export function createInitialLastStandState(
   playerId: string,
   playerName: string,
   gameMode: string,
 ): LastStandGameState {
-  const arenaSize = { width: 1280, height: 720 }
-  const initialLevel = 1
+  const player: Player = {
+    id: "player",
+    name: playerName,
+    position: { x: 800, y: 450 },
+    velocity: { x: 0, y: 0 },
+    rotation: 0,
+    size: 20,
+    health: 100,
+    maxHealth: 100,
+    controls: {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      shoot: false,
+      dash: false,
+      explosiveArrow: false,
+    },
+    isDrawingBow: false,
+    drawStartTime: null,
+    minDrawTime: 0.2,
+    maxDrawTime: 1.0,
+    isDashing: false,
+    dashStartTime: null,
+    dashVelocity: null,
+    dashCooldown: 0,
+    animationState: "idle",
+    lastAnimationChange: Date.now(),
+    hitAnimationTimer: 0,
+    isInvulnerable: false,
+    invulnerabilityTimer: 0,
+    level: 1,
+    xp: 0,
+    xpToNextLevel: calculateXpForLevel(1),
+    damageMultiplier: 1,
+    moveSpeedMultiplier: 1,
+    xpMultiplier: 1,
+    multiShot: 0,
+    piercing: 0,
+    ricochet: 0,
+    explosiveArrows: false,
+    frostArrows: false,
+    homingArrows: false,
+    upgrades: {},
+  }
 
   return {
-    playerId,
-    playerName,
-    gameMode,
-    player: {
-      id: playerId,
-      name: playerName,
-      position: { x: arenaSize.width / 2, y: arenaSize.height / 2 },
-      velocity: { x: 0, y: 0 },
-      rotation: 0,
-      size: 24,
-      health: 100,
-      maxHealth: 100,
-      color: "#4CAF50",
-      // Rogue-like stats
-      level: initialLevel,
-      xp: 0,
-      xpToNextLevel: calculateXpForLevel(initialLevel),
-      upgrades: {},
-      damageMultiplier: 1,
-      moveSpeedMultiplier: 1,
-      xpMultiplier: 1,
-      critChance: 0.05,
-      healthRegen: 0,
-      dashCooldownTime: 1.5,
-      multiShot: 0,
-      piercing: 0,
-      ricochet: 0,
-      explosiveArrows: false,
-      frostArrows: false,
-      homingArrows: false,
-      hasWolf: false,
-      // Animation state
-      animationState: "idle",
-      lastAnimationChange: Date.now(),
-      // Bow mechanics
-      isDrawingBow: false,
-      drawStartTime: null,
-      maxDrawTime: 1.5,
-      minDrawTime: 0.45,
-      // Dash mechanics
-      dashCooldown: 0,
-      isDashing: false,
-      dashStartTime: null,
-      dashVelocity: null,
-      // Special attack
-      isChargingSpecial: false,
-      specialChargeStartTime: null,
-      specialAttackCooldown: 0,
-      // State timers
-      hitAnimationTimer: 0,
-      isInvulnerable: false,
-      invulnerabilityTimer: 0,
-      // Controls
-      controls: {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        shoot: false,
-        dash: false,
-        special: false,
-      },
-    },
+    gameId: `ls-${Date.now()}`,
+    gameMode: gameMode === "practice" ? "practice" : "ranked",
+    player: player,
+    players: { player: player },
     enemies: [],
     arrows: [],
-    companions: [],
-    effects: [],
-    arenaSize,
+    arenaSize: { width: 1600, height: 900 },
     gameTime: 0,
     isGameOver: false,
     isPaused: false,
-    isLevelingUp: false,
-    availableUpgrades: [],
-    startTime: Date.now(),
-    currentWave: generateWave(1, arenaSize),
+    currentWave: generateWave(1, { width: 1600, height: 900 }),
     completedWaves: 0,
     playerStats: {
+      kills: 0,
+      score: 0,
+      timeAlive: 0,
+      wavesCompleted: 0,
       shotsFired: 0,
       shotsHit: 0,
       accuracy: 0,
-      wavesCompleted: 0,
-      timeAlive: 0,
-      score: 0,
-      kills: 0,
     },
-    leaderboard: [],
+    isLevelingUp: false,
+    availableUpgrades: [],
+    effects: [],
   }
 }
 
-// Generate a wave of enemies
-export function generateWave(waveNumber: number, arenaSize: { width: number; height: number }): Wave {
-  let enemyCount = 5 + waveNumber * 2
-  if (waveNumber > 10) {
-    enemyCount = 25 + (waveNumber - 10) * 3
+export function getEnemyTypeForWave(waveNumber: number): "grunt" | "brute" | "scout" {
+  if (waveNumber % 5 === 0) return "brute"
+  if (waveNumber > 2 && Math.random() < 0.3) return "scout"
+  return "grunt"
+}
+
+export function createEnemy(type: "grunt" | "brute" | "scout", position: Vector2D, waveNumber: number): Enemy {
+  const baseStats = {
+    grunt: { health: 20, speed: 80, damage: 10, size: 15, value: 10, xp: 5 },
+    brute: { health: 100, speed: 50, damage: 25, size: 25, value: 50, xp: 25 },
+    scout: { health: 15, speed: 150, damage: 8, size: 12, value: 15, xp: 7 },
   }
+  const stats = baseStats[type]
+  const scalingFactor = 1 + (waveNumber - 1) * 0.1
 
   return {
-    number: waveNumber,
-    enemyCount: enemyCount,
-    remainingEnemies: enemyCount,
-    spawnDelay: Math.max(0.5, 3 - waveNumber * 0.1),
-    lastSpawnTime: 0,
-    isComplete: false,
+    id: `enemy-${type}-${Date.now()}-${Math.random()}`,
+    type,
+    position,
+    rotation: 0,
+    size: stats.size,
+    health: Math.floor(stats.health * scalingFactor),
+    maxHealth: Math.floor(stats.health * scalingFactor),
+    speed: stats.speed,
+    damage: Math.floor(stats.damage * scalingFactor),
+    attackCooldown: 0,
+    value: Math.floor(stats.value * scalingFactor),
+    xpValue: Math.floor(stats.xp * scalingFactor),
+    isSlowed: false,
+    slowTimer: 0,
   }
 }
 
-// Get a random spawn position
 export function getRandomSpawnPosition(arenaSize: { width: number; height: number }): Vector2D {
-  const margin = 50
   const side = Math.floor(Math.random() * 4)
-
+  const { width, height } = arenaSize
   switch (side) {
-    case 0:
-      return { x: Math.random() * arenaSize.width, y: -margin }
-    case 1:
-      return { x: arenaSize.width + margin, y: Math.random() * arenaSize.height }
-    case 2:
-      return { x: Math.random() * arenaSize.width, y: arenaSize.height + margin }
-    case 3:
-      return { x: -margin, y: Math.random() * arenaSize.height }
+    case 0: // top
+      return { x: Math.random() * width, y: -30 }
+    case 1: // right
+      return { x: width + 30, y: Math.random() * height }
+    case 2: // bottom
+      return { x: Math.random() * width, y: height + 30 }
+    case 3: // left
+      return { x: -30, y: Math.random() * height }
     default:
       return { x: 0, y: 0 }
   }
 }
 
-// Get enemy type for wave
-export function getEnemyTypeForWave(waveNumber: number): "skeleton" | "zombie" | "ghost" | "necromancer" {
-  if (waveNumber % 10 === 0) return "necromancer"
-  if (waveNumber % 5 === 0) return "ghost"
-  if (waveNumber % 3 === 0) return "zombie"
-  return "skeleton"
-}
-
-// Create an enemy
-export function createEnemy(
-  type: "skeleton" | "zombie" | "ghost" | "necromancer",
-  position: Vector2D,
-  wave: number,
-): Enemy {
-  const baseStats = {
-    skeleton: { health: 30, damage: 10, speed: 80, value: 10, xp: 5, size: 20 },
-    zombie: { health: 50, damage: 15, speed: 60, value: 20, xp: 8, size: 22 },
-    ghost: { health: 20, damage: 8, speed: 100, value: 15, xp: 7, size: 18 },
-    necromancer: { health: 80, damage: 20, speed: 50, value: 50, xp: 25, size: 25 },
-  }
-
-  const stats = baseStats[type]
-  const healthMultiplier = 1 + (wave - 1) * 0.1
-  const damageMultiplier = 1 + (wave - 1) * 0.05
-
+export function generateWave(waveNumber: number, arenaSize: { width: number; height: number }): Wave {
   return {
-    id: `enemy-${type}-${Date.now()}-${Math.random()}`,
-    type,
-    position: { ...position },
-    velocity: { x: 0, y: 0 },
-    rotation: 0,
-    health: stats.health * healthMultiplier,
-    maxHealth: stats.health * healthMultiplier,
-    size: stats.size,
-    speed: stats.speed,
-    damage: stats.damage * damageMultiplier,
-    attackCooldown: 0.5 + Math.random() * 0.5,
-    animationState: "walk",
-    value: stats.value,
-    xpValue: stats.xp,
-    isSlowed: false,
-    slowTimer: 0,
+    number: waveNumber,
+    totalEnemies: 5 + waveNumber * 2,
+    remainingEnemies: 5 + waveNumber * 2,
+    spawnDelay: Math.max(0.2, 2 - waveNumber * 0.1),
+    lastSpawnTime: 0,
+    isComplete: false,
   }
 }

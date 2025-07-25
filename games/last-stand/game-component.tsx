@@ -341,8 +341,8 @@ export default function LastStandGame({
       {/* Controls hint */}
       {!isMobile && (
         <div className="absolute bottom-4 left-4 right-4 text-center text-white/70 text-sm bg-black/30 py-1 px-2 rounded-md pointer-events-none">
-          WASD/Arrows to move | Mouse to aim | Left Click/Space to shoot | E for explosive arrow | Right Click/Q for
-          special | Shift to dash | ESC to pause
+          WASD/Arrows to move | Mouse to aim | Left Click/Space to shoot | E for explosive arrow | Shift to dash | ESC
+          to pause
         </div>
       )}
     </div>
