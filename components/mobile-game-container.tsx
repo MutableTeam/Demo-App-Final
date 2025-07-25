@@ -1,19 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback, useRef } from "react"
-import { cn } from "@/lib/utils"
-import { gameInputHandler, type GameInputState } from "@/utils/game-input-handler"
-import { Orbitron } from "next/font/google"
-import { RotateCw } from "lucide-react"
-import nipplejs from "nipplejs"
-import type { JoystickManager } from "nipplejs"
+import { useEffect, useRef, useState } from "react"
 import { usePlatform } from "@/contexts/platform-context"
-
-interface MobileGameContainerProps {
-  children: React.ReactNode
-  className?: string
-}
+import { gameInputHandler } from "@/utils/game-input-handler"
+import { Button } from "@/components/ui/button"
+import { Zap, ChevronsRight } from "lucide-react"
+import type nipplejs from "nipplejs"
+import { RotateCw } from "lucide-react"
+import { Orbitron } from "next/font/google"
+import { cn } from "@/lib/utils"
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -32,68 +28,17 @@ function PortraitWarning() {
   )
 }
 
-interface ActionButtonProps {
-  label: string
-  action: keyof GameInputState["actions"]
-  className?: string
-  title?: string
+interface MobileGameContainerProps {
+  children: React.ReactNode
 }
 
-function ActionButton({ label, action, className, title }: ActionButtonProps) {
-  const handleInteractionStart = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleActionPress(action, true)
-    },
-    [action],
-  )
-
-  const handleInteractionEnd = useCallback(
-    (e: React.TouchEvent | React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      gameInputHandler.handleActionPress(action, false)
-    },
-    [action],
-  )
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <button
-        className={cn(
-          "w-16 h-16 rounded-full border-2 flex items-center justify-center text-lg font-bold transition-all duration-75",
-          "touch-none select-none active:scale-95 active:brightness-125",
-          "bg-gray-800/70 border-cyan-400/50 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] backdrop-blur-sm",
-          "hover:bg-gray-700/80 focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
-          orbitron.className,
-          className,
-        )}
-        onTouchStart={handleInteractionStart}
-        onTouchEnd={handleInteractionEnd}
-        onTouchCancel={handleInteractionEnd}
-        onMouseDown={handleInteractionStart}
-        onMouseUp={handleInteractionEnd}
-        onMouseLeave={handleInteractionEnd}
-        style={{
-          WebkitUserSelect: "none",
-          userSelect: "none",
-          WebkitTouchCallout: "none",
-          WebkitTapHighlightColor: "transparent",
-        }}
-      >
-        {label}
-      </button>
-      {title && <span className="text-xs text-cyan-400/80 font-semibold tracking-wider">{title}</span>}
-    </div>
-  )
-}
-
-export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
+export default function MobileGameContainer({ children }: MobileGameContainerProps) {
   const { isUiActive } = usePlatform()
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
-  const leftZoneRef = useRef<HTMLDivElement>(null)
-  const rightZoneRef = useRef<HTMLDivElement>(null)
+  const movementZoneRef = useRef<HTMLDivElement>(null)
+  const aimingZoneRef = useRef<HTMLDivElement>(null)
+  const moveManagerRef = useRef<nipplejs.JoystickManager | null>(null)
+  const aimManagerRef = useRef<nipplejs.JoystickManager | null>(null)
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -106,71 +51,97 @@ export default function MobileGameContainer({ children, className }: MobileGameC
   }, [])
 
   useEffect(() => {
-    if (orientation !== "landscape" || isUiActive) {
+    if (isUiActive || orientation === "portrait") {
+      if (moveManagerRef.current) {
+        moveManagerRef.current.destroy()
+        moveManagerRef.current = null
+      }
+      if (aimManagerRef.current) {
+        aimManagerRef.current.destroy()
+        aimManagerRef.current = null
+      }
       return
     }
 
-    let moveManager: JoystickManager | undefined
-    let aimManager: JoystickManager | undefined
+    const initializeJoysticks = async () => {
+      try {
+        const nippleModule = await import("nipplejs")
+        const nipplejs = nippleModule.default
 
-    const timer = setTimeout(() => {
-      if (leftZoneRef.current && rightZoneRef.current) {
-        moveManager = nipplejs.create({
-          zone: leftZoneRef.current,
-          mode: "dynamic",
-          position: { left: "50%", top: "50%" },
-          color: "rgba(0, 255, 255, 0.5)",
-          size: 150,
-        })
-        moveManager.on("move", (_, data) => gameInputHandler.handleNippleMovement(data))
-        moveManager.on("end", () =>
-          gameInputHandler.handleNippleMovement({
-            force: 0,
-            angle: { radian: 0, degree: 0 },
-            distance: 0,
-            position: { x: 0, y: 0 },
-            identifier: 0,
-          }),
-        )
+        if (movementZoneRef.current && !moveManagerRef.current) {
+          const moveManager = nipplejs.create({
+            zone: movementZoneRef.current,
+            mode: "dynamic",
+            position: { left: "50%", top: "50%" },
+            color: "rgba(0, 255, 255, 0.5)",
+            size: 150,
+          })
+          moveManager.on("move", (_, data) => gameInputHandler.handleNippleMovement(data))
+          moveManager.on("end", () => gameInputHandler.handleNippleMovementEnd())
+          moveManagerRef.current = moveManager
+        }
 
-        aimManager = nipplejs.create({
-          zone: rightZoneRef.current,
-          mode: "dynamic",
-          position: { left: "50%", top: "50%" },
-          color: "rgba(255, 0, 255, 0.5)",
-          size: 150,
-          threshold: 0.1,
-        })
-        aimManager.on("start", () => gameInputHandler.handleNippleAimingStart())
-        aimManager.on("move", (_, data) => gameInputHandler.handleNippleAimingMove(data))
-        aimManager.on("end", () => gameInputHandler.handleNippleAimingEnd())
+        if (aimingZoneRef.current && !aimManagerRef.current) {
+          const aimManager = nipplejs.create({
+            zone: aimingZoneRef.current,
+            mode: "dynamic",
+            position: { left: "50%", top: "50%" },
+            color: "rgba(255, 165, 0, 0.5)",
+            size: 150,
+          })
+          aimManager.on("start", () => gameInputHandler.handleNippleAimingStart())
+          aimManager.on("move", (_, data) => gameInputHandler.handleNippleAiming(data))
+          aimManager.on("end", () => gameInputHandler.handleNippleAimingEnd())
+          aimManagerRef.current = aimManager
+        }
+      } catch (error) {
+        console.error("Failed to initialize joysticks:", error)
       }
-    }, 100)
+    }
+
+    initializeJoysticks()
 
     return () => {
-      clearTimeout(timer)
-      moveManager?.destroy()
-      aimManager?.destroy()
+      if (moveManagerRef.current) {
+        moveManagerRef.current.destroy()
+        moveManagerRef.current = null
+      }
+      if (aimManagerRef.current) {
+        aimManagerRef.current.destroy()
+        aimManagerRef.current = null
+      }
     }
-  }, [orientation, isUiActive])
+  }, [isUiActive, orientation])
 
   if (orientation === "portrait") {
     return <PortraitWarning />
   }
 
   return (
-    <div className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden", className)}>
-      <div className="absolute inset-0 z-0">{children}</div>
-
+    <div className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden")} style={{ touchAction: "none" }}>
+      {children}
       {!isUiActive && (
         <>
-          <div ref={leftZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
-          <div ref={rightZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
-          <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-20 pointer-events-none">
-            <div className="pointer-events-auto flex flex-col items-center gap-4">
-              <ActionButton label="X" action="dash" title="Dash" />
-              <ActionButton label="Y" action="special" title="Special" />
-            </div>
+          {/* Touch Zones for Joysticks */}
+          <div ref={movementZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
+          <div ref={aimingZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
+
+          {/* Action Buttons */}
+          <div className="absolute bottom-6 right-5 flex flex-col items-center gap-4 z-20">
+            <Button
+              className="w-20 h-20 rounded-full bg-blue-500/50 text-white backdrop-blur-sm"
+              onTouchStart={() => gameInputHandler.handleButtonPress("dash")}
+              onTouchEnd={() => gameInputHandler.handleButtonRelease("dash")}
+            >
+              <ChevronsRight size={40} />
+            </Button>
+            <Button
+              className="w-20 h-20 rounded-full bg-red-500/50 text-white backdrop-blur-sm"
+              onTouchStart={() => gameInputHandler.handleButtonPress("special")}
+              onTouchEnd={() => gameInputHandler.handleButtonRelease("special")}
+            >
+              <Zap size={40} />
+            </Button>
           </div>
         </>
       )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback, useMemo } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
 
 export type PlatformType = "desktop" | "mobile"
 
@@ -13,58 +13,67 @@ interface PlatformContextType {
   setUiActive: (isActive: boolean) => void
 }
 
-const PlatformContext = createContext<PlatformContextType>({
-  platformType: null,
-  isSelected: false,
-  setPlatform: () => {},
-  resetPlatform: () => {},
-  isUiActive: false,
-  setUiActive: () => {},
-})
+const PlatformContext = createContext<PlatformContextType | undefined>(undefined)
 
-export const usePlatform = () => useContext(PlatformContext)
+export function PlatformProvider({ children }: { children: ReactNode }) {
+  const [platformType, setPlatformState] = useState<PlatformType | null>(null)
+  const [isClient, setIsClient] = useState(false)
+  const [isUiActive, setUiActiveState] = useState(false)
 
-interface PlatformProviderProps {
-  children: ReactNode
-}
-
-export function PlatformProvider({ children }: PlatformProviderProps) {
-  const [platformType, setPlatformType] = useState<PlatformType | null>(null)
-  const [isSelected, setIsSelected] = useState(false)
-  const [isUiActive, setUiActive] = useState(false)
-
-  // Load platform preference from localStorage on mount
   useEffect(() => {
-    const savedPlatform = localStorage.getItem("mutable-platform-type")
-    if (savedPlatform && (savedPlatform === "desktop" || savedPlatform === "mobile")) {
-      setPlatformType(savedPlatform as PlatformType)
-      setIsSelected(true)
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (isClient) {
+      const storedPlatform = localStorage.getItem("mutable-platform-type") as PlatformType | null
+      if (storedPlatform) {
+        setPlatformState(storedPlatform)
+      }
     }
-  }, [])
+  }, [isClient])
 
-  const setPlatform = useCallback((platform: PlatformType) => {
-    setPlatformType(platform)
-    setIsSelected(true)
-    localStorage.setItem("mutable-platform-type", platform)
-  }, [])
-
-  const resetPlatform = useCallback(() => {
-    setPlatformType(null)
-    setIsSelected(false)
-    localStorage.removeItem("mutable-platform-type")
-  }, [])
-
-  const value = useMemo(
-    () => ({
-      platformType,
-      isSelected,
-      setPlatform,
-      resetPlatform,
-      isUiActive,
-      setUiActive,
-    }),
-    [platformType, isSelected, setPlatform, resetPlatform, isUiActive],
+  const setPlatform = useCallback(
+    (platform: PlatformType) => {
+      setPlatformState(platform)
+      if (isClient) {
+        localStorage.setItem("mutable-platform-type", platform)
+      }
+    },
+    [isClient],
   )
 
-  return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>
+  const resetPlatform = useCallback(() => {
+    setPlatformState(null)
+    if (isClient) {
+      localStorage.removeItem("mutable-platform-type")
+    }
+  }, [isClient])
+
+  const setUiActive = useCallback((isActive: boolean) => {
+    setUiActiveState(isActive)
+  }, [])
+
+  return (
+    <PlatformContext.Provider
+      value={{
+        platformType,
+        isSelected: platformType !== null,
+        setPlatform,
+        resetPlatform,
+        isUiActive,
+        setUiActive,
+      }}
+    >
+      {children}
+    </PlatformContext.Provider>
+  )
+}
+
+export function usePlatform() {
+  const context = useContext(PlatformContext)
+  if (context === undefined) {
+    throw new Error("usePlatform must be used within a PlatformProvider")
+  }
+  return context
 }
