@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Skull, Target, Clock3, Award } from "lucide-react"
 import Image from "next/image"
 import SoundButton from "@/components/sound-button"
@@ -193,19 +192,6 @@ export default function LastStandGameLauncher({
                 {isHourlyMode ? "HOURLY CHALLENGE" : "ARCHER ARENA: LAST STAND"}
               </CardTitle>
             </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "flex items-center gap-1 font-mono",
-                isCyberpunk
-                  ? "bg-black/70 text-cyan-400 border border-cyan-500/50"
-                  : "bg-[#FFD54F] text-black border-2 border-black",
-                isCyberpunk && isHourlyMode && "border-cyan-400 shadow-[0_0_10px_rgba(0,255,255,0.5)]",
-              )}
-            >
-              <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-              {mutbBalance.toFixed(2)} MUTB
-            </Badge>
           </div>
           <CardDescription className={cn(isCyberpunk && isHourlyMode && "text-cyan-300/90")}>
             Confirm your entry to {mode.name}
@@ -253,18 +239,6 @@ export default function LastStandGameLauncher({
             <Skull className={cn("h-5 w-5", isCyberpunk && "text-cyan-400")} />
             <CardTitle className="font-mono">ARCHER ARENA: LAST STAND</CardTitle>
           </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "flex items-center gap-1 font-mono",
-              isCyberpunk
-                ? "bg-black/70 text-cyan-400 border border-cyan-500/50"
-                : "bg-[#FFD54F] text-black border-2 border-black",
-            )}
-          >
-            <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-            {mutbBalance.toFixed(2)} MUTB
-          </Badge>
         </div>
         <CardDescription>Select a game mode to begin</CardDescription>
       </CardHeader>

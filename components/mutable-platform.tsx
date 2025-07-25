@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle, User, ShoppingCart } from "lucide-react"
 import Image from "next/image"
 import MutableMarketplace from "./mutable-marketplace"
@@ -402,16 +401,6 @@ export default function MutablePlatform({
                 >
                   Back to Game Selection
                 </SoundButton>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "ml-auto bg-[#FFD54F] text-black border-2 border-black flex items-center gap-1 font-mono dark:bg-[#D4AF37] dark:border-gray-700 dark:text-black",
-                    isCyberpunk && "bg-black/70 border-cyan-500 text-cyan-400",
-                  )}
-                >
-                  <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="rounded-full" />
-                  {mutbBalance.toFixed(2)} MUTB
-                </Badge>
               </div>
               {selectedGame === "top-down-shooter" || selectedGame === "mutball-pool" ? (
                 <MatchmakingLobby
@@ -428,6 +417,7 @@ export default function MutablePlatform({
                     playerName={getPlayerName()}
                     mutbBalance={mutbBalance}
                     onExit={handleBackToSelection}
+                    isCyberpunk={isCyberpunk}
                   />
                 </div>
               ) : (
