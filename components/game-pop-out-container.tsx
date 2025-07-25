@@ -133,8 +133,8 @@ export default function GamePopOutContainer({
         if (containerRef.current && document.fullscreenEnabled) {
           containerRef.current.requestFullscreen().catch((err) => {
             debugManager.logWarning("Fullscreen", "Could not enter fullscreen mode automatically:", err)
-            // If fullscreen fails, we still want to show the container in a large size
-            setIsFullscreen(false)
+            // If fullscreen fails, we still want to show the container in a large size.
+            // The component will remain in its "maximized" state.
           })
         }
       }, 100)

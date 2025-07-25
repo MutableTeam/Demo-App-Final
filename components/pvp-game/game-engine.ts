@@ -87,6 +87,7 @@ export interface GameState {
     time: number
     maxTime: number
   }>
+  gameOverTimer?: number
 }
 
 // Available colors for players
@@ -106,11 +107,12 @@ export const createInitialGameState = (gameMode = "ffa"): GameState => {
     winner: null,
     gameMode: gameMode,
     explosions: [],
+    gameOverTimer: undefined,
   }
 }
 
 export const createPlayer = (id: string, name: string, position: Vector2D, color: string, gameMode = "ffa"): Player => {
-  const lives = gameMode === "ffa" ? 1 : 3
+  const lives = gameMode === "ffa" || gameMode === "duel" ? 1 : 3
   return {
     id,
     name,
@@ -384,12 +386,33 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
       }
     })
 
-    newState.gameTime += deltaTime
+    // If game is fully over, stop all updates.
+    if (newState.isGameOver) {
+      return newState
+    }
+
+    // Only advance game time if the game over timer isn't running
+    if (newState.gameOverTimer === undefined) {
+      newState.gameTime += deltaTime
+    }
+
+    // Handle the game over timer. If it's running, count it down.
+    if (newState.gameOverTimer !== undefined && newState.gameOverTimer > 0) {
+      newState.gameOverTimer -= deltaTime
+      if (newState.gameOverTimer <= 0) {
+        newState.isGameOver = true
+        newState.gameOverTimer = 0
+        return newState // Game is now officially over.
+      }
+    }
 
     // Check if time limit is reached in timed mode
-    if (newState.gameMode === "timed" && newState.gameTime >= newState.maxGameTime && !newState.isGameOver) {
-      newState.isGameOver = true
-
+    if (
+      newState.gameMode === "timed" &&
+      newState.gameTime >= newState.maxGameTime &&
+      !newState.isGameOver &&
+      newState.gameOverTimer === undefined
+    ) {
       // Determine winner based on kills/score
       let highestScore = -1
       let winner: string | null = null
@@ -407,7 +430,7 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
       })
 
       newState.winner = winner
-      return newState
+      newState.gameOverTimer = 1.0 // Start 1-second delay
     }
 
     // Update players
@@ -697,24 +720,31 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
       }))
       .filter((explosion) => explosion.time <= explosion.maxTime)
 
-    // Check for game over conditions
-    if (!newState.isGameOver) {
+    // Check for game over conditions (if timer not already started)
+    if (!newState.isGameOver && newState.gameOverTimer === undefined) {
       const playersWithLives = Object.values(newState.players).filter((p) => p.lives > 0)
-      if (newState.gameMode === "ffa" && playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
-        newState.isGameOver = true
-        newState.winner = playersWithLives.length === 1 ? playersWithLives[0].id : null
-      } else if (newState.gameMode !== "ffa") {
-        // Original win conditions for other modes
-        if (playersWithLives.length <= 1 && Object.keys(newState.players).length > 1) {
-          newState.isGameOver = true
-          newState.winner = playersWithLives.length === 1 ? playersWithLives[0].id : null
-        } else {
-          const topKiller = Object.values(newState.players).find((p) => p.kills >= 10)
-          if (topKiller) {
-            newState.isGameOver = true
-            newState.winner = topKiller.id
-          }
-        }
+      const activePlayerCount = Object.keys(newState.players).length
+
+      let triggerGameOver = false
+      let potentialWinner: string | null = null
+
+      // Last man standing condition for any mode with more than one player initially
+      if (playersWithLives.length <= 1 && activePlayerCount > 1) {
+        triggerGameOver = true
+        potentialWinner = playersWithLives.length === 1 ? playersWithLives[0].id : null
+      }
+
+      // Kill limit condition (can end the game early in modes where it applies)
+      const topKiller = Object.values(newState.players).find((p) => p.kills >= 10)
+      if (topKiller) {
+        triggerGameOver = true
+        // The winner is the one who reached the kill limit, this should take precedence
+        potentialWinner = topKiller.id
+      }
+
+      if (triggerGameOver) {
+        newState.gameOverTimer = 1.0 // Start 1-second timer
+        newState.winner = potentialWinner
       }
     }
 

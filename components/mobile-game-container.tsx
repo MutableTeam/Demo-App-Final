@@ -4,8 +4,7 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { usePlatform } from "@/contexts/platform-context"
 import { gameInputHandler } from "@/utils/game-input-handler"
-import { Button } from "@/components/ui/button"
-import { ChevronsRight } from "lucide-react"
+import Image from "next/image"
 import type nipplejs from "nipplejs"
 import { RotateCw } from "lucide-react"
 import { Orbitron } from "next/font/google"
@@ -128,13 +127,20 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
 
           {/* Action Buttons */}
           <div className="absolute bottom-6 right-5 flex flex-col items-center gap-4 z-20">
-            <Button
-              className="w-16 h-16 rounded-full bg-blue-500/50 text-white backdrop-blur-sm"
+            <button
+              className="w-20 h-20 rounded-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-black transition-transform active:scale-90"
               onTouchStart={() => gameInputHandler.handleButtonPress("dash")}
               onTouchEnd={() => gameInputHandler.handleButtonRelease("dash")}
+              aria-label="Dash"
             >
-              <ChevronsRight size={32} />
-            </Button>
+              <Image
+                src="/images/cyber-dash-button.png"
+                alt="Dash Button"
+                width={80}
+                height={80}
+                className="pointer-events-none"
+              />
+            </button>
           </div>
         </>
       )}

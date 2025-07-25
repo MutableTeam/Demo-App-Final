@@ -87,6 +87,7 @@ export default function GameControllerEnhanced({
   const animationTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({})
   const memoryTrackingInterval = useRef<NodeJS.Timeout | null>(null)
   const specialSoundPlayedRef = useRef<boolean>(false)
+  const [winnings, setWinnings] = useState<number>(0)
 
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "connecting" | "disconnected">("disconnected")
   const [playersOnline, setPlayersOnline] = useState(0)
@@ -446,6 +447,13 @@ export default function GameControllerEnhanced({
     debugManager.trackComponentRender("GameControllerEnhanced")
   })
 
+  useEffect(() => {
+    if (gameState.isGameOver) {
+      const mutbWon = gameState.winner === playerId ? 10 : 1
+      setWinnings(mutbWon)
+    }
+  }, [gameState.isGameOver, gameState.winner, playerId])
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = Math.floor(seconds % 60)
@@ -497,8 +505,14 @@ export default function GameControllerEnhanced({
       <MobileGameContainer className={className}>
         {gameRenderer}
         {gameState.isGameOver && (
-          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50 p-4">
             <h2 className="text-4xl font-bold mb-4">{gameState.winner === playerId ? "Victory!" : "Game Over"}</h2>
+            {winnings > 0 && (
+              <div className="flex items-center gap-2 mb-6 text-xl bg-yellow-500/20 text-yellow-300 px-4 py-2 rounded-lg border border-yellow-400">
+                <img src="/images/mutable-token.png" alt="MUTB Token" className="w-8 h-8" />
+                <span>You won {winnings} MUTB!</span>
+              </div>
+            )}
             <Button onClick={onGameReset}>Play Again</Button>
           </div>
         )}
@@ -525,6 +539,12 @@ export default function GameControllerEnhanced({
       {gameState.isGameOver && (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-50">
           <h2 className="text-4xl font-bold mb-4">{gameState.winner === playerId ? "Victory!" : "Game Over"}</h2>
+          {winnings > 0 && (
+            <div className="flex items-center gap-2 mb-6 text-xl bg-yellow-500/20 text-yellow-300 px-4 py-2 rounded-lg border border-yellow-400">
+              <img src="/images/mutable-token.png" alt="MUTB Token" className="w-8 h-8" />
+              <span>You won {winnings} MUTB!</span>
+            </div>
+          )}
           <Button onClick={onGameReset}>Play Again</Button>
         </div>
       )}
