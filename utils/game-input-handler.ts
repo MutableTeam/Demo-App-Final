@@ -3,9 +3,17 @@
 import { debugManager } from "./debug-utils"
 import type React from "react"
 import transitionDebugger from "@/utils/transition-debug"
-import type { IJoystickUpdateEvent } from "react-joystick-component"
 
-// --- Interfaces for Mobile Input ---
+// --- Interfaces for NippleJS Data ---
+interface NippleData {
+  angle: {
+    radian: number
+    degree: number
+  }
+  force: number
+}
+
+// --- Interfaces for Game Input State ---
 export interface AimingState {
   angle: number // radians
   power: number // 0 to 1
@@ -25,7 +33,6 @@ export interface GameInputState {
   actions: {
     shoot: boolean
     dash: boolean
-    special: boolean
     explosiveArrow: boolean
   }
 }
@@ -41,69 +48,53 @@ class GameInputHandler {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+      actions: { shoot: false, dash: false, explosiveArrow: false },
     }
     this.callbacks = {}
-    debugManager.logInfo("INPUT", "GameInputHandler initialized for joystick controls.")
+    debugManager.logInfo("INPUT", "GameInputHandler initialized.")
   }
 
   setCallbacks(callbacks: { onStateChange?: (state: GameInputState) => void }) {
     this.callbacks = callbacks
   }
 
-  // --- Joystick Handlers ---
-  handleMovementJoystick(event: IJoystickUpdateEvent) {
-    const { type, x, y } = event
-    const threshold = 0.3 // A deadzone for movement detection
-
+  // --- NippleJS Handlers ---
+  handleNippleMovement(data: NippleData) {
+    const { force, angle } = data
     const newState: MovementState = { up: false, down: false, left: false, right: false }
 
-    if (type === "move" && x !== null && y !== null) {
-      // Note: react-joystick-component has y-axis with up as positive.
-      if (y > threshold) newState.up = true
-      if (y < -threshold) newState.down = true
-      if (x < -threshold) newState.left = true
-      if (x > threshold) newState.right = true
+    if (force > 0.1) {
+      // deadzone
+      const degree = angle.degree
+      if (degree >= 45 && degree < 135) newState.up = true
+      if (degree >= 225 && degree < 315) newState.down = true
+      if (degree >= 135 && degree < 225) newState.left = true
+      if (degree >= 315 || degree < 45) newState.right = true
     }
 
     this.state.movement = newState
     this.notifyStateChange()
   }
 
-  handleAimingJoystick(event: IJoystickUpdateEvent) {
-    const { type, distance, x, y } = event
-    const chargeThreshold = 0.3 // 30% power threshold to initiate a shot
-    const maxDistance = 60 // Corresponds to half of the joystick's `size` prop (120)
+  handleNippleAimingStart() {
+    this.state.actions.shoot = true
+    this.state.aiming.active = true
+    this.notifyStateChange()
+  }
 
-    const power = Math.min((distance || 0) / maxDistance, 1)
+  handleNippleAimingMove(data: NippleData) {
+    const { angle, force } = data
+    this.state.aiming.angle = angle.radian
+    this.state.aiming.power = force
+    this.state.aiming.active = true
+    this.state.actions.shoot = true // Keep shoot active while aiming
+    this.notifyStateChange()
+  }
 
-    if (type === "stop") {
-      // Joystick released
-      if (this.state.aiming.active) {
-        debugManager.logInfo(
-          "INPUT",
-          `[AIM] Released. Firing with power ${this.state.aiming.power.toFixed(2)}. \`shoot\` is now false.`,
-        )
-      }
-      this.state.actions.shoot = false // Signals the game engine to fire
-      this.state.aiming.active = false
-      this.state.aiming.power = 0
-    } else if (type === "move" && power >= chargeThreshold) {
-      // AIMING: User is pulling back the joystick
-      if (!this.state.aiming.active) {
-        debugManager.logInfo("INPUT", "[AIM] Started aiming. `shoot` is now true.")
-      }
-      this.state.actions.shoot = true // Signals the game engine to start/continue drawing the bow
-      this.state.aiming.active = true
-      this.state.aiming.power = power
-      if (x !== null && y !== null) {
-        // Direct aiming: shoot where the joystick is pointed.
-        // We negate 'y' to convert from the joystick's coordinate system (y-up)
-        // to the canvas's coordinate system (y-down).
-        this.state.aiming.angle = Math.atan2(-y, x)
-      }
-    }
-
+  handleNippleAimingEnd() {
+    this.state.actions.shoot = false // Signal to fire
+    this.state.aiming.active = false
+    this.state.aiming.power = 0
     this.notifyStateChange()
   }
 
@@ -127,7 +118,7 @@ class GameInputHandler {
     this.state = {
       aiming: { angle: 0, power: 0, active: false },
       movement: { up: false, down: false, left: false, right: false },
-      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+      actions: { shoot: false, dash: false, explosiveArrow: false },
     }
     this.callbacks = {}
     debugManager.logInfo("INPUT", "Game input handler destroyed and callbacks cleared.")
@@ -165,14 +156,12 @@ export function setupGameInputHandlers({ playerId, gameStateRef, componentIdRef 
     const player = getPlayer()
     if (!player) return
     if (e.button === 0) player.controls.shoot = true
-    else if (e.button === 2) player.controls.special = true
   }
 
   const handleMouseUp = (e: MouseEvent) => {
     const player = getPlayer()
     if (!player) return
     if (e.button === 0) player.controls.shoot = false
-    else if (e.button === 2) player.controls.special = false
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
