@@ -556,11 +556,11 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
       const minDrawPercentage = player.minDrawTime / player.maxDrawTime
 
-      // Position in center-bottom of screen
+      // Position just below the timer at the top of screen
       const bowChargeWidth = 240
       const bowChargeHeight = 12
       const bowChargeX = (gameState.arenaSize.width - bowChargeWidth) / 2
-      const bowChargeY = gameState.arenaSize.height - 40
+      const bowChargeY = 55 // Position below timer (timer is at y=10 with height=36)
 
       // Draw semi-transparent background with rounded corners
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
@@ -613,15 +613,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       ctx.beginPath()
       ctx.roundRect(bowChargeX + bowChargeWidth * minDrawPercentage - 1, bowChargeY - 2, 2, bowChargeHeight + 4, 1)
       ctx.fill()
-
-      // Draw label with shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-      ctx.font = "bold 12px Arial"
-      ctx.textAlign = "center"
-      ctx.fillText("BOW CHARGE", bowChargeX + bowChargeWidth / 2 + 1, bowChargeY - 10 + 1)
-
-      ctx.fillStyle = "#ffffff"
-      ctx.fillText("BOW CHARGE", bowChargeX + bowChargeWidth / 2, bowChargeY - 10)
     }
 
     // Draw remaining time (top-center)

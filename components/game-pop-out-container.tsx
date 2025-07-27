@@ -128,16 +128,20 @@ export default function GamePopOutContainer({
   // Add a new useEffect to automatically enter fullscreen mode when the container opens
   useEffect(() => {
     if (isOpen && containerRef.current) {
-      // Small delay to ensure the component is fully rendered
-      const timer = setTimeout(() => {
-        if (containerRef.current && document.fullscreenEnabled) {
-          containerRef.current.requestFullscreen().catch((err) => {
-            debugManager.logWarning("Fullscreen", "Could not enter fullscreen mode automatically:", err)
-            // If fullscreen fails, we still want to show the container in a large size.
-            // The component will remain in its "maximized" state.
-          })
+      // Immediately try to enter fullscreen
+      const enterFullscreen = async () => {
+        try {
+          if (containerRef.current && document.fullscreenEnabled && !document.fullscreenElement) {
+            await containerRef.current.requestFullscreen()
+          }
+        } catch (err) {
+          debugManager.logWarning("Fullscreen", "Could not enter fullscreen mode automatically:", err)
         }
-      }, 100)
+      }
+
+      // Try immediately and also after a small delay
+      enterFullscreen()
+      const timer = setTimeout(enterFullscreen, 50)
 
       return () => clearTimeout(timer)
     }
@@ -155,9 +159,7 @@ export default function GamePopOutContainer({
         >
           <motion.div
             ref={containerRef}
-            className={`bg-[#fbf3de] dark:bg-gray-800 border-4 border-black dark:border-gray-700 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col ${
-              isFullscreen ? "w-full h-full" : "w-[95%] h-[95%] max-w-7xl"
-            }`}
+            className={`bg-[#fbf3de] dark:bg-gray-800 border-4 border-black dark:border-gray-700 rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col w-full h-full`}
             layoutId="game-container"
           >
             {/* Header */}
