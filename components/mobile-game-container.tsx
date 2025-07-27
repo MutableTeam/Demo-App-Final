@@ -128,10 +128,11 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
           {/* Action Buttons */}
           <div className="absolute bottom-6 right-5 flex flex-col items-center gap-4 z-20">
             <button
-              className="w-20 h-20 rounded-full focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-black transition-transform active:scale-90"
+              className="w-20 h-20 rounded-full bg-transparent border-none outline-none focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-transparent transition-transform active:scale-90"
               onTouchStart={() => gameInputHandler.handleButtonPress("dash")}
               onTouchEnd={() => gameInputHandler.handleButtonRelease("dash")}
               aria-label="Dash"
+              style={{ backgroundColor: "transparent", border: "none" }}
             >
               <Image
                 src="/images/cyber-dash-button.png"
