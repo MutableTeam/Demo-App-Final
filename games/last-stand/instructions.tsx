@@ -14,15 +14,20 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
   const isMobile = platformType === "mobile"
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4 text-sm md:text-base">
       {mode && (
         <div
           className={cn(
-            "bg-black/10 p-4 rounded-md",
+            "bg-black/10 p-3 md:p-4 rounded-md",
             isCyberpunk && "bg-black/50 border border-cyan-500/50 text-cyan-300/90",
           )}
         >
-          <h3 className={cn("font-bold mb-2 flex items-center gap-2", isCyberpunk && "text-cyan-300")}>
+          <h3
+            className={cn(
+              "font-bold mb-2 flex items-center gap-2 text-base md:text-lg",
+              isCyberpunk && "text-cyan-300",
+            )}
+          >
             {mode.id === "practice" ? (
               <Target className={cn("h-4 w-4", isCyberpunk && "text-cyan-400")} />
             ) : mode.id === "hourly" ? (
@@ -32,16 +37,16 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
             )}
             {mode.name}
           </h3>
-          <p className={cn("text-sm mb-3", isCyberpunk && "text-cyan-300/90")}>{mode.description}</p>
+          <p className={cn("text-xs md:text-sm mb-3", isCyberpunk && "text-cyan-300/90")}>{mode.description}</p>
 
-          <div className="space-y-2">
+          <div className="space-y-2 text-xs md:text-sm">
             {mode.entryFee > 0 && (
               <div className="flex items-center">
-                <div className={cn("font-bold w-32 flex items-center", isCyberpunk && "text-cyan-400")}>
+                <div className={cn("font-bold w-28 md:w-32 flex items-center", isCyberpunk && "text-cyan-400")}>
                   <Coins className={cn("h-4 w-4 mr-2", isCyberpunk && "text-cyan-400")} />
                   Entry Fee:
                 </div>
-                <div className={cn("text-sm flex items-center", isCyberpunk && "text-cyan-300")}>
+                <div className={cn("flex items-center", isCyberpunk && "text-cyan-300")}>
                   <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} className="mr-1" />
                   {mode.entryFee} MUTB
                 </div>
@@ -50,11 +55,11 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
 
             {mode.duration > 0 && (
               <div className="flex items-center">
-                <div className={cn("font-bold w-32 flex items-center", isCyberpunk && "text-cyan-400")}>
+                <div className={cn("font-bold w-28 md:w-32 flex items-center", isCyberpunk && "text-cyan-400")}>
                   <Clock className={cn("h-4 w-4 mr-2", isCyberpunk && "text-cyan-400")} />
                   Duration:
                 </div>
-                <div className={cn("text-sm", isCyberpunk && "text-cyan-300")}>
+                <div className={cn(isCyberpunk && "text-cyan-300")}>
                   {mode.duration / (60 * 60 * 1000) >= 1
                     ? `${mode.duration / (60 * 60 * 1000)} hour${mode.duration / (60 * 60 * 1000) > 1 ? "s" : ""}`
                     : `${mode.duration / (60 * 1000)} minutes`}
@@ -64,67 +69,73 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
 
             {mode.leaderboardRefresh && (
               <div className="flex items-center">
-                <div className={cn("font-bold w-32 flex items-center", isCyberpunk && "text-cyan-400")}>
+                <div className={cn("font-bold w-28 md:w-32 flex items-center", isCyberpunk && "text-cyan-400")}>
                   <Trophy className={cn("h-4 w-4 mr-2", isCyberpunk && "text-cyan-400")} />
                   Leaderboard:
                 </div>
-                <div className={cn("text-sm", isCyberpunk && "text-cyan-300")}>{mode.leaderboardRefresh}</div>
+                <div className={cn(isCyberpunk && "text-cyan-300")}>{mode.leaderboardRefresh}</div>
               </div>
             )}
           </div>
         </div>
       )}
 
-      <div className={cn("bg-black/10 p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
-        <h3 className={cn("font-bold mb-2 flex items-center gap-2", isCyberpunk && "text-cyan-300")}>
+      <div className={cn("bg-black/10 p-3 md:p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
+        <h3
+          className={cn("font-bold mb-2 flex items-center gap-2 text-base md:text-lg", isCyberpunk && "text-cyan-300")}
+        >
           <Skull className={cn("h-4 w-4", isCyberpunk && "text-cyan-400")} /> Game Modes
         </h3>
-        <div className={cn("space-y-2", isCyberpunk && "text-cyan-300/90")}>
+        <div className={cn("space-y-2 text-xs md:text-sm", isCyberpunk && "text-cyan-300/90")}>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Hourly Challenge</div>
-            <div className="text-sm">Compete for the highest score in a 1-hour leaderboard. Entry fee: 5 MUTB.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Hourly Challenge</div>
+            <div>Compete for the highest score in a 1-hour leaderboard. Entry fee: 5 MUTB.</div>
           </div>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Daily Challenge</div>
-            <div className="text-sm">Compete for the highest score in a 24-hour leaderboard. Entry fee: 10 MUTB.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Daily Challenge</div>
+            <div>Compete for the highest score in a 24-hour leaderboard. Entry fee: 10 MUTB.</div>
           </div>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Practice Mode</div>
-            <div className="text-sm">Practice against waves of undead with no entry fee.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Practice Mode</div>
+            <div>Practice against waves of undead with no entry fee.</div>
           </div>
         </div>
       </div>
 
-      <div className={cn("bg-black/10 p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
-        <h3 className={cn("font-bold mb-2 flex items-center gap-2", isCyberpunk && "text-cyan-300")}>
+      <div className={cn("bg-black/10 p-3 md:p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
+        <h3
+          className={cn("font-bold mb-2 flex items-center gap-2 text-base md:text-lg", isCyberpunk && "text-cyan-300")}
+        >
           <Skull className={cn("h-4 w-4", isCyberpunk && "text-cyan-400")} /> Enemy Types
         </h3>
-        <div className={cn("space-y-2", isCyberpunk && "text-cyan-300/90")}>
+        <div className={cn("space-y-2 text-xs md:text-sm", isCyberpunk && "text-cyan-300/90")}>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Skeleton</div>
-            <div className="text-sm">Basic enemy. Fast but weak.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Skeleton</div>
+            <div>Basic enemy. Fast but weak.</div>
           </div>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Zombie</div>
-            <div className="text-sm">Slow but tough. Deals more damage.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Zombie</div>
+            <div>Slow but tough. Deals more damage.</div>
           </div>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Ghost</div>
-            <div className="text-sm">Very fast and can move through obstacles. Low health.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Ghost</div>
+            <div>Very fast and can move through obstacles. Low health.</div>
           </div>
           <div className="flex items-start gap-2">
-            <div className="font-bold min-w-[120px]">Necromancer</div>
-            <div className="text-sm">Boss enemy. High health and damage. Worth many points.</div>
+            <div className="font-bold shrink-0 w-[100px] md:min-w-[120px]">Necromancer</div>
+            <div>Boss enemy. High health and damage. Worth many points.</div>
           </div>
         </div>
       </div>
 
-      <div className={cn("bg-black/10 p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
-        <h3 className={cn("font-bold mb-2 flex items-center gap-2", isCyberpunk && "text-cyan-300")}>
+      <div className={cn("bg-black/10 p-3 md:p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
+        <h3
+          className={cn("font-bold mb-2 flex items-center gap-2 text-base md:text-lg", isCyberpunk && "text-cyan-300")}
+        >
           <Zap className={cn("h-4 w-4", isCyberpunk && "text-cyan-400")} /> Controls
         </h3>
         {isMobile ? (
-          <div className={cn("space-y-3 text-sm", isCyberpunk && "text-cyan-300/90")}>
+          <div className={cn("space-y-3 text-xs md:text-sm", isCyberpunk && "text-cyan-300/90")}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div className="font-medium flex items-center gap-2">
                 <Touchpad size={14} /> Left Joystick
@@ -140,7 +151,10 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
               <div>Charge Special Attack</div>
             </div>
             <div
-              className={cn("mt-4 p-3 rounded-md text-xs space-y-1", isCyberpunk ? "bg-cyan-900/20" : "bg-black/20")}
+              className={cn(
+                "mt-3 p-2 md:p-3 rounded-md text-xs space-y-1",
+                isCyberpunk ? "bg-cyan-900/20" : "bg-black/20",
+              )}
             >
               <p className={cn("font-bold mb-1", isCyberpunk && "text-cyan-300")}>How to Play on Mobile:</p>
               <p>• Touch the left side of the screen to show the movement joystick.</p>
@@ -149,7 +163,7 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
             </div>
           </div>
         ) : (
-          <div className={cn("grid grid-cols-2 gap-2 text-sm", isCyberpunk && "text-cyan-300/90")}>
+          <div className={cn("grid grid-cols-2 gap-2 text-xs md:text-sm", isCyberpunk && "text-cyan-300/90")}>
             <div>WASD / Arrows</div>
             <div>Move</div>
             <div>Mouse</div>
@@ -166,11 +180,13 @@ export default function LastStandInstructions({ mode, isCyberpunk }: LastStandIn
         )}
       </div>
 
-      <div className={cn("bg-black/10 p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
-        <h3 className={cn("font-bold mb-2 flex items-center gap-2", isCyberpunk && "text-cyan-300")}>
+      <div className={cn("bg-black/10 p-3 md:p-4 rounded-md", isCyberpunk && "bg-black/50 border border-cyan-500/50")}>
+        <h3
+          className={cn("font-bold mb-2 flex items-center gap-2 text-base md:text-lg", isCyberpunk && "text-cyan-300")}
+        >
           <Trophy className={cn("h-4 w-4", isCyberpunk && "text-cyan-400")} /> Scoring
         </h3>
-        <div className={cn("space-y-1 text-sm", isCyberpunk && "text-cyan-300/90")}>
+        <div className={cn("space-y-1 text-xs md:text-sm", isCyberpunk && "text-cyan-300/90")}>
           <p>Your score is based on the enemies you defeat:</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Skeleton: 10 points</li>
