@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Target, Wind, GuitarIcon as Golf } from "lucide-react"
+import { Target, Wind, Goal } from "lucide-react"
 
 const ClosestToThePinInstructions = () => {
   return (
@@ -7,7 +7,7 @@ const ClosestToThePinInstructions = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Golf className="h-6 w-6" />
+            <Goal className="h-6 w-6" />
             How to Play: Closest to the Pin
           </CardTitle>
           <CardDescription>

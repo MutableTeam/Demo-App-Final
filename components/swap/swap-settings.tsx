@@ -1,142 +1,174 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Settings } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
-import SoundButton from "../sound-button"
+import styled from "@emotion/styled"
+import { keyframes } from "@emotion/react"
+import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+
+// Cyberpunk styled components
+const glowPulse = keyframes`
+  0% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3); }
+`
+
+const CyberButton = styled(Button)`
+  background: rgba(16, 16, 48, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  color: rgba(0, 255, 255, 0.9);
+  
+  &:hover:not(:disabled) {
+    background: rgba(16, 16, 48, 0.9);
+    border-color: rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+`
+
+const CyberPopoverContent = styled(PopoverContent)`
+  background: rgba(10, 10, 40, 0.9);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.8), transparent);
+  }
+`
 
 interface SwapSettingsProps {
   slippageBps: number
-  onSlippageChange: (value: number) => void
-  isCyberpunk: boolean
+  onSlippageChange: (slippageBps: number) => void
+  isCyberpunk?: boolean
 }
 
-export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk }: SwapSettingsProps) {
-  const [customSlippage, setCustomSlippage] = useState((slippageBps / 100).toString())
+export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk = false }: SwapSettingsProps) {
+  const [open, setOpen] = useState(false)
+  const { styleMode } = useCyberpunkTheme()
+  const isActuallyCyberpunk = isCyberpunk || styleMode === "cyberpunk"
 
-  const handleSlippageSelect = (bps: number) => {
-    onSlippageChange(bps)
-    setCustomSlippage((bps / 100).toString())
-  }
+  // Convert basis points to percentage for display
+  const slippagePercentage = slippageBps / 100
 
-  const handleCustomSlippageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setCustomSlippage(value)
-    const percentage = Number.parseFloat(value)
-    if (!isNaN(percentage) && percentage >= 0) {
-      onSlippageChange(Math.round(percentage * 100))
-    }
-  }
-
-  const slippageOptions = [
-    { label: "0.1%", value: 10 },
-    { label: "0.5%", value: 50 },
-    { label: "1.0%", value: 100 },
-  ]
+  // Predefined slippage options
+  const slippageOptions = [0.1, 0.5, 1.0, 2.0]
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-8 w-8",
-            isCyberpunk ? "text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-100" : "text-gray-600 hover:bg-gray-100",
-          )}
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent
-        className={cn(
-          isCyberpunk
-            ? "bg-black/90 border-cyan-500/50 text-cyan-200"
-            : "bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {isActuallyCyberpunk ? (
+          <CyberButton variant="outline" size="icon" className="h-8 w-8">
+            <Settings className="h-4 w-4" />
+          </CyberButton>
+        ) : (
+          <Button variant="outline" size="icon" className="h-8 w-8 border-2 border-black">
+            <Settings className="h-4 w-4" />
+          </Button>
         )}
-      >
-        <DialogHeader>
-          <DialogTitle className={cn(isCyberpunk ? "text-cyan-400" : "text-black")}>Swap Settings</DialogTitle>
-          <DialogDescription className={cn(isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>
-            Customize your transaction settings.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="slippage" className={cn(isCyberpunk ? "text-cyan-300" : "text-black")}>
-              Slippage Tolerance
-            </Label>
-            <div className="flex items-center gap-2">
-              {slippageOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  variant={slippageBps === option.value ? "default" : "outline"}
-                  onClick={() => handleSlippageSelect(option.value)}
-                  className={cn(
-                    isCyberpunk
-                      ? slippageBps === option.value
-                        ? "bg-cyan-500 text-black"
-                        : "border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20"
-                      : slippageBps === option.value
-                        ? "bg-black text-white"
-                        : "border-black",
-                  )}
-                >
-                  {option.label}
-                </Button>
-              ))}
-              <div className="relative flex-1">
-                <Input
-                  id="slippage"
-                  type="number"
-                  value={customSlippage}
-                  onChange={handleCustomSlippageChange}
-                  className={cn(
-                    "pr-8",
-                    isCyberpunk ? "bg-black/40 border-cyan-500/50 focus:border-cyan-400" : "border-2 border-black",
-                  )}
-                  step="0.1"
-                  min="0"
+      </PopoverTrigger>
+      {isActuallyCyberpunk ? (
+        <CyberPopoverContent className="w-80" side="bottom" align="end">
+          <div className="p-4">
+            <h4 className="font-medium mb-2 text-cyan-300">Swap Settings</h4>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-cyan-200">Slippage Tolerance</span>
+                  <span className="text-sm font-bold text-cyan-300">{slippagePercentage.toFixed(2)}%</span>
+                </div>
+                <div className="flex gap-2 mb-2">
+                  {slippageOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded border",
+                        slippagePercentage === option
+                          ? "bg-cyan-900/50 border-cyan-500 text-cyan-300"
+                          : "bg-transparent border-cyan-700/50 text-cyan-400 hover:border-cyan-500",
+                      )}
+                      onClick={() => onSlippageChange(option * 100)}
+                    >
+                      {option}%
+                    </button>
+                  ))}
+                </div>
+                <Slider
+                  value={[slippageBps]}
+                  min={10}
+                  max={500}
+                  step={5}
+                  onValueChange={(value) => onSlippageChange(value[0])}
+                  className="[&_[role=slider]]:bg-cyan-500 [&_[role=slider]]:border-cyan-300 [&_[role=slider]]:shadow-[0_0_5px_rgba(0,255,255,0.5)]"
                 />
-                <span
-                  className={cn(
-                    "absolute inset-y-0 right-3 flex items-center text-sm",
-                    isCyberpunk ? "text-cyan-400/70" : "text-gray-500",
-                  )}
-                >
-                  %
-                </span>
+              </div>
+              <div className="text-xs text-cyan-400">
+                <p>
+                  Slippage tolerance is the maximum price difference you're willing to accept between the estimated and
+                  actual price.
+                </p>
+                <p className="mt-1">
+                  Higher slippage increases the chance of your transaction succeeding, but you may get a worse price.
+                </p>
               </div>
             </div>
           </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <SoundButton
-              className={cn(
-                isCyberpunk ? "bg-cyan-500 hover:bg-cyan-600 text-black" : "bg-black text-white hover:bg-gray-800",
-              )}
-            >
-              Done
-            </SoundButton>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </CyberPopoverContent>
+      ) : (
+        <PopoverContent className="w-80" side="bottom" align="end">
+          <div className="p-4">
+            <h4 className="font-medium mb-2">Swap Settings</h4>
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm">Slippage Tolerance</span>
+                  <span className="text-sm font-bold">{slippagePercentage.toFixed(2)}%</span>
+                </div>
+                <div className="flex gap-2 mb-2">
+                  {slippageOptions.map((option) => (
+                    <button
+                      key={option}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded border",
+                        slippagePercentage === option
+                          ? "bg-blue-100 border-blue-300 text-blue-800"
+                          : "bg-transparent border-gray-300 text-gray-600 hover:border-blue-300",
+                      )}
+                      onClick={() => onSlippageChange(option * 100)}
+                    >
+                      {option}%
+                    </button>
+                  ))}
+                </div>
+                <Slider
+                  value={[slippageBps]}
+                  min={10}
+                  max={500}
+                  step={5}
+                  onValueChange={(value) => onSlippageChange(value[0])}
+                />
+              </div>
+              <div className="text-xs text-gray-500">
+                <p>
+                  Slippage tolerance is the maximum price difference you're willing to accept between the estimated and
+                  actual price.
+                </p>
+                <p className="mt-1">
+                  Higher slippage increases the chance of your transaction succeeding, but you may get a worse price.
+                </p>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      )}
+    </Popover>
   )
 }
