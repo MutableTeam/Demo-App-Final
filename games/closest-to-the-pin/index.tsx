@@ -1,5 +1,5 @@
 import type { GameImplementation } from "@/types/game-registry"
-import { GoalIcon,GoalIcon,GoalIcon,GoalIcon,GuitarIcon as Golf } from "lucide-react"
+import { GoalIcon } from "lucide-react"
 import ClosestToThePinGameComponent from "./game-component"
 import ClosestToThePinInstructions from "./instructions"
 
@@ -10,8 +10,8 @@ const ClosestToThePinGame: GameImplementation = {
     id: "closest-to-the-pin",
     name: "Closest to the Pin",
     description: "A relaxing golf game of skill. Get your ball nearest to the hole to win.",
-    image: "/images/closest-to-theGoalIcon-cardGoalIcon",
-  GoalIconon: <GoalIcon className="h-full w-full" />,
+    image: "/images/closest-to-the-pin-card.png",
+    icon: <GoalIcon className="h-full w-full" />,
     status: "coming-soon",
     minWager: 50,
     maxPlayers: 4,
@@ -23,7 +23,7 @@ const ClosestToThePinGame: GameImplementation = {
         name: "Classic",
         description: "Standard closest to the pin rules.",
         players: 4,
-        icon: <Golf className="h-4 w-4" />,
+        icon: <GoalIcon className="h-4 w-4" />,
         minWager: 50,
       },
     ],
