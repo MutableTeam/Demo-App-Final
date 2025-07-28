@@ -1,4 +1,5 @@
 import type { EventData } from "nipplejs"
+import type { React } from "react"
 
 export interface GameInputState {
   movement: {
@@ -16,6 +17,7 @@ export interface GameInputState {
     shoot: boolean
     dash: boolean
     special: boolean
+    explosiveArrow: boolean
   }
 }
 
@@ -23,7 +25,7 @@ class GameInputHandler {
   private state: GameInputState = {
     movement: { up: false, down: false, left: false, right: false },
     aiming: { active: false, angle: 0, power: 0 },
-    actions: { shoot: false, dash: false, special: false },
+    actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
   }
 
   private callbacks: { onStateChange?: (state: GameInputState) => void } = {}
@@ -110,19 +112,162 @@ class GameInputHandler {
   }
 
   // Action Button Handlers
-  handleButtonPress(action: "dash" | "special" | "shoot") {
+  handleButtonPress(action: "dash" | "special" | "shoot" | "explosiveArrow") {
+    console.log(`[GameInputHandler] Button pressed: ${action}`)
     if (this.state.actions[action] !== undefined) {
       this.state.actions[action] = true
       this.notifyStateChange()
     }
   }
 
-  handleButtonRelease(action: "dash" | "special" | "shoot") {
+  handleButtonRelease(action: "dash" | "special" | "shoot" | "explosiveArrow") {
+    console.log(`[GameInputHandler] Button released: ${action}`)
     if (this.state.actions[action] !== undefined) {
       this.state.actions[action] = false
       this.notifyStateChange()
     }
   }
+
+  // Add destroy method for cleanup
+  destroy() {
+    this.callbacks = {}
+    this.state = {
+      movement: { up: false, down: false, left: false, right: false },
+      aiming: { active: false, angle: 0, power: 0 },
+      actions: { shoot: false, dash: false, special: false, explosiveArrow: false },
+    }
+  }
 }
 
 export const gameInputHandler = new GameInputHandler()
+
+// Desktop input handlers setup function
+export function setupGameInputHandlers({
+  playerId,
+  gameStateRef,
+  componentIdRef,
+}: {
+  playerId: string
+  gameStateRef: React.MutableRefObject<any>
+  componentIdRef: React.MutableRefObject<string>
+}) {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const player = gameStateRef.current.players[playerId]
+    if (!player || !player.controls) return
+
+    switch (e.key.toLowerCase()) {
+      case "w":
+      case "arrowup":
+        player.controls.up = true
+        break
+      case "s":
+      case "arrowdown":
+        player.controls.down = true
+        break
+      case "a":
+      case "arrowleft":
+        player.controls.left = true
+        break
+      case "d":
+      case "arrowright":
+        player.controls.right = true
+        break
+      case "shift":
+        player.controls.dash = true
+        break
+      case "e":
+        player.controls.explosiveArrow = true
+        break
+      case "q":
+        player.controls.special = true
+        break
+      case " ":
+        e.preventDefault()
+        player.controls.shoot = true
+        break
+    }
+  }
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+    const player = gameStateRef.current.players[playerId]
+    if (!player || !player.controls) return
+
+    switch (e.key.toLowerCase()) {
+      case "w":
+      case "arrowup":
+        player.controls.up = false
+        break
+      case "s":
+      case "arrowdown":
+        player.controls.down = false
+        break
+      case "a":
+      case "arrowleft":
+        player.controls.left = false
+        break
+      case "d":
+      case "arrowright":
+        player.controls.right = false
+        break
+      case "shift":
+        player.controls.dash = false
+        break
+      case "e":
+        player.controls.explosiveArrow = false
+        break
+      case "q":
+        player.controls.special = false
+        break
+      case " ":
+        e.preventDefault()
+        player.controls.shoot = false
+        break
+    }
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const player = gameStateRef.current.players[playerId]
+    const canvas = document.querySelector("canvas")
+    if (!player || !canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const mouseX = (e.clientX - rect.left) * scaleX
+    const mouseY = (e.clientY - rect.top) * scaleY
+
+    player.rotation = Math.atan2(mouseY - player.position.y, mouseX - player.position.x)
+  }
+
+  const handleMouseDown = (e: MouseEvent) => {
+    const player = gameStateRef.current.players[playerId]
+    if (!player || !player.controls) return
+    if (e.button === 0) player.controls.shoot = true
+    if (e.button === 2) player.controls.special = true
+  }
+
+  const handleMouseUp = (e: MouseEvent) => {
+    const player = gameStateRef.current.players[playerId]
+    if (!player || !player.controls) return
+    if (e.button === 0) player.controls.shoot = false
+    if (e.button === 2) player.controls.special = false
+  }
+
+  const handleContextMenu = (e: MouseEvent) => e.preventDefault()
+
+  window.addEventListener("keydown", handleKeyDown)
+  window.addEventListener("keyup", handleKeyUp)
+  window.addEventListener("mousemove", handleMouseMove)
+  window.addEventListener("mousedown", handleMouseDown)
+  window.addEventListener("mouseup", handleMouseUp)
+  window.addEventListener("contextmenu", handleContextMenu)
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown)
+    window.removeEventListener("keyup", handleKeyUp)
+    window.removeEventListener("mousemove", handleMouseMove)
+    window.removeEventListener("mousedown", handleMouseDown)
+    window.removeEventListener("mouseup", handleMouseUp)
+    window.removeEventListener("contextmenu", handleContextMenu)
+  }
+}

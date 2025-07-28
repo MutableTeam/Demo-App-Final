@@ -984,6 +984,19 @@ export default function MutablePlatform({
           />
         </TabsContent>
       </Tabs>
+      {/* Pre-Alpha Build Indicator */}
+      <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
+        <div
+          className={cn(
+            "px-3 py-1 rounded-lg border backdrop-blur-sm",
+            isCyberpunk
+              ? "bg-black/50 border-cyan-500/30 text-cyan-400"
+              : "bg-black/80 border-yellow-400/30 text-yellow-300",
+          )}
+        >
+          <span className="text-xs font-mono font-bold">Pre-Alpha Build</span>
+        </div>
+      </div>
     </div>
   )
 }

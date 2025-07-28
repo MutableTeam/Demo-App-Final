@@ -4,11 +4,11 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { usePlatform } from "@/contexts/platform-context"
 import { gameInputHandler } from "@/utils/game-input-handler"
-import Image from "next/image"
 import type nipplejs from "nipplejs"
 import { RotateCw } from "lucide-react"
 import { Orbitron } from "next/font/google"
 import { cn } from "@/lib/utils"
+import MobileControlsTutorial from "./mobile-controls-tutorial"
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -34,12 +34,18 @@ interface MobileGameContainerProps {
 export default function MobileGameContainer({ children }: MobileGameContainerProps) {
   const { isUiActive } = usePlatform()
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
+  const [showTutorial, setShowTutorial] = useState(false)
   const movementZoneRef = useRef<HTMLDivElement>(null)
   const aimingZoneRef = useRef<HTMLDivElement>(null)
   const moveManagerRef = useRef<nipplejs.JoystickManager | null>(null)
   const aimManagerRef = useRef<nipplejs.JoystickManager | null>(null)
 
   useEffect(() => {
+    const tutorialShown = sessionStorage.getItem("mobileTutorialShown")
+    if (tutorialShown !== "true") {
+      setShowTutorial(true)
+    }
+
     const handleOrientationChange = () => {
       const isLandscape = window.matchMedia("(orientation: landscape)").matches
       setOrientation(isLandscape ? "landscape" : "portrait")
@@ -50,7 +56,7 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
   }, [])
 
   useEffect(() => {
-    if (isUiActive || orientation === "portrait") {
+    if (isUiActive || orientation === "portrait" || showTutorial) {
       if (moveManagerRef.current) {
         moveManagerRef.current.destroy()
         moveManagerRef.current = null
@@ -110,7 +116,12 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
         aimManagerRef.current = null
       }
     }
-  }, [isUiActive, orientation])
+  }, [isUiActive, orientation, showTutorial])
+
+  const handleCloseTutorial = () => {
+    setShowTutorial(false)
+    sessionStorage.setItem("mobileTutorialShown", "true")
+  }
 
   if (orientation === "portrait") {
     return <PortraitWarning />
@@ -118,29 +129,32 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
 
   return (
     <div className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden")} style={{ touchAction: "none" }}>
+      <MobileControlsTutorial isOpen={showTutorial} onClose={handleCloseTutorial} />
+
       {children}
-      {!isUiActive && (
+
+      {!isUiActive && !showTutorial && (
         <>
           {/* Touch Zones for Joysticks */}
           <div ref={movementZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
           <div ref={aimingZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
 
-          {/* Action Buttons */}
-          <div className="absolute bottom-6 right-5 flex flex-col items-center gap-4 z-20">
+          {/* Dash Button */}
+          <div className="absolute bottom-6 right-6 z-20">
             <button
-              className="w-20 h-20 rounded-full bg-transparent border-none outline-none focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-transparent transition-transform active:scale-90"
+              className={cn(
+                "w-20 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg",
+                "flex items-center justify-center border-2 border-yellow-400/50",
+                "shadow-lg shadow-yellow-500/30 transition-all duration-200",
+                "active:scale-95 active:shadow-yellow-500/50 focus:outline-none",
+                orbitron.className,
+              )}
               onTouchStart={() => gameInputHandler.handleButtonPress("dash")}
               onTouchEnd={() => gameInputHandler.handleButtonRelease("dash")}
               aria-label="Dash"
-              style={{ backgroundColor: "transparent", border: "none" }}
+              style={{ WebkitTapHighlightColor: "transparent" }}
             >
-              <Image
-                src="/images/cyber-dash-button.png"
-                alt="Dash Button"
-                width={80}
-                height={80}
-                className="pointer-events-none"
-              />
+              <span className="text-black font-bold text-sm">DASH</span>
             </button>
           </div>
         </>
