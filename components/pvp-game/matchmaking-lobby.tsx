@@ -279,15 +279,6 @@ export default function MatchmakingLobby({
     }
   }, [publicKey, selectedGame])
 
-  // Open game pop-out when game starts
-  useEffect(() => {
-    if (gameState === "playing") {
-      setIsGamePopOutOpen(true)
-    } else {
-      setIsGamePopOutOpen(false)
-    }
-  }, [gameState])
-
   // Mock lobbies with a more realistic structure
   const [lobbies, setLobbies] = useState<GameLobby[]>([
     {
@@ -568,6 +559,7 @@ export default function MatchmakingLobby({
     // Track state transition
     transitionDebugger.trackTransition("waiting", "playing", "MatchmakingLobby")
     setGameState("playing")
+    setIsGamePopOutOpen(true)
 
     debugManager.logInfo("MatchmakingLobby", "Starting game")
   }

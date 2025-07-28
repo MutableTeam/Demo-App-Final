@@ -16,19 +16,21 @@ import { cn } from "@/lib/utils"
 // Add this after the existing imports
 import { keyframes } from "@emotion/react"
 import styled from "@emotion/styled"
+import { usePlatform } from "@/contexts/platform-context"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 // Add these styled components and keyframes
 const pulseGlow = keyframes`
-  0%, 100% {
-    text-shadow: 0 0 8px rgba(0, 255, 255, 0.7), 0 0 12px rgba(0, 255, 255, 0.4);
-  }
-  50% {
-    text-shadow: 0 0 15px rgba(0, 255, 255, 0.9), 0 0 20px rgba(0, 255, 255, 0.6);
-  }
+0%, 100% {
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.7), 0 0 12px rgba(0, 255, 255, 0.4);
+}
+50% {
+  text-shadow: 0 0 15px rgba(0, 255, 255, 0.9), 0 0 20px rgba(0, 255, 255, 0.6);
+}
 `
 
 const TextShadowGlow = styled.span`
-  animation: ${pulseGlow} 2s infinite;
+animation: ${pulseGlow} 2s infinite;
 `
 
 interface LastStandGameLauncherProps {
@@ -50,6 +52,8 @@ export default function LastStandGameLauncher({
   const [gameStarted, setGameStarted] = useState(false)
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
   const { toast } = useToast()
+  const { platformType } = usePlatform()
+  const isMobile = platformType === "mobile"
 
   // Define the consistent button style for light UI
   const lightButtonStyle =
@@ -198,8 +202,10 @@ export default function LastStandGameLauncher({
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <LastStandInstructions mode={mode} isCyberpunk={isCyberpunk} />
+        <CardContent className="p-0">
+          <ScrollArea className={cn("p-4", isMobile ? "h-[calc(100vh-380px)] min-h-[250px]" : "")}>
+            <LastStandInstructions mode={mode} isCyberpunk={isCyberpunk} />
+          </ScrollArea>
         </CardContent>
 
         <CardFooter className="flex justify-between">
