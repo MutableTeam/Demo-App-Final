@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { GuitarIcon as Golf } from "lucide-react"
+import { GoalIcon as Golf } from "lucide-react"
 
 const ClosestToThePinGameComponent = () => {
   return (
