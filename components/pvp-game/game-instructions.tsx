@@ -1,146 +1,84 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import type React from "react"
+
 import { Button } from "@/components/ui/button"
-import { HelpCircle } from "lucide-react"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Gamepad2, Zap } from "lucide-react"
+import { motion } from "framer-motion"
 
-export default function GameInstructions({ variant = "default" }: { variant?: "default" | "icon" }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const isMobile = useIsMobile()
+interface ControlInfoProps {
+  icon: React.ReactNode
+  title: string
+  description: string
+  iconBgClass: string
+}
 
+const ControlInfo = ({ icon, title, description, iconBgClass }: ControlInfoProps) => (
+  <motion.div
+    className="flex items-center gap-4 rounded-lg bg-gray-800/50 p-4 border border-gray-700"
+    whileHover={{ scale: 1.03, backgroundColor: "rgba(31, 41, 55, 0.8)" }}
+  >
+    <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full ${iconBgClass}`}>{icon}</div>
+    <div>
+      <h3 className="text-lg font-bold text-white font-mono tracking-wider">{title}</h3>
+      <p className="text-sm text-gray-400">{description}</p>
+    </div>
+  </motion.div>
+)
+
+export default function GameInstructions({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {variant === "icon" ? (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="bg-gray-900 text-white p-6 sm:p-8 rounded-2xl w-full max-w-md border border-cyan-500/30 shadow-[0_0_30px_rgba(0,255,255,0.2)]"
+      >
+        <div className="text-center mb-6">
+          <h2 className="text-3xl sm:text-4xl font-bold text-cyan-300 font-mono tracking-widest">TOUCH CONTROLS</h2>
+          <p className="text-cyan-400/80 mt-1">Quick guide to get you started</p>
+        </div>
+
+        <div className="space-y-4 mb-8">
+          <ControlInfo
+            icon={<Gamepad2 className="h-8 w-8 text-cyan-200" />}
+            title="MOVE"
+            description="Touch & drag left side of screen"
+            iconBgClass="bg-cyan-500/30"
+          />
+          <ControlInfo
+            icon={<Gamepad2 className="h-8 w-8 text-orange-200" />}
+            title="AIM & SHOOT"
+            description="Touch & drag right side. Release to fire"
+            iconBgClass="bg-orange-500/30"
+          />
+          <ControlInfo
+            icon={
+              <div className="flex items-center justify-center w-full h-full">
+                <Zap className="h-7 w-7 text-yellow-200" />
+              </div>
+            }
+            title="DASH"
+            description="Tap button for speed burst"
+            iconBgClass="bg-yellow-500/30"
+          />
+        </div>
+
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button
-            variant="outline"
-            size="icon"
-            className="border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all bg-transparent"
+            onClick={onDismiss}
+            className="w-full h-14 text-xl font-bold text-black bg-gradient-to-r from-cyan-400 to-pink-500 hover:from-cyan-300 hover:to-pink-400 rounded-lg border-none font-mono tracking-widest"
           >
-            <HelpCircle className="h-4 w-4" />
+            GOT IT!
           </Button>
-        ) : (
-          <Button
-            variant="outline"
-            className="border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all bg-transparent"
-          >
-            Game Instructions
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="w-[90vw] max-w-md border-2 border-black bg-[#fbf3de] z-50 p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="font-mono">GAME INSTRUCTIONS</DialogTitle>
-          <DialogDescription>How to play the bow and arrow game</DialogDescription>
-        </DialogHeader>
-        <ScrollArea className="h-[70vh] p-6">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-bold mb-1">Controls</h3>
-              {isMobile ? (
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>
-                    <span className="font-medium">Left Joystick:</span> Move your character.
-                  </li>
-                  <li>
-                    <span className="font-medium">Right Joystick:</span> Aim your bow. Hold to draw, release to fire.
-                  </li>
-                  <li>
-                    <span className="font-medium">Dash Button:</span> Press to perform a quick dash.
-                  </li>
-                  <li>
-                    <span className="font-medium">Special Attack:</span> Hold the special attack button to charge,
-                    releases 3 arrows.
-                  </li>
-                </ul>
-              ) : (
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>Move with WASD or arrow keys</li>
-                  <li>Aim with mouse</li>
-                  <li>Hold Left-click to draw bow, release to fire</li>
-                  <li>The longer you draw, the more damage your arrow does</li>
-                  <li>Hold Right-click to charge special attack (fires three arrows)</li>
-                  <li>Press Shift to dash</li>
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-bold mb-1">Bow Mechanics</h3>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>
-                  <span className="font-medium">Movement Penalty:</span> Moving at 40% speed while drawing your bow
-                </li>
-                <li>
-                  <span className="font-medium">Minimum Draw:</span> Must draw bow to at least 30% for effective shots
-                </li>
-                <li>
-                  <span className="font-medium">Weak Shots:</span> Arrows fired too quickly travel shorter distances and
-                  only do 1 damage
-                </li>
-                <li>
-                  <span className="font-medium">Full Draw:</span> Hold for 1.5 seconds for maximum damage (25 damage)
-                </li>
-                <li>
-                  <span className="font-medium">Special Attack:</span> Hold right-click or special button to charge,
-                  releases 3 arrows in a spread pattern
-                </li>
-                <li>
-                  <span className="font-medium">Special Cooldown:</span> 5 seconds between special attacks
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold mb-1">Game Modes</h3>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>
-                  <span className="font-medium">1v1 Duel:</span> One life only! First to eliminate the opponent wins
-                </li>
-                <li>
-                  <span className="font-medium">Free-For-All:</span> Every player for themselves, highest score after 2
-                  minutes wins
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold mb-1">Power-ups</h3>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>
-                  <span className="font-medium">Shield:</span> Temporary invulnerability
-                </li>
-                <li>
-                  <span className="font-medium">Speed Boost:</span> Move faster for a short time
-                </li>
-                <li>
-                  <span className="font-medium">Quiver Upgrade:</span> Faster bow drawing for a short time
-                </li>
-                <li>
-                  <span className="font-medium">Health Pack:</span> Restore health
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold mb-1">Rewards</h3>
-              <p className="text-sm">
-                Winners receive 95% of the total wager pool. 5% goes to the Mutable platform as a fee.
-              </p>
-            </div>
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

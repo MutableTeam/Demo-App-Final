@@ -17,7 +17,7 @@ import { debugManager } from "@/utils/debug-utils"
 import transitionDebugger from "@/utils/transition-debug"
 import { gameRegistry, type GameImplementation } from "@/types/game-registry"
 import { GameContainer } from "@/components/game-container"
-import GamePopOutContainer from "@/components/game-pop-out-container"
+import GamePopOutContainer, { type GamePopOutContainerRef } from "@/components/game-pop-out-container"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { Button } from "@/components/ui/button"
 import styled from "@emotion/styled"
@@ -245,6 +245,7 @@ export default function MatchmakingLobby({
 
   // Pop-out state
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
+  const popOutRef = useRef<GamePopOutContainerRef>(null)
 
   // Refs for cleanup tracking
   const componentIdRef = useRef<string>(`matchmaking-${Date.now()}`)
@@ -556,19 +557,22 @@ export default function MatchmakingLobby({
   const startGame = () => {
     if (!selectedLobby || !selectedGameImpl) return
 
-    // Track state transition
     transitionDebugger.trackTransition("waiting", "playing", "MatchmakingLobby")
     setGameState("playing")
     setIsGamePopOutOpen(true)
+
+    // Use a timeout to allow the pop-out to render before requesting fullscreen
+    setTimeout(() => {
+      popOutRef.current?.triggerFullscreen()
+    }, 0) // Using 0ms delay to run in the next event loop tick
 
     debugManager.logInfo("MatchmakingLobby", "Starting game")
   }
 
   const handleClosePopOut = () => {
-    // Show a confirmation dialog before closing the game
-    if (window.confirm("Are you sure you want to exit the game? Your progress will be lost.")) {
-      setIsGamePopOutOpen(false)
-      handleGameEnd(null) // End the game with no winner
+    setIsGamePopOutOpen(false)
+    if (gameState === "playing") {
+      handleGameEnd(null) // End the game with no winner if closed during play
     }
   }
 
@@ -675,6 +679,7 @@ export default function MatchmakingLobby({
     <>
       {/* Game Pop-out Container */}
       <GamePopOutContainer
+        ref={popOutRef}
         isOpen={isGamePopOutOpen}
         onClose={handleClosePopOut}
         title={selectedGameImpl?.config.name || "MUTABLE GAME"}

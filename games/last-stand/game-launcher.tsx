@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skull, Target, Clock3, Award } from "lucide-react"
 import Image from "next/image"
@@ -10,27 +10,24 @@ import LastStandInstructions from "./instructions"
 import { withClickSound } from "@/utils/sound-utils"
 import { useToast } from "@/hooks/use-toast"
 import { GameContainer } from "@/components/game-container"
-import GamePopOutContainer from "@/components/game-pop-out-container"
+import GamePopOutContainer, { type GamePopOutContainerRef } from "@/components/game-pop-out-container"
 import { cn } from "@/lib/utils"
-
-// Add this after the existing imports
 import { keyframes } from "@emotion/react"
 import styled from "@emotion/styled"
 import { usePlatform } from "@/contexts/platform-context"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-// Add these styled components and keyframes
 const pulseGlow = keyframes`
-0%, 100% {
-  text-shadow: 0 0 8px rgba(0, 255, 255, 0.7), 0 0 12px rgba(0, 255, 255, 0.4);
-}
-50% {
-  text-shadow: 0 0 15px rgba(0, 255, 255, 0.9), 0 0 20px rgba(0, 255, 255, 0.6);
-}
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.7), 0 0 12px rgba(0, 255, 255, 0.4);
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.9), 0 0 20px rgba(0, 255, 255, 0.6);
+  }
 `
 
 const TextShadowGlow = styled.span`
-animation: ${pulseGlow} 2s infinite;
+  animation: ${pulseGlow} 2s infinite;
 `
 
 interface LastStandGameLauncherProps {
@@ -54,8 +51,8 @@ export default function LastStandGameLauncher({
   const { toast } = useToast()
   const { platformType } = usePlatform()
   const isMobile = platformType === "mobile"
+  const popOutRef = useRef<GamePopOutContainerRef>(null)
 
-  // Define the consistent button style for light UI
   const lightButtonStyle =
     "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
 
@@ -76,41 +73,34 @@ export default function LastStandGameLauncher({
   }
 
   const handleGameOver = (stats: any) => {
-    // Here you would submit the score to the leaderboard
     toast({
       title: "Game Over!",
       description: `Your final score: ${stats.score}`,
     })
-
-    // Close the pop-out
     setIsGamePopOutOpen(false)
-
-    // Reset game state
     setGameStarted(false)
     setSelectedMode(null)
   }
 
   const handleStartGame = () => {
+    popOutRef.current?.triggerFullscreen()
     setGameStarted(true)
     setIsGamePopOutOpen(true)
   }
 
   const handleClosePopOut = () => {
-    // Show a confirmation dialog before closing the game
-    if (window.confirm("Are you sure you want to exit the game? Your progress will be lost.")) {
-      setIsGamePopOutOpen(false)
+    setIsGamePopOutOpen(false)
+    if (gameStarted) {
       setGameStarted(false)
     }
   }
 
-  // Game content to be rendered in the pop-out
   const renderGameContent = () => {
     if (!selectedMode) return null
-
     return (
       <div className="w-full h-full">
         <GameContainer
-          gameId="archer-arena"
+          gameId="last-stand"
           playerId={publicKey}
           playerName={playerName}
           isHost={true}
@@ -124,7 +114,12 @@ export default function LastStandGameLauncher({
   if (gameStarted && selectedMode) {
     return (
       <>
-        <GamePopOutContainer isOpen={isGamePopOutOpen} onClose={handleClosePopOut} title="ARCHER ARENA: LAST STAND">
+        <GamePopOutContainer
+          ref={popOutRef}
+          isOpen={isGamePopOutOpen}
+          onClose={handleClosePopOut}
+          title="ARCHER ARENA: LAST STAND"
+        >
           {renderGameContent()}
         </GamePopOutContainer>
 
@@ -150,7 +145,10 @@ export default function LastStandGameLauncher({
                   "w-full",
                   isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
                 )}
-                onClick={() => setIsGamePopOutOpen(true)}
+                onClick={() => {
+                  popOutRef.current?.triggerFullscreen()
+                  setIsGamePopOutOpen(true)
+                }}
               >
                 RESUME GAME
               </SoundButton>
