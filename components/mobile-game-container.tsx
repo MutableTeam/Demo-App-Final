@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { usePlatform } from "@/contexts/platform-context"
 import { gameInputHandler } from "@/utils/game-input-handler"
 import type nipplejs from "nipplejs"
-import { RotateCw } from "lucide-react"
+import { RotateCw, Info } from "lucide-react"
 import { Orbitron } from "next/font/google"
 import { cn } from "@/lib/utils"
 import MobileControlsTutorial from "./mobile-controls-tutorial"
@@ -29,9 +29,10 @@ function PortraitWarning() {
 
 interface MobileGameContainerProps {
   children: React.ReactNode
+  className?: string
 }
 
-export default function MobileGameContainer({ children }: MobileGameContainerProps) {
+export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
   const { isUiActive } = usePlatform()
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const [showTutorial, setShowTutorial] = useState(false)
@@ -128,13 +129,27 @@ export default function MobileGameContainer({ children }: MobileGameContainerPro
   }
 
   return (
-    <div className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden")} style={{ touchAction: "none" }}>
+    <div
+      className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden", className)}
+      style={{ touchAction: "none" }}
+    >
       <MobileControlsTutorial isOpen={showTutorial} onClose={handleCloseTutorial} />
 
       {children}
 
       {!isUiActive && !showTutorial && (
         <>
+          {/* Disclaimer Text - Bottom Left */}
+          <div
+            className={cn(
+              "absolute bottom-4 left-4 z-20 bg-black/50 text-white/70 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2",
+              orbitron.className,
+            )}
+          >
+            <Info className="w-3 h-3" />
+            <span>Demo game: does not represent final product.</span>
+          </div>
+
           {/* Touch Zones for Joysticks */}
           <div ref={movementZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
           <div ref={aimingZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />

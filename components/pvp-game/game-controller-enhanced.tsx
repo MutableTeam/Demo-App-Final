@@ -495,7 +495,7 @@ export default function GameControllerEnhanced({
     <EnhancedGameRenderer
       gameState={gameState}
       localPlayerId={playerId}
-      debugMode={showDebug}
+      debugMode={false}
       platformType={platformType}
     />
   )

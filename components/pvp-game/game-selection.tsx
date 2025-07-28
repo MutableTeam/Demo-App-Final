@@ -369,6 +369,9 @@ export default function GameSelection({
     if (game.id === "pixel-pool") {
       return "/images/pixel-pool-card.png"
     }
+    if (game.id === "closest-to-the-pin") {
+      return "/images/closest-to-the-pin-card.png"
+    }
     return game.image || "/placeholder.svg"
   }
 
@@ -476,7 +479,11 @@ export default function GameSelection({
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                         {game.status === "coming-soon" && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <CyberBadge>{game.id === "pixel-pool" ? "IN DEVELOPMENT" : "COMING SOON"}</CyberBadge>
+                            <CyberBadge>
+                              {game.id === "pixel-pool" || game.id === "closest-to-the-pin"
+                                ? "IN DEVELOPMENT"
+                                : "COMING SOON"}
+                            </CyberBadge>
                           </div>
                         )}
                         <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4 lg:p-5">
@@ -532,7 +539,9 @@ export default function GameSelection({
                         {game.status === "coming-soon" && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                             <Badge className="bg-yellow-500 text-black font-mono border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                              {game.id === "pixel-pool" ? "IN DEVELOPMENT" : "COMING SOON"}
+                              {game.id === "pixel-pool" || game.id === "closest-to-the-pin"
+                                ? "IN DEVELOPMENT"
+                                : "COMING SOON"}
                             </Badge>
                           </div>
                         )}

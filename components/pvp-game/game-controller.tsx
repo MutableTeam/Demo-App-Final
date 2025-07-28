@@ -264,10 +264,11 @@ export default function GameController({
   return (
     <div className="relative w-full h-full">
       <GameRenderer gameState={gameState} localPlayerId={playerId} />
-      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={showDebug} />
-      <ResourceMonitor visible={showResourceMonitor} position="bottom-right" />
+      {/* Debug overlay hidden by default - only shows when F8 is pressed */}
+      <DebugOverlay gameState={gameState} localPlayerId={playerId} visible={false} />
+      <ResourceMonitor visible={false} position="bottom-right" />
       <div className="absolute bottom-2 right-2 text-xs text-white/70 bg-black/20 backdrop-blur-sm px-2 py-1 rounded">
-        Press M to toggle sound | F8 for debug
+        Press M to toggle sound
       </div>
     </div>
   )
