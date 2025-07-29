@@ -2,8 +2,8 @@ import type { GameConfig } from "@/types/game-registry"
 import { Target } from "lucide-react"
 
 export const lastStandConfig: GameConfig = {
-  id: "archer-arena",
-  name: "Archer Arena: Last Stand",
+  id: "last-stand",
+  name: "Last Stand",
   description: "Survive waves of enemies in this intense archer survival game",
   image: "/images/last-stand.jpg",
   icon: <Target className="h-5 w-5" />,
