@@ -58,7 +58,7 @@ export default function MultiWalletConnector({
   const [wallets, setWallets] = useState<WalletInfo[]>([
     { name: "Phantom", type: "phantom", icon: LOGOS.PHANTOM, available: false },
     { name: "Solflare", type: "solflare", icon: LOGOS.SOLFLARE, available: false },
-    { name: "Test Mode", type: "test", icon: "", available: true },
+    { name: "Demo Mode", type: "test", icon: "", available: true },
   ])
   const [connected, setConnected] = useState(!!initialPublicKey)
   const [publicKey, setPublicKey] = useState(initialPublicKey)
