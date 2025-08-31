@@ -56,7 +56,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
   const [wallets, setWallets] = useState<WalletInfo[]>([
     { name: "Phantom", type: "phantom", icon: LOGOS.PHANTOM, available: false },
     { name: "Solflare", type: "solflare", icon: LOGOS.SOLFLARE, available: false },
-    { name: "Test Mode", type: "test", icon: "", available: true },
+    { name: "Demo Mode", type: "test", icon: "", available: true },
   ])
   const [loading, setLoading] = useState(false)
   const [isAudioInitialized, setIsAudioInitialized] = useState(false)
@@ -113,13 +113,13 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
 
     try {
       if (walletType === "test") {
-        console.log("Connecting to test wallet...")
+        console.log("Connecting to demo wallet...")
         if (!audioManager.isSoundMuted()) playIntroSound()
 
         const testWalletData = {
-          publicKey: "TestModeWallet1111111111111111111111111",
+          publicKey: "DemoModeWallet1111111111111111111111111",
           provider: {
-            publicKey: { toString: () => "TestModeWallet1111111111111111111111111" },
+            publicKey: { toString: () => "DemoModeWallet1111111111111111111111111" },
             isConnected: true,
             isTestMode: true,
           },
