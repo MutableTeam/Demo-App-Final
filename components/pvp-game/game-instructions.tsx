@@ -1,111 +1,105 @@
 "use client"
 
-import type React from "react"
-
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Gamepad2 } from "lucide-react"
-import { motion } from "framer-motion"
+import { Orbitron } from "next/font/google"
+import { cn } from "@/lib/utils"
+import { X } from "lucide-react"
 
-interface ControlInfoProps {
-  icon: React.ReactNode
-  title: string
-  description: string
-  iconBgClass: string
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+})
+
+interface GameInstructionsProps {
+  isOpen: boolean
+  onClose: () => void
+  onStartGame: () => void
+  gameTitle: string
+  instructions: string[]
 }
 
-const ControlInfo = ({ icon, title, description, iconBgClass }: ControlInfoProps) => (
-  <motion.div className="flex items-center gap-3 py-2" whileHover={{ scale: 1.02 }}>
-    <div
-      className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${iconBgClass} border-2 border-current`}
-    >
-      {icon}
-    </div>
-    <div className="flex-1">
-      <h3 className="text-lg font-bold text-white font-mono tracking-wide leading-tight">{title}</h3>
-      <p className="text-sm text-gray-300 leading-tight">{description}</p>
-    </div>
-  </motion.div>
-)
-
-export default function GameInstructions({ onDismiss }: { onDismiss: () => void }) {
+export default function GameInstructions({
+  isOpen,
+  onClose,
+  onStartGame,
+  gameTitle,
+  instructions,
+}: GameInstructionsProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4"
-    >
-      {/* Top right controls */}
-      <div className="absolute top-4 right-4 flex gap-2 z-10">
-        <button className="w-10 h-10 bg-transparent border-2 border-cyan-400 text-cyan-400 rounded-md flex items-center justify-center hover:bg-cyan-400/20">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-            />
-          </svg>
-        </button>
-        <button
-          onClick={onDismiss}
-          className="w-10 h-10 bg-transparent border-2 border-cyan-400 text-cyan-400 rounded-md flex items-center justify-center hover:bg-cyan-400/20"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-2 sm:p-4"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-400/50 rounded-xl w-full max-w-sm sm:max-w-2xl max-h-[90vh] flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-cyan-400/20">
+              <h1 className={`text-lg sm:text-3xl font-bold text-cyan-300 ${orbitron.className}`}>{gameTitle}</h1>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white transition-colors p-1"
+                aria-label="Close instructions"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+            </div>
 
-      {/* Game title */}
-      <div className="absolute top-4 left-4 text-cyan-400 font-mono text-lg font-bold tracking-wider">
-        ARCHER ARENA: LAST STAND
-      </div>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+              <div className="space-y-3 sm:space-y-4">
+                {instructions.map((instruction, index) => (
+                  <div key={index} className="bg-gray-800/30 rounded-lg p-3 sm:p-4 border border-gray-700/50">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className={`text-xs sm:text-sm font-bold text-cyan-300 ${orbitron.className}`}>
+                          {index + 1}
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">{instruction}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-      {/* Main content */}
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="w-full max-w-lg mx-auto"
-      >
-        <div className="text-center mb-6">
-          <h2 className="text-4xl font-bold text-cyan-400 font-mono tracking-widest mb-1">TOUCH CONTROLS</h2>
-          <p className="text-cyan-300/80 text-base">Quick guide to get you started</p>
-        </div>
-
-        <div className="space-y-4 mb-8 px-4">
-          <ControlInfo
-            icon={<Gamepad2 className="h-6 w-6 text-cyan-400" />}
-            title="MOVE"
-            description="Touch & drag left side of screen"
-            iconBgClass="text-cyan-400"
-          />
-          <ControlInfo
-            icon={<Gamepad2 className="h-6 w-6 text-orange-400" />}
-            title="AIM & SHOOT"
-            description="Touch & drag right side. Release to fire"
-            iconBgClass="text-orange-400"
-          />
-          <ControlInfo
-            icon={<div className="bg-yellow-500 text-black px-2 py-1 rounded text-xs font-bold">DASH</div>}
-            title="DASH"
-            description="Tap button for speed burst"
-            iconBgClass="text-yellow-400"
-          />
-        </div>
-
-        <div className="flex justify-center">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={onDismiss}
-              className="px-8 py-3 text-xl font-bold text-black bg-gradient-to-r from-cyan-400 to-pink-500 hover:from-cyan-300 hover:to-pink-400 rounded-lg border-none font-mono tracking-widest"
-            >
-              GOT IT!
-            </Button>
+            {/* Footer with Start Button */}
+            <div className="p-3 sm:p-6 border-t border-cyan-400/20">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                <Button
+                  onClick={onClose}
+                  variant="outline"
+                  className={cn(
+                    "border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white",
+                    "min-h-[44px] text-sm sm:text-base",
+                    orbitron.className,
+                  )}
+                >
+                  CLOSE
+                </Button>
+                <Button
+                  onClick={onStartGame}
+                  className={cn(
+                    "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400",
+                    "text-white font-bold flex-1 min-h-[44px] text-sm sm:text-base",
+                    orbitron.className,
+                  )}
+                >
+                  START GAME
+                </Button>
+              </div>
+            </div>
           </motion.div>
-        </div>
-      </motion.div>
-    </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
