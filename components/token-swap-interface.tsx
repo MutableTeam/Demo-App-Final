@@ -126,7 +126,7 @@ export default function TokenSwapInterface({
 
   return (
     <div className="space-y-6">
-      {/* Price Display Header */}
+      {/* Price Display Header - Mobile Optimized */}
       {publicKey && (
         <Card
           className={cn(
@@ -137,11 +137,11 @@ export default function TokenSwapInterface({
           )}
         >
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className={cn("text-lg font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
                 Live Token Prices
               </CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -155,7 +155,7 @@ export default function TokenSwapInterface({
                   <RefreshCw className={cn("h-4 w-4", pricesLoading && "animate-spin")} />
                 </Button>
                 {lastUpdated && (
-                  <span className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
+                  <span className={cn("text-xs whitespace-nowrap", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
                     Updated: {lastUpdated.toLocaleTimeString()}
                   </span>
                 )}
@@ -163,18 +163,28 @@ export default function TokenSwapInterface({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
+            {/* Mobile-first responsive layout */}
+            <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
               {/* SOL Price */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Image src="/solana-logo.png" alt="SOL" width={24} height={24} className="rounded-full" />
-                  <span className={cn("font-medium", isCyberpunk ? "text-cyan-200" : "text-black")}>SOL</span>
+              <div className="flex items-center justify-between p-3 rounded-lg border border-opacity-20 border-current">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src="/solana-logo.png"
+                    alt="SOL"
+                    width={32}
+                    height={32}
+                    className="rounded-full flex-shrink-0"
+                  />
+                  <div>
+                    <div className={cn("font-medium text-base", isCyberpunk ? "text-cyan-200" : "text-black")}>SOL</div>
+                    <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>Solana</div>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className={cn("font-bold font-mono", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                  <div className={cn("font-bold font-mono text-lg", isCyberpunk ? "text-cyan-100" : "text-black")}>
                     {formatPrice(prices.SOL?.price)}
                     {prices.SOL?.fallback && (
-                      <span className={cn("text-xs ml-1", isCyberpunk ? "text-yellow-400" : "text-yellow-600")}>
+                      <span className={cn("text-xs ml-1 block", isCyberpunk ? "text-yellow-400" : "text-yellow-600")}>
                         (fallback)
                       </span>
                     )}
@@ -182,7 +192,7 @@ export default function TokenSwapInterface({
                   {prices.SOL && (
                     <div
                       className={cn(
-                        "text-xs flex items-center gap-1 justify-end",
+                        "text-sm flex items-center gap-1 justify-end mt-1",
                         getPriceChange("SOL") >= 0 ? "text-green-400" : "text-red-400",
                       )}
                     >
@@ -198,22 +208,42 @@ export default function TokenSwapInterface({
               </div>
 
               {/* MUTB Price */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Image src="/images/mutable-token.png" alt="MUTB" width={24} height={24} className="rounded-full" />
-                  <span className={cn("font-medium", isCyberpunk ? "text-cyan-200" : "text-black")}>MUTB</span>
+              <div className="flex items-center justify-between p-3 rounded-lg border border-opacity-20 border-current">
+                <div className="flex items-center gap-3">
+                  <Image
+                    src="/images/mutable-token.png"
+                    alt="MUTB"
+                    width={32}
+                    height={32}
+                    className="rounded-full flex-shrink-0"
+                  />
+                  <div>
+                    <div className={cn("font-medium text-base", isCyberpunk ? "text-cyan-200" : "text-black")}>
+                      MUTB
+                    </div>
+                    <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
+                      Mutable Token
+                    </div>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <div className={cn("font-bold font-mono", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                  <div className={cn("font-bold font-mono text-lg", isCyberpunk ? "text-cyan-100" : "text-black")}>
                     {formatPrice(prices.MUTB?.price)}
                   </div>
-                  <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>Fixed Price</div>
+                  <div className={cn("text-sm mt-1", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
+                    Fixed Price
+                  </div>
                 </div>
               </div>
             </div>
 
             {pricesError && (
-              <div className={cn("mt-3 text-sm", isCyberpunk ? "text-red-400" : "text-red-600")}>
+              <div
+                className={cn(
+                  "mt-3 text-sm p-2 rounded",
+                  isCyberpunk ? "text-red-400 bg-red-400/10" : "text-red-600 bg-red-50",
+                )}
+              >
                 Error: {pricesError}
               </div>
             )}
@@ -231,7 +261,7 @@ export default function TokenSwapInterface({
         )}
       >
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <ArrowUpDown className={cn("h-5 w-5", isCyberpunk ? "text-cyan-400" : "text-black")} />
               <CardTitle className={cn("font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
@@ -242,7 +272,7 @@ export default function TokenSwapInterface({
               variant="ghost"
               size="sm"
               className={cn(
-                "h-8 w-8 p-0",
+                "h-8 w-8 p-0 self-end sm:self-auto",
                 isCyberpunk ? "text-cyan-400 hover:bg-cyan-500/20" : "text-gray-600 hover:bg-gray-100",
               )}
             >
@@ -262,27 +292,27 @@ export default function TokenSwapInterface({
               isCyberpunk ? "bg-black/40 border-cyan-500/20" : "bg-gray-50 border-gray-200",
             )}
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>From</span>
               <span className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
                 Balance: {fromToken.balance.toFixed(4)} {fromToken.symbol}
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <Image
-                  src={fromToken.image || "/placeholder.svg?height=32&width=32"}
+                  src={fromToken.image || "/placeholder.svg?height=40&width=40"}
                   alt={fromToken.symbol}
-                  width={32}
-                  height={32}
+                  width={40}
+                  height={40}
                   className="rounded-full flex-shrink-0"
                 />
                 <div className="min-w-0">
-                  <div className={cn("font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                  <div className={cn("font-bold text-lg", isCyberpunk ? "text-cyan-100" : "text-black")}>
                     {fromToken.symbol}
                   </div>
-                  <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
+                  <div className={cn("text-sm", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
                     {formatPrice(fromTokenPrice)}
                   </div>
                 </div>
@@ -294,7 +324,7 @@ export default function TokenSwapInterface({
                 value={fromAmount}
                 onChange={(e) => setFromAmount(e.target.value)}
                 className={cn(
-                  "text-right text-lg font-bold border-none bg-transparent p-0 focus-visible:ring-0",
+                  "text-right text-xl font-bold border-none bg-transparent p-0 focus-visible:ring-0 w-full sm:w-auto sm:min-w-[120px]",
                   isCyberpunk ? "text-cyan-100" : "text-black",
                 )}
               />
@@ -308,13 +338,13 @@ export default function TokenSwapInterface({
               size="sm"
               onClick={handleSwapTokens}
               className={cn(
-                "h-10 w-10 rounded-full border-2",
+                "h-12 w-12 rounded-full border-2",
                 isCyberpunk
                   ? "border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20"
                   : "border-gray-300 text-gray-600 hover:bg-gray-100",
               )}
             >
-              <ArrowUpDown className="h-4 w-4" />
+              <ArrowUpDown className="h-5 w-5" />
             </Button>
           </div>
 
@@ -325,25 +355,27 @@ export default function TokenSwapInterface({
               isCyberpunk ? "bg-black/40 border-cyan-500/20" : "bg-gray-50 border-gray-200",
             )}
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-300" : "text-gray-700")}>To</span>
               <span className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
                 Balance: {toToken.balance.toFixed(4)} {toToken.symbol}
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <Image
-                  src={toToken.image || "/placeholder.svg?height=32&width=32"}
+                  src={toToken.image || "/placeholder.svg?height=40&width=40"}
                   alt={toToken.symbol}
-                  width={32}
-                  height={32}
+                  width={40}
+                  height={40}
                   className="rounded-full flex-shrink-0"
                 />
                 <div className="min-w-0">
-                  <div className={cn("font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>{toToken.symbol}</div>
-                  <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
+                  <div className={cn("font-bold text-lg", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                    {toToken.symbol}
+                  </div>
+                  <div className={cn("text-sm", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
                     {formatPrice(toTokenPrice)}
                   </div>
                 </div>
@@ -355,7 +387,7 @@ export default function TokenSwapInterface({
                 value={toAmount}
                 readOnly
                 className={cn(
-                  "text-right text-lg font-bold border-none bg-transparent p-0 focus-visible:ring-0",
+                  "text-right text-xl font-bold border-none bg-transparent p-0 focus-visible:ring-0 w-full sm:w-auto sm:min-w-[120px]",
                   isCyberpunk ? "text-cyan-100" : "text-black",
                 )}
               />
@@ -370,9 +402,9 @@ export default function TokenSwapInterface({
                 isCyberpunk ? "bg-black/40 text-cyan-300" : "bg-gray-50 text-gray-700",
               )}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <span>Exchange Rate</span>
-                <span className="font-mono">
+                <span className="font-mono text-right">
                   1 {fromToken.symbol} = {exchangeRate.toFixed(6)} {toToken.symbol}
                 </span>
               </div>
@@ -384,7 +416,7 @@ export default function TokenSwapInterface({
             onClick={handleSwap}
             disabled={!canSwap || isSwapping}
             className={cn(
-              "w-full h-12 text-lg font-bold",
+              "w-full h-14 text-lg font-bold",
               isCyberpunk
                 ? "bg-cyan-500 hover:bg-cyan-600 text-black disabled:bg-cyan-500/20 disabled:text-cyan-400/50"
                 : "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black disabled:bg-gray-200 disabled:text-gray-400",
@@ -392,7 +424,7 @@ export default function TokenSwapInterface({
           >
             {isSwapping ? (
               <div className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
+                <RefreshCw className="h-5 w-5 animate-spin" />
                 Swapping...
               </div>
             ) : !canSwap ? (
@@ -404,24 +436,24 @@ export default function TokenSwapInterface({
         </CardContent>
       </Card>
 
-      {/* Market Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Market Stats - Mobile Optimized */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className={cn(isCyberpunk ? "bg-black/40 border border-cyan-500/20" : "bg-white border-2 border-black")}>
           <CardHeader className="pb-3">
             <CardTitle className={cn("text-sm font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
               Market Stats
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
+          <CardContent className="space-y-3">
+            <div className="flex justify-between items-center">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>24h Volume</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>$2.4M</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Total Liquidity</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>$12.8M</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Fees (24h)</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>$7,200</span>
             </div>
@@ -434,20 +466,20 @@ export default function TokenSwapInterface({
               Your Portfolio
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
+          <CardContent className="space-y-3">
+            <div className="flex justify-between items-center">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Total Value</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
                 ${((balance || 0) * (prices.SOL?.price || 0) + 1250 * (prices.MUTB?.price || 0)).toFixed(2)}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>SOL Balance</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
                 {(balance || 0).toFixed(4)} SOL
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>MUTB Balance</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
                 1,250.00 MUTB
