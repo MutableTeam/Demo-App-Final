@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowUpDown, RefreshCw, Settings } from "lucide-react"
+import { ArrowUpDown, RefreshCw, Settings, TrendingUp, TrendingDown } from "lucide-react"
 import Image from "next/image"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import { useTokenPrices } from "@/hooks/use-token-prices"
 import { cn } from "@/lib/utils"
 import type { Connection } from "@solana/web3.js"
 
@@ -23,23 +24,20 @@ interface Token {
   name: string
   image: string
   balance: number
-  price: number
 }
 
-const mockTokens: Token[] = [
+const tokens: Token[] = [
   {
     symbol: "SOL",
     name: "Solana",
     image: "/solana-logo.png",
     balance: 2.5,
-    price: 98.45,
   },
   {
     symbol: "MUTB",
     name: "Mutable Token",
     image: "/images/mutable-token.png",
     balance: 1250.0,
-    price: 0.12,
   },
 ]
 
@@ -53,18 +51,25 @@ export default function TokenSwapInterface({
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
 
-  const [fromToken, setFromToken] = useState<Token>(mockTokens[0])
-  const [toToken, setToToken] = useState<Token>(mockTokens[1])
+  // Use the token prices hook - only fetch when wallet is connected
+  const { prices, loading: pricesLoading, error: pricesError, lastUpdated, refreshPrices } = useTokenPrices(!!publicKey)
+
+  const [fromToken, setFromToken] = useState<Token>(tokens[0])
+  const [toToken, setToToken] = useState<Token>(tokens[1])
   const [fromAmount, setFromAmount] = useState("")
   const [toAmount, setToAmount] = useState("")
   const [isSwapping, setIsSwapping] = useState(false)
   const [slippage, setSlippage] = useState("0.5")
 
+  // Get current token prices
+  const fromTokenPrice = fromToken.symbol === "SOL" ? prices.SOL?.price : prices.MUTB?.price
+  const toTokenPrice = toToken.symbol === "SOL" ? prices.SOL?.price : prices.MUTB?.price
+
   // Calculate exchange rate
-  const exchangeRate = fromToken.price / toToken.price
+  const exchangeRate = fromTokenPrice && toTokenPrice ? fromTokenPrice / toTokenPrice : 0
 
   useEffect(() => {
-    if (fromAmount && !isNaN(Number(fromAmount))) {
+    if (fromAmount && !isNaN(Number(fromAmount)) && exchangeRate > 0) {
       const calculatedToAmount = (Number(fromAmount) * exchangeRate).toFixed(6)
       setToAmount(calculatedToAmount)
     } else {
@@ -109,8 +114,113 @@ export default function TokenSwapInterface({
 
   const canSwap = fromAmount && toAmount && Number(fromAmount) > 0 && Number(fromAmount) <= fromToken.balance
 
+  const formatPrice = (price: number | undefined) => {
+    if (!price) return "Loading..."
+    return `$${price.toFixed(4)}`
+  }
+
+  const getPriceChange = (symbol: string) => {
+    const tokenPrice = symbol === "SOL" ? prices.SOL : prices.MUTB
+    return tokenPrice?.change24h || 0
+  }
+
   return (
     <div className="space-y-6">
+      {/* Price Display Header */}
+      {publicKey && (
+        <Card
+          className={cn(
+            "relative overflow-hidden",
+            isCyberpunk
+              ? "bg-black/60 border border-cyan-500/30"
+              : "bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
+          )}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className={cn("text-lg font-mono", isCyberpunk ? "text-cyan-200" : "text-black")}>
+                Live Token Prices
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={refreshPrices}
+                  disabled={pricesLoading}
+                  className={cn(
+                    "h-8 w-8 p-0",
+                    isCyberpunk ? "text-cyan-400 hover:bg-cyan-500/20" : "text-gray-600 hover:bg-gray-100",
+                  )}
+                >
+                  <RefreshCw className={cn("h-4 w-4", pricesLoading && "animate-spin")} />
+                </Button>
+                {lastUpdated && (
+                  <span className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
+                    Updated: {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              {/* SOL Price */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Image src="/solana-logo.png" alt="SOL" width={24} height={24} className="rounded-full" />
+                  <span className={cn("font-medium", isCyberpunk ? "text-cyan-200" : "text-black")}>SOL</span>
+                </div>
+                <div className="text-right">
+                  <div className={cn("font-bold font-mono", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                    {formatPrice(prices.SOL?.price)}
+                    {prices.SOL?.fallback && (
+                      <span className={cn("text-xs ml-1", isCyberpunk ? "text-yellow-400" : "text-yellow-600")}>
+                        (fallback)
+                      </span>
+                    )}
+                  </div>
+                  {prices.SOL && (
+                    <div
+                      className={cn(
+                        "text-xs flex items-center gap-1 justify-end",
+                        getPriceChange("SOL") >= 0 ? "text-green-400" : "text-red-400",
+                      )}
+                    >
+                      {getPriceChange("SOL") >= 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {Math.abs(getPriceChange("SOL")).toFixed(2)}%
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* MUTB Price */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Image src="/images/mutable-token.png" alt="MUTB" width={24} height={24} className="rounded-full" />
+                  <span className={cn("font-medium", isCyberpunk ? "text-cyan-200" : "text-black")}>MUTB</span>
+                </div>
+                <div className="text-right">
+                  <div className={cn("font-bold font-mono", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                    {formatPrice(prices.MUTB?.price)}
+                  </div>
+                  <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>Fixed Price</div>
+                </div>
+              </div>
+            </div>
+
+            {pricesError && (
+              <div className={cn("mt-3 text-sm", isCyberpunk ? "text-red-400" : "text-red-600")}>
+                Error: {pricesError}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main Swap Interface */}
       <Card
         className={cn(
@@ -173,7 +283,7 @@ export default function TokenSwapInterface({
                     {fromToken.symbol}
                   </div>
                   <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
-                    ${fromToken.price.toFixed(2)}
+                    {formatPrice(fromTokenPrice)}
                   </div>
                 </div>
               </div>
@@ -234,7 +344,7 @@ export default function TokenSwapInterface({
                 <div className="min-w-0">
                   <div className={cn("font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>{toToken.symbol}</div>
                   <div className={cn("text-xs", isCyberpunk ? "text-cyan-400/70" : "text-gray-500")}>
-                    ${toToken.price.toFixed(2)}
+                    {formatPrice(toTokenPrice)}
                   </div>
                 </div>
               </div>
@@ -253,7 +363,7 @@ export default function TokenSwapInterface({
           </div>
 
           {/* Exchange Rate */}
-          {fromAmount && toAmount && (
+          {fromAmount && toAmount && exchangeRate > 0 && (
             <div
               className={cn(
                 "p-3 rounded-lg text-sm",
@@ -328,7 +438,7 @@ export default function TokenSwapInterface({
             <div className="flex justify-between">
               <span className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>Total Value</span>
               <span className={cn("text-sm font-bold", isCyberpunk ? "text-cyan-100" : "text-black")}>
-                ${((balance || 0) * 98.45 + 1250 * 0.12).toFixed(2)}
+                ${((balance || 0) * (prices.SOL?.price || 0) + 1250 * (prices.MUTB?.price || 0)).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">

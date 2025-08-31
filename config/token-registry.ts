@@ -1,23 +1,24 @@
 import type { TokenConfig, SwapPair } from "@/types/token-types"
 
-// SOL token configuration
+// SOL token configuration - Ensure live price fetching
 export const SOL_TOKEN: TokenConfig = {
   id: "solana",
   name: "Solana",
   symbol: "SOL",
   mintAddress: "So11111111111111111111111111111111111111112",
   decimals: 9,
-  logoURI: "/solana-logo.png", // Fixed path - was missing leading slash
+  logoURI: "/solana-logo.png",
   isNative: true,
-  coingeckoId: "solana",
+  coingeckoId: "solana", // This ensures live price fetching from CoinGecko
+  // Explicitly NO fixedPrice - we want live prices
 }
 
-// MUTB token configuration - Updated for your mainnet address for testing
+// MUTB token configuration
 export const MUTB_TOKEN: TokenConfig = {
   id: "mutb",
   name: "Mutable Token",
   symbol: "MUTB",
-  mintAddress: "4EeyZSGjkiM4bBhMPWriyaR9mqdFBGtYKcYCAzTivQbW", // Your mainnet token for testing
+  mintAddress: "4EeyZSGjkiM4bBhMPWriyaR9mqdFBGtYKcYCAzTivQbW",
   decimals: 9,
   logoURI: "/images/mutable-token.png",
   fixedPrice: 0.01, // Fixed at $0.01

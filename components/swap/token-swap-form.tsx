@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertCircle, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Info, Loader2, ArrowDownUp } from "lucide-react"
+import { Info, Loader2, ArrowDownUp, RefreshCw } from "lucide-react"
 import { TokenSelector } from "./token-selector"
 import { SwapSettings } from "./swap-settings"
 import SoundButton from "@/components/sound-button"
 import type { TokenConfig, SwapPair } from "@/types/token-types"
-import { formatTokenAmount, getTokenPrice } from "@/utils/token-utils"
+import { formatTokenAmount, getTokenPrice, forceRefreshPrices } from "@/utils/token-utils"
 import { createJupiterApiClient, type JupiterQuoteResponse } from "@/utils/jupiter-sdk"
 import { type Connection, PublicKey } from "@solana/web3.js"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
@@ -158,6 +158,7 @@ export function TokenSwapForm({
   const [isLoadingPrice, setIsLoadingPrice] = useState<boolean>(false)
   const [inputTokenPrice, setInputTokenPrice] = useState<number | null>(null)
   const [outputTokenPrice, setOutputTokenPrice] = useState<number | null>(null)
+  const [lastPriceUpdate, setLastPriceUpdate] = useState<number>(0)
 
   // Initialize Jupiter client
   useEffect(() => {
@@ -168,32 +169,67 @@ export function TokenSwapForm({
   }, [connection])
 
   // Fetch token prices
-  useEffect(() => {
-    const fetchPrices = async () => {
-      setIsLoadingPrice(true)
-      try {
-        const [inPrice, outPrice] = await Promise.all([getTokenPrice(inputToken), getTokenPrice(outputToken)])
+  const fetchPrices = async (forceRefresh = false) => {
+    console.log(`[TokenSwapForm] fetchPrices called, forceRefresh: ${forceRefresh}`)
+    setIsLoadingPrice(true)
+    setSwapError(null)
 
-        setInputTokenPrice(inPrice.usdPrice)
-        setOutputTokenPrice(outPrice.usdPrice)
-
-        // Calculate exchange rate based on prices
-        if (inPrice.usdPrice && outPrice.usdPrice) {
-          setExchangeRate(inPrice.usdPrice / outPrice.usdPrice)
-        }
-      } catch (error) {
-        console.error("Failed to fetch token prices:", error)
-      } finally {
-        setIsLoadingPrice(false)
+    try {
+      if (forceRefresh) {
+        console.log(`[TokenSwapForm] Force refreshing prices...`)
+        forceRefreshPrices()
       }
+
+      console.log(`[TokenSwapForm] Fetching prices for ${inputToken.symbol} and ${outputToken.symbol}...`)
+
+      const [inPrice, outPrice] = await Promise.all([getTokenPrice(inputToken), getTokenPrice(outputToken)])
+
+      console.log(`[TokenSwapForm] Price results:`, {
+        inputToken: inputToken.symbol,
+        inputPrice: inPrice.usdPrice,
+        outputToken: outputToken.symbol,
+        outputPrice: outPrice.usdPrice,
+      })
+
+      setInputTokenPrice(inPrice.usdPrice)
+      setOutputTokenPrice(outPrice.usdPrice)
+      setLastPriceUpdate(Date.now())
+
+      // Calculate exchange rate based on prices
+      if (inPrice.usdPrice && outPrice.usdPrice) {
+        const rate = inPrice.usdPrice / outPrice.usdPrice
+        setExchangeRate(rate)
+        console.log(`[TokenSwapForm] Exchange rate: 1 ${inputToken.symbol} = ${rate.toFixed(6)} ${outputToken.symbol}`)
+      }
+    } catch (error) {
+      console.error("[TokenSwapForm] Failed to fetch token prices:", error)
+      setSwapError("Failed to fetch current prices. Please try again.")
+    } finally {
+      setIsLoadingPrice(false)
+    }
+  }
+
+  // Initial price fetch and periodic updates - only when wallet is connected
+  useEffect(() => {
+    if (!publicKey && !connectedWallet) {
+      console.log(`[TokenSwapForm] No wallet connected, skipping price fetch`)
+      return
     }
 
+    console.log(`[TokenSwapForm] Setting up price fetching for ${inputToken.symbol}/${outputToken.symbol}`)
     fetchPrices()
-    // Refresh prices every 60 seconds
-    const intervalId = setInterval(fetchPrices, 60000)
 
-    return () => clearInterval(intervalId)
-  }, [inputToken, outputToken])
+    // Refresh prices every 30 seconds for live updates when wallet is connected
+    const intervalId = setInterval(() => {
+      console.log(`[TokenSwapForm] Periodic price refresh`)
+      fetchPrices()
+    }, 30000)
+
+    return () => {
+      console.log(`[TokenSwapForm] Cleaning up price fetch interval`)
+      clearInterval(intervalId)
+    }
+  }, [inputToken, outputToken, publicKey, connectedWallet])
 
   // Get Jupiter quote when amount or tokens change
   useEffect(() => {
@@ -353,6 +389,12 @@ export function TokenSwapForm({
     setJupiterQuote(null)
   }
 
+  // Function to manually refresh prices
+  const refreshPrices = () => {
+    console.log(`[TokenSwapForm] Manual price refresh triggered`)
+    fetchPrices(true) // Force refresh
+  }
+
   // Calculate the receive amount
   const calculateReceiveAmount = () => {
     const amount = Number.parseFloat(swapAmount)
@@ -370,8 +412,57 @@ export function TokenSwapForm({
     return "0"
   }
 
+  // Format the last update time
+  const formatLastUpdate = () => {
+    if (!lastPriceUpdate) return ""
+    const now = Date.now()
+    const diff = now - lastPriceUpdate
+    const seconds = Math.floor(diff / 1000)
+
+    if (seconds < 60) return `${seconds}s ago`
+    const minutes = Math.floor(seconds / 60)
+    return `${minutes}m ago`
+  }
+
   return (
     <div className="space-y-4">
+      {/* Debug info - only show in development */}
+      {process.env.NODE_ENV === "development" && (publicKey || connectedWallet) && (
+        <div className="text-xs bg-gray-100 p-2 rounded font-mono">
+          <div>
+            Input Token: {inputToken.symbol} (coingeckoId: {inputToken.coingeckoId}, fixedPrice: {inputToken.fixedPrice}
+            )
+          </div>
+          <div>
+            Output Token: {outputToken.symbol} (coingeckoId: {outputToken.coingeckoId}, fixedPrice:{" "}
+            {outputToken.fixedPrice})
+          </div>
+          <div>Input Price: ${inputTokenPrice?.toFixed(4) || "loading..."}</div>
+          <div>Output Price: ${outputTokenPrice?.toFixed(4) || "loading..."}</div>
+          <div>Last Update: {formatLastUpdate()}</div>
+          <div className="mt-2">
+            <a
+              href="/price-test"
+              target="_blank"
+              className="text-blue-600 underline hover:text-blue-800"
+              rel="noreferrer"
+            >
+              Open Price Test Panel →
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet connection notice */}
+      {!publicKey && !connectedWallet && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+          <p className="flex items-center gap-2">
+            <Info className="h-4 w-4" />
+            Connect your wallet to see live SOL prices and enable swapping
+          </p>
+        </div>
+      )}
+
       {/* Input token section */}
       {isCyberpunk ? (
         <CyberCard className="p-4">
@@ -417,6 +508,12 @@ export function TokenSwapForm({
               isCyberpunk={true}
             />
           </div>
+          {inputTokenPrice !== null && (publicKey || connectedWallet) && (
+            <div className="mt-2 text-xs text-cyan-400 font-mono">
+              ${inputTokenPrice.toFixed(4)} USD per {inputToken.symbol}
+              {isLoadingPrice && <span className="ml-2 animate-pulse">updating...</span>}
+            </div>
+          )}
         </CyberCard>
       ) : (
         <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
@@ -461,6 +558,12 @@ export function TokenSwapForm({
               disabled={isSwapping || !isTokenTradable}
             />
           </div>
+          {inputTokenPrice !== null && (publicKey || connectedWallet) && (
+            <div className="mt-2 text-xs text-gray-600 font-mono">
+              ${inputTokenPrice.toFixed(4)} USD per {inputToken.symbol}
+              {isLoadingPrice && <span className="ml-2 animate-pulse">updating...</span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -510,6 +613,12 @@ export function TokenSwapForm({
               isCyberpunk={true}
             />
           </div>
+          {outputTokenPrice !== null && (publicKey || connectedWallet) && (
+            <div className="mt-2 text-xs text-cyan-400 font-mono">
+              ${outputTokenPrice.toFixed(4)} USD per {outputToken.symbol}
+              {isLoadingPrice && <span className="ml-2 animate-pulse">updating...</span>}
+            </div>
+          )}
         </CyberCard>
       ) : (
         <div className="p-4 border-2 border-black rounded-md bg-[#f5efdc]">
@@ -535,19 +644,52 @@ export function TokenSwapForm({
               disabled={isSwapping || !isTokenTradable}
             />
           </div>
+          {outputTokenPrice !== null && (publicKey || connectedWallet) && (
+            <div className="mt-2 text-xs text-gray-600 font-mono">
+              ${outputTokenPrice.toFixed(4)} USD per {outputToken.symbol}
+              {isLoadingPrice && <span className="ml-2 animate-pulse">updating...</span>}
+            </div>
+          )}
         </div>
       )}
 
       {/* Settings and info */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <span className={cn("text-sm font-medium", isCyberpunk && "text-cyan-200")}>Slippage Tolerance:</span>
-          <span className={cn("text-sm font-bold", isCyberpunk && "text-cyan-300")}>
-            {(slippageBps / 100).toFixed(2)}%
-          </span>
+      {(publicKey || connectedWallet) && (
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <span className={cn("text-sm font-medium", isCyberpunk && "text-cyan-200")}>Slippage Tolerance:</span>
+            <span className={cn("text-sm font-bold", isCyberpunk && "text-cyan-300")}>
+              {(slippageBps / 100).toFixed(2)}%
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <SwapSettings slippageBps={slippageBps} onSlippageChange={setSlippageBps} isCyberpunk={isCyberpunk} />
+            {isCyberpunk ? (
+              <CyberButton
+                variant="outline"
+                size="sm"
+                onClick={refreshPrices}
+                disabled={isLoadingPrice}
+                className="h-8 w-8 p-0"
+                title="Refresh prices"
+              >
+                <RefreshCw className={cn("h-3 w-3", isLoadingPrice && "animate-spin")} />
+              </CyberButton>
+            ) : (
+              <SoundButton
+                variant="outline"
+                size="sm"
+                onClick={refreshPrices}
+                disabled={isLoadingPrice}
+                className="h-8 w-8 p-0 border border-black"
+                title="Refresh prices"
+              >
+                <RefreshCw className={cn("h-3 w-3", isLoadingPrice && "animate-spin")} />
+              </SoundButton>
+            )}
+          </div>
         </div>
-        <SwapSettings slippageBps={slippageBps} onSlippageChange={setSlippageBps} isCyberpunk={isCyberpunk} />
-      </div>
+      )}
 
       {/* Error display */}
       {swapError && (
@@ -562,60 +704,80 @@ export function TokenSwapForm({
       )}
 
       {/* Exchange rate info */}
-      {isCyberpunk ? (
-        <CyberInfoBox className="p-3 rounded-md text-sm">
-          <p className="flex items-start gap-2">
-            <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <span>
-              {isLoadingPrice || isLoadingQuote ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading prices...
-                </span>
-              ) : (
-                <>
-                  Exchange Rate: 1 {inputToken.symbol} = {(1 / exchangeRate).toFixed(exchangeRate < 0.01 ? 4 : 2)}{" "}
-                  {outputToken.symbol}
-                  {inputTokenPrice && outputTokenPrice && (
-                    <>
-                      {" "}
-                      ({inputToken.symbol}: ${inputTokenPrice.toFixed(2)}, {outputToken.symbol}: $
-                      {outputTokenPrice.toFixed(2)})
-                    </>
-                  )}
-                  {" Swaps are executed on Solana devnet using Jupiter."}
-                </>
-              )}
-            </span>
-          </p>
-        </CyberInfoBox>
-      ) : (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-          <p className="flex items-start gap-2">
-            <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <span>
-              {isLoadingPrice || isLoadingQuote ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading prices...
-                </span>
-              ) : (
-                <>
-                  Exchange Rate: 1 {inputToken.symbol} = {(1 / exchangeRate).toFixed(exchangeRate < 0.01 ? 4 : 2)}{" "}
-                  {outputToken.symbol}
-                  {inputTokenPrice && outputTokenPrice && (
-                    <>
-                      {" "}
-                      ({inputToken.symbol}: ${inputTokenPrice.toFixed(2)}, {outputToken.symbol}: $
-                      {outputTokenPrice.toFixed(2)})
-                    </>
-                  )}
-                  {" Swaps are executed on Solana devnet using Jupiter."}
-                </>
-              )}
-            </span>
-          </p>
-        </div>
+      {(publicKey || connectedWallet) && (
+        <>
+          {isCyberpunk ? (
+            <CyberInfoBox className="p-3 rounded-md text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex items-start gap-2 flex-1">
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    {isLoadingPrice || isLoadingQuote ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading live prices...
+                      </span>
+                    ) : (
+                      <>
+                        Exchange Rate: 1 {inputToken.symbol} = {(1 / exchangeRate).toFixed(exchangeRate < 0.01 ? 4 : 2)}{" "}
+                        {outputToken.symbol}
+                        {inputTokenPrice && outputTokenPrice && (
+                          <>
+                            <br />
+                            <span className="text-xs opacity-80">
+                              {inputToken.symbol}: ${inputTokenPrice.toFixed(4)} | {outputToken.symbol}: $
+                              {outputTokenPrice.toFixed(4)}
+                            </span>
+                          </>
+                        )}
+                        <br />
+                        <span className="text-xs opacity-70">Swaps are executed on Solana devnet using Jupiter.</span>
+                      </>
+                    )}
+                  </span>
+                </p>
+                {lastPriceUpdate && (
+                  <span className="text-xs opacity-60 whitespace-nowrap">Updated {formatLastUpdate()}</span>
+                )}
+              </div>
+            </CyberInfoBox>
+          ) : (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex items-start gap-2 flex-1">
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    {isLoadingPrice || isLoadingQuote ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading live prices...
+                      </span>
+                    ) : (
+                      <>
+                        Exchange Rate: 1 {inputToken.symbol} = {(1 / exchangeRate).toFixed(exchangeRate < 0.01 ? 4 : 2)}{" "}
+                        {outputToken.symbol}
+                        {inputTokenPrice && outputTokenPrice && (
+                          <>
+                            <br />
+                            <span className="text-xs">
+                              {inputToken.symbol}: ${inputTokenPrice.toFixed(4)} | {outputToken.symbol}: $
+                              {outputTokenPrice.toFixed(4)}
+                            </span>
+                          </>
+                        )}
+                        <br />
+                        <span className="text-xs opacity-70">Swaps are executed on Solana devnet using Jupiter.</span>
+                      </>
+                    )}
+                  </span>
+                </p>
+                {lastPriceUpdate && (
+                  <span className="text-xs opacity-60 whitespace-nowrap">Updated {formatLastUpdate()}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Swap button */}

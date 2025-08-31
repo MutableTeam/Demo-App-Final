@@ -6,8 +6,15 @@ export interface TokenConfig {
   decimals: number
   logoURI: string
   isNative?: boolean
-  fixedPrice?: number // For tokens with fixed prices
-  coingeckoId?: string // For tokens with live prices from CoinGecko
+  coingeckoId?: string
+  fixedPrice?: number
+  mockPrice?: number
+}
+
+export interface TokenPrice {
+  token: TokenConfig
+  usdPrice: number
+  lastUpdated: number
 }
 
 export interface SwapPair {
@@ -16,24 +23,20 @@ export interface SwapPair {
   defaultDirection: "in-to-out" | "out-to-in"
 }
 
+export interface SwapTransaction {
+  id: string
+  inputToken: TokenConfig
+  outputToken: TokenConfig
+  inputAmount: number
+  outputAmount: number
+  exchangeRate: number
+  timestamp: number
+  txId: string
+  status: "pending" | "completed" | "failed"
+}
+
 export interface TokenBalance {
   token: TokenConfig
   balance: number
-  usdValue?: number
-}
-
-export interface SwapResult {
-  type: "swap" | "pool"
-  timestamp: number
-  inputAmount: number
-  inputToken: string
-  outputAmount: number
-  outputToken: string
-  txId: string
-}
-
-export interface TokenPrice {
-  token: TokenConfig
-  usdPrice: number
-  lastUpdated: number
+  usdValue: number
 }
