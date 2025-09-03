@@ -39,10 +39,14 @@ const CyberBanner = styled.div`
   right: 0;
   background: linear-gradient(90deg, rgba(16, 16, 48, 0.95) 0%, rgba(32, 16, 64, 0.95) 100%);
   border-top: 2px solid rgba(0, 255, 255, 0.5);
-  padding: 1rem;
+  padding: 0.75rem;
   z-index: 9999;
   animation: ${slideUp} 0.5s ease-out forwards;
   backdrop-filter: blur(10px);
+  
+  @media (min-width: 640px) {
+    padding: 1rem;
+  }
   
   &::before {
     content: '';
@@ -58,12 +62,13 @@ const CyberBanner = styled.div`
 
 const TokenImage = styled.div`
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   overflow: hidden;
   border: 2px solid rgba(0, 255, 255, 0.5);
   animation: ${pulse} 2s infinite;
+  flex-shrink: 0;
   
   @media (min-width: 640px) {
     width: 50px;
@@ -73,13 +78,20 @@ const TokenImage = styled.div`
 
 const CloseButton = styled.button`
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: 0.25rem;
+  right: 0.25rem;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: color 0.2s ease;
+  padding: 0.25rem;
+  
+  @media (min-width: 640px) {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.5rem;
+  }
   
   &:hover {
     color: white;
@@ -130,32 +142,32 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
         onClose={() => setShowPreRegisterForm(false)}
         onSuccess={handleFormSuccess}
       />
-      <CyberBanner className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <CyberBanner className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <TokenImage>
             <Image src="/images/mutable-token.png" alt="MUTB Token" fill className="object-cover" />
           </TokenImage>
-          <div>
-            <p className="text-cyan-300 font-bold text-lg tracking-wide">
+          <div className="min-w-0 flex-1">
+            <p className="text-cyan-300 font-bold text-base sm:text-lg tracking-wide">
               <span className="text-pink-500">TOKEN</span> AIRDROP OFFER
             </p>
-            <p className="text-white text-sm sm:text-base">
+            <p className="text-white text-xs sm:text-sm leading-tight">
               Sign up now for your chance to recieve a free airdrop of tokens when we go live as well as in app rewards!
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
           <Button
             onClick={handleSignUp}
             variant="default"
-            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold"
+            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold text-sm sm:text-base px-4 py-2 flex-1 sm:flex-none"
           >
             SIGN UP NOW
           </Button>
-          <CloseButton onClick={handleClose} aria-label="Close banner">
-            <X size={20} />
-          </CloseButton>
         </div>
+        <CloseButton onClick={handleClose} aria-label="Close banner">
+          <X size={16} className="sm:w-5 sm:h-5" />
+        </CloseButton>
       </CyberBanner>
     </>
   )
