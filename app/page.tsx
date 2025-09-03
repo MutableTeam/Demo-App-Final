@@ -106,9 +106,6 @@ function HomeContent() {
             <DebugOverlay initiallyVisible={false} position="bottom-right" />
           </div>
         </RetroArcadeBackground>
-
-        {/* Show banner even before wallet connection */}
-        <SignUpBanner walletConnected={walletConnected} />
       </main>
     )
   }
@@ -138,8 +135,7 @@ function HomeContent() {
         </div>
       </RetroArcadeBackground>
 
-      {/* Show banner after wallet connection too */}
-      <SignUpBanner walletConnected={walletConnected} />
+      {walletConnected && <SignUpBanner walletConnected={walletConnected} />}
     </main>
   )
 }

@@ -109,8 +109,16 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
   const { styleMode } = useCyberpunkTheme()
 
   useEffect(() => {
-    setIsVisible(true)
-  }, [])
+    if (walletConnected) {
+      const timer = setTimeout(() => {
+        setIsVisible(true)
+      }, 3500) // Changed delay from 6 seconds to 3.5 seconds
+
+      return () => clearTimeout(timer)
+    } else {
+      setIsVisible(false)
+    }
+  }, [walletConnected])
 
   const handleClose = () => {
     setIsVisible(false)
