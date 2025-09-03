@@ -80,6 +80,7 @@ const CloseButton = styled.button`
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: color 0.2s ease;
+  z-index: 10;
   
   &:hover {
     color: white;
@@ -92,23 +93,37 @@ interface SignUpBannerProps {
 }
 
 export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBannerProps) {
-  const [isVisible, setIsVisible] = useState(false)
+  const [isVisible, setIsVisible] = useState(true) // Always start visible
   const [showPreRegisterForm, setShowPreRegisterForm] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { styleMode } = useCyberpunkTheme()
 
   useEffect(() => {
-    // Show banner always unless it was dismissed
-    if (!localStorage.getItem("signupBannerDismissed")) {
-      setIsVisible(true)
-    } else {
-      setIsVisible(false)
+    setMounted(true)
+
+    // Only check localStorage after component mounts
+    const checkDismissed = () => {
+      try {
+        const dismissed = localStorage.getItem("signupBannerDismissed")
+        if (dismissed === "true") {
+          setIsVisible(false)
+        }
+      } catch (error) {
+        console.log("localStorage not available")
+      }
     }
+
+    // Small delay to ensure proper mounting
+    setTimeout(checkDismissed, 100)
   }, [])
 
   const handleClose = () => {
     setIsVisible(false)
-    // Remember that user dismissed the banner
-    localStorage.setItem("signupBannerDismissed", "true")
+    try {
+      localStorage.setItem("signupBannerDismissed", "true")
+    } catch (error) {
+      console.log("Could not save to localStorage")
+    }
   }
 
   const handleSignUp = () => {
@@ -116,12 +131,19 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
   }
 
   const handleFormSuccess = () => {
-    // Close the form and banner after successful submission
     setShowPreRegisterForm(false)
     handleClose()
   }
 
-  if (!isVisible) return null
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return null
+  }
+
+  // Don't render if not visible
+  if (!isVisible) {
+    return null
+  }
 
   return (
     <>
@@ -130,33 +152,69 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
         onClose={() => setShowPreRegisterForm(false)}
         onSuccess={handleFormSuccess}
       />
+
+      {/* Banner with inline styles to ensure it shows */}
       <CyberBanner className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        {/* Close button */}
+        <CloseButton onClick={handleClose} aria-label="Close banner">
+          <X size={20} />
+        </CloseButton>
+
+        {/* Content */}
+        <div className="flex items-center gap-3 flex-1">
+          {/* Token image */}
           <TokenImage>
             <Image src="/images/mutable-token.png" alt="MUTB Token" fill className="object-cover" />
           </TokenImage>
-          <div>
+
+          {/* Text content */}
+          <div className="flex-1">
             <p className="text-cyan-300 font-bold text-lg tracking-wide">
               <span className="text-pink-500">TOKEN</span> AIRDROP OFFER
             </p>
             <p className="text-white text-sm sm:text-base">
-              Sign up now for your chance to recieve a free airdrop of tokens when we go live as well as in app rewards!
+              Sign up now for your chance to receive a free airdrop of tokens when we go live as well as in app rewards!
             </p>
           </div>
         </div>
+
+        {/* Sign up button */}
         <div className="flex items-center gap-2">
           <Button
             onClick={handleSignUp}
             variant="default"
-            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold"
+            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold px-6 py-2 text-sm sm:text-base whitespace-nowrap"
           >
             SIGN UP NOW
           </Button>
-          <CloseButton onClick={handleClose} aria-label="Close banner">
-            <X size={20} />
-          </CloseButton>
         </div>
       </CyberBanner>
+
+      {/* Add keyframes for animations */}
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(255, 0, 128, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(255, 0, 128, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(255, 0, 128, 0);
+          }
+        }
+      `}</style>
     </>
   )
 }
