@@ -14,7 +14,6 @@ import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
 import { SignUpBanner } from "@/components/signup-banner"
-import { CyberpunkThemeProvider } from "@/contexts/cyberpunk-theme-context"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
@@ -147,10 +146,8 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <CyberpunkThemeProvider>
-      <PlatformProvider>
-        <HomeContent />
-      </PlatformProvider>
-    </CyberpunkThemeProvider>
+    <PlatformProvider>
+      <HomeContent />
+    </PlatformProvider>
   )
 }

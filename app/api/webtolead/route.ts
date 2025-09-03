@@ -2,35 +2,21 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { firstName, email } = body
+    const { firstName, email } = await request.json()
 
-    // Validate input
     if (!firstName || !email) {
       return NextResponse.json({ success: false, message: "First name and email are required" }, { status: 400 })
     }
 
-    // Salesforce Web-to-Lead endpoint
-    const salesforceUrl = "https://webto.salesforce.com/servlet/servlet.WebToLead?encoding=UTF-8"
-
-    // Form data for Salesforce
-    const formData = new URLSearchParams({
-      oid: "00D8c0000016Zzj", // Your Salesforce Organization ID
-      first_name: firstName,
-      email: email,
-      lead_source: "Website - Airdrop Signup",
-      company: "Mutable Gaming Platform",
-      retURL: "https://your-domain.com/thank-you", // Optional return URL
-    })
-
-    console.log("Submitting to Salesforce:", {
-      firstName,
-      email,
-      timestamp: new Date().toISOString(),
-    })
+    // Create form data for Salesforce Web-to-Lead
+    const formData = new URLSearchParams()
+    formData.append("oid", "00Dd3000003o2bC")
+    formData.append("first_name", firstName)
+    formData.append("email", email)
+    formData.append("retURL", "http://app.mutablepvp.com")
 
     // Submit to Salesforce
-    const salesforceResponse = await fetch(salesforceUrl, {
+    const salesforceResponse = await fetch("https://webto.salesforce.com/servlet/servlet.WebToLead?encoding=UTF-8", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -42,33 +28,17 @@ export async function POST(request: NextRequest) {
     console.log("Salesforce response headers:", Object.fromEntries(salesforceResponse.headers.entries()))
 
     // Salesforce typically returns 200 or 302 for successful submissions
-    if (salesforceResponse.status === 200 || salesforceResponse.status === 302) {
-      console.log("Successfully submitted to Salesforce")
-
+    if (salesforceResponse.ok || salesforceResponse.status === 302) {
       return NextResponse.json({
         success: true,
-        message: "Successfully registered for airdrop!",
+        message: "Successfully submitted to Salesforce",
       })
     } else {
-      console.error("Salesforce submission failed:", salesforceResponse.status)
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Registration failed. Please try again.",
-        },
-        { status: 500 },
-      )
+      console.error("Salesforce submission failed:", salesforceResponse.status, salesforceResponse.statusText)
+      return NextResponse.json({ success: false, message: "Failed to submit to Salesforce" }, { status: 500 })
     }
   } catch (error) {
-    console.error("API route error:", error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Server error. Please try again later.",
-      },
-      { status: 500 },
-    )
+    console.error("Error submitting to Salesforce:", error)
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }
