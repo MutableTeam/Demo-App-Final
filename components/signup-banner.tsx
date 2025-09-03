@@ -109,18 +109,11 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
   const { styleMode } = useCyberpunkTheme()
 
   useEffect(() => {
-    // Show banner always unless it was dismissed
-    if (!localStorage.getItem("signupBannerDismissed")) {
-      setIsVisible(true)
-    } else {
-      setIsVisible(false)
-    }
+    setIsVisible(true)
   }, [])
 
   const handleClose = () => {
     setIsVisible(false)
-    // Remember that user dismissed the banner
-    localStorage.setItem("signupBannerDismissed", "true")
   }
 
   const handleSignUp = () => {
@@ -160,7 +153,11 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
           <Button
             onClick={handleSignUp}
             variant="default"
-            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold text-sm sm:text-base px-4 py-2 flex-1 sm:flex-none"
+            className={
+              styleMode === "cyberpunk"
+                ? "bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold text-sm sm:text-base px-4 py-2 flex-1 sm:flex-none"
+                : "bg-[#FED54E] hover:bg-[#FED54E]/90 text-black font-bold text-sm sm:text-base px-4 py-2 flex-1 sm:flex-none border-2 border-[#FED54E] shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]"
+            }
           >
             SIGN UP NOW
           </Button>

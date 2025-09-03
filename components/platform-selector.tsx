@@ -192,16 +192,16 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
 
   const platforms = [
     {
-      type: "desktop" as PlatformType,
-      title: "Desktop",
-      icon: Monitor,
-      image: "/images/retro-desktop-gaming.png",
-    },
-    {
       type: "mobile" as PlatformType,
       title: "Mobile",
       icon: Smartphone,
       image: "/images/retro-mobile-gaming.png",
+    },
+    {
+      type: "desktop" as PlatformType,
+      title: "Desktop",
+      icon: Monitor,
+      image: "/images/retro-desktop-gaming.png",
     },
   ]
 
@@ -212,9 +212,9 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
         <Image
           src={LOGOS.MUTABLE.TRANSPARENT || "/placeholder.svg"}
           alt="Mutable Logo"
-          width={200}
-          height={120}
-          className="w-auto h-auto max-w-[200px] mx-auto filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)]"
+          width={160}
+          height={96}
+          className="w-auto h-auto max-w-[160px] mx-auto filter drop-shadow-[0_0_15px_rgba(0,255,255,0.7)]"
         />
       </div>
 

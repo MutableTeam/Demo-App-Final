@@ -184,7 +184,7 @@ export default function PhantomWalletConnector() {
     <div className="space-y-6">
       {!connected && (
         <div className="flex justify-center mb-6">
-          <Image src="/images/mutable-logo-transparent.png" alt="Mutable Logo" width={200} height={200} />
+          <Image src="/images/mutable-logo-transparent.png" alt="Mutable Logo" width={160} height={160} />
         </div>
       )}
 
@@ -243,7 +243,7 @@ export default function PhantomWalletConnector() {
           ) : (
             <Button
               variant="outline"
-              className="w-full border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+              className="w-full border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono bg-transparent"
               onClick={disconnectWallet}
             >
               DISCONNECT

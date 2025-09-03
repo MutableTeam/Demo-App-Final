@@ -31,8 +31,8 @@ export function CyberpunkExamplePage() {
           <Image
             src="/images/mutable-logo-transparent.png"
             alt="Mutable Logo"
-            width={120}
-            height={60}
+            width={96}
+            height={48}
             className="logo-glow"
           />
           <GlowText className="text-xl md:text-2xl font-bold">MUTABLE ARCADE</GlowText>
@@ -261,7 +261,7 @@ export function CyberpunkExamplePage() {
       <CyberFooter className="mt-8">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-4">
-            <Image src="/images/mutable-logo-transparent.png" alt="Mutable Logo" width={80} height={40} />
+            <Image src="/images/mutable-logo-transparent.png" alt="Mutable Logo" width={64} height={32} />
             <GlowText>&copy; 2023 Mutable Arcade</GlowText>
           </div>
           <div className="flex gap-4">
