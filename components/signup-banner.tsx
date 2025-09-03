@@ -7,6 +7,7 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import Image from "next/image"
+import { PreRegisterForm } from "@/components/pre-register-form"
 
 const slideUp = keyframes`
   from {
@@ -87,22 +88,22 @@ const CloseButton = styled.button`
 
 interface SignUpBannerProps {
   onSignUp?: () => void
-  walletConnected?: boolean // New prop to check wallet connection status
+  walletConnected?: boolean
 }
 
 export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBannerProps) {
   const [isVisible, setIsVisible] = useState(false)
+  const [showPreRegisterForm, setShowPreRegisterForm] = useState(false)
   const { styleMode } = useCyberpunkTheme()
-  const isCyberpunk = styleMode === "cyberpunk"
 
   useEffect(() => {
-    // Only show banner if wallet is connected and banner wasn't dismissed
-    if (walletConnected && !localStorage.getItem("signupBannerDismissed")) {
+    // Show banner always unless it was dismissed
+    if (!localStorage.getItem("signupBannerDismissed")) {
       setIsVisible(true)
     } else {
       setIsVisible(false)
     }
-  }, [walletConnected])
+  }, [])
 
   const handleClose = () => {
     setIsVisible(false)
@@ -111,61 +112,51 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
   }
 
   const handleSignUp = () => {
-    if (onSignUp) {
-      onSignUp()
-    }
-    // For demo purposes, just close the banner
+    setShowPreRegisterForm(true)
+  }
+
+  const handleFormSuccess = () => {
+    // Close the form and banner after successful submission
+    setShowPreRegisterForm(false)
     handleClose()
   }
 
   if (!isVisible) return null
 
-  if (!isCyberpunk) {
-    return (
-      <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-blue-500 p-4 z-[9999] flex flex-col sm:flex-row items-center justify-between gap-4 backdrop-blur-sm text-white">
+  return (
+    <>
+      <PreRegisterForm
+        isOpen={showPreRegisterForm}
+        onClose={() => setShowPreRegisterForm(false)}
+        onSuccess={handleFormSuccess}
+      />
+      <CyberBanner className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-blue-500">
+          <TokenImage>
             <Image src="/images/mutable-token.png" alt="MUTB Token" fill className="object-cover" />
+          </TokenImage>
+          <div>
+            <p className="text-cyan-300 font-bold text-lg tracking-wide">
+              <span className="text-pink-500">TOKEN</span> AIRDROP OFFER
+            </p>
+            <p className="text-white text-sm sm:text-base">
+              Sign up now for your chance to recieve a free airdrop of tokens when we go live as well as in app rewards!
+            </p>
           </div>
-          <p className="font-medium">Sign up now and receive up to 100 Free MUTB Tokens!</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handleSignUp} className="whitespace-nowrap bg-blue-600 hover:bg-blue-700">
-            Sign Up Now
+          <Button
+            onClick={handleSignUp}
+            variant="default"
+            className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold"
+          >
+            SIGN UP NOW
           </Button>
-          <button onClick={handleClose} className="p-1 text-gray-300 hover:text-white">
+          <CloseButton onClick={handleClose} aria-label="Close banner">
             <X size={20} />
-          </button>
+          </CloseButton>
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <CyberBanner className="flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div className="flex items-center gap-3">
-        <TokenImage>
-          <Image src="/images/mutable-token.png" alt="MUTB Token" fill className="object-cover" />
-        </TokenImage>
-        <div>
-          <p className="text-cyan-300 font-bold text-lg tracking-wide">
-            <span className="text-pink-500">FREE</span> TOKEN OFFER
-          </p>
-          <p className="text-white text-sm sm:text-base">Sign up now and receive up to 100 Free MUTB Tokens!</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={handleSignUp}
-          variant={isCyberpunk ? "default" : "default"}
-          className="bg-gradient-to-r from-cyan-500 to-pink-500 hover:from-cyan-600 hover:to-pink-600 text-white font-bold"
-        >
-          CLAIM YOUR TOKENS
-        </Button>
-        <CloseButton onClick={handleClose} aria-label="Close banner">
-          <X size={20} />
-        </CloseButton>
-      </div>
-    </CyberBanner>
+      </CyberBanner>
+    </>
   )
 }

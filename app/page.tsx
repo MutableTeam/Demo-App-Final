@@ -13,6 +13,8 @@ import "@/styles/retro-arcade.css"
 import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
+import { SignUpBanner } from "@/components/signup-banner"
+import { CyberpunkThemeProvider } from "@/contexts/cyberpunk-theme-context"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
@@ -105,6 +107,9 @@ function HomeContent() {
             <DebugOverlay initiallyVisible={false} position="bottom-right" />
           </div>
         </RetroArcadeBackground>
+
+        {/* Show banner even before wallet connection */}
+        <SignUpBanner walletConnected={walletConnected} />
       </main>
     )
   }
@@ -133,14 +138,19 @@ function HomeContent() {
           <DebugOverlay initiallyVisible={false} position="bottom-right" />
         </div>
       </RetroArcadeBackground>
+
+      {/* Show banner after wallet connection too */}
+      <SignUpBanner walletConnected={walletConnected} />
     </main>
   )
 }
 
 export default function Home() {
   return (
-    <PlatformProvider>
-      <HomeContent />
-    </PlatformProvider>
+    <CyberpunkThemeProvider>
+      <PlatformProvider>
+        <HomeContent />
+      </PlatformProvider>
+    </CyberpunkThemeProvider>
   )
 }
