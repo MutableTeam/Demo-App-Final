@@ -1,45 +1,50 @@
 "use client"
 
 import { useEffect } from "react"
-import { isIOS } from "@/utils/ios-dark-mode"
 
 export default function IOSDarkModeScript() {
   useEffect(() => {
-    if (!isIOS()) return
-
-    // Create and inject a script element
     const script = document.createElement("script")
     script.innerHTML = `
       (function() {
-        // Check if dark mode is enabled
-        const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        // Apply iOS dark mode class
-        if (isDarkMode) {
-          document.documentElement.classList.add('ios-dark');
-        }
-        
-        // Listen for theme changes
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-          if (e.matches) {
-            document.documentElement.classList.add('ios-dark');
-          } else {
-            document.documentElement.classList.remove('ios-dark');
-          }
-        });
-        
-        // Override the setTheme function to handle iOS dark mode
-        const originalSetTheme = window.localStorage.setItem;
-        window.localStorage.setItem = function(key, value) {
-          originalSetTheme.call(this, key, value);
+        // Force dark mode immediately
+        const forceDarkMode = () => {
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+          document.documentElement.setAttribute('data-theme', 'dark');
+          localStorage.setItem('theme', 'dark');
           
-          // Check if this is a theme change
-          if (key === 'theme') {
-            if (value === 'dark') {
-              document.documentElement.classList.add('ios-dark');
-            } else {
-              document.documentElement.classList.remove('ios-dark');
-            }
+          // Force iOS dark class if on iOS
+          if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            document.documentElement.classList.add('ios-dark');
+          }
+        };
+        
+        // Execute immediately
+        forceDarkMode();
+        
+        // Override any theme switching attempts
+        const originalSetItem = localStorage.setItem;
+        localStorage.setItem = function(key, value) {
+          if (key === 'theme' && value !== 'dark') {
+            // Force dark theme instead
+            originalSetItem.call(this, key, 'dark');
+            forceDarkMode();
+          } else {
+            originalSetItem.call(this, key, value);
+          }
+        };
+        
+        // Prevent light mode class additions
+        const originalAdd = document.documentElement.classList.add;
+        document.documentElement.classList.add = function(...tokens) {
+          const filteredTokens = tokens.filter(token => token !== 'light');
+          if (filteredTokens.length > 0) {
+            originalAdd.apply(this, filteredTokens);
+          }
+          // Always ensure dark is present
+          if (!this.contains('dark')) {
+            originalAdd.call(this, 'dark');
           }
         };
       })();
@@ -50,7 +55,9 @@ export default function IOSDarkModeScript() {
 
     return () => {
       // Clean up
-      document.head.removeChild(script)
+      if (document.head.contains(script)) {
+        document.head.removeChild(script)
+      }
     }
   }, [])
 
