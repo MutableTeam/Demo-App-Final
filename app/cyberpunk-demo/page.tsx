@@ -17,7 +17,7 @@ export default function CyberpunkDemoPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <CyberpunkHeader showThemeToggle={false} />
+      <CyberpunkHeader />
 
       <main className="flex-1 p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
@@ -218,7 +218,7 @@ export default function CyberpunkDemoPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button variant="outline" className="w-full bg-transparent">
+                    <Button variant="outline" className="w-full">
                       Full Leaderboard
                     </Button>
                   </CardFooter>
@@ -268,7 +268,7 @@ export default function CyberpunkDemoPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button variant="outline" className="w-full bg-transparent">
+                    <Button variant="outline" className="w-full">
                       Trade MUTB
                     </Button>
                   </CardFooter>
