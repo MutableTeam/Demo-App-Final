@@ -112,7 +112,7 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
     if (walletConnected) {
       const timer = setTimeout(() => {
         setIsVisible(true)
-      }, 3500) // Changed delay from 6 seconds to 3.5 seconds
+      }, 5000) // Updated delay from 3.5 seconds to 5 seconds
 
       return () => clearTimeout(timer)
     } else {
@@ -150,10 +150,10 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
           </TokenImage>
           <div className="min-w-0 flex-1">
             <p className="text-cyan-300 font-bold text-base sm:text-lg tracking-wide">
-              <span className="text-pink-500">TOKEN</span> AIRDROP OFFER
+              <span className="text-pink-500">TOKEN</span> AIRDROP SIGNUP
             </p>
             <p className="text-white text-xs sm:text-sm leading-tight">
-              Sign up now for your chance to recieve a free airdrop of tokens when we go live as well as in app rewards!
+              Sign up now to receive a free airdrop of tokens when we go live!
             </p>
           </div>
         </div>
