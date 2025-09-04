@@ -112,7 +112,7 @@ export function SignUpBanner({ onSignUp, walletConnected = false }: SignUpBanner
     if (walletConnected) {
       const timer = setTimeout(() => {
         setIsVisible(true)
-      }, 5000) // Updated delay from 3.5 seconds to 5 seconds
+      }, 4000) // Updated delay from 5 seconds to 4 seconds
 
       return () => clearTimeout(timer)
     } else {
