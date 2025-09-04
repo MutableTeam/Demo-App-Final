@@ -28,7 +28,7 @@ export default function RootLayout({
         <IOSDarkModeScript />
       </head>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           <CyberpunkThemeProvider>
             <PlatformProvider>
               {children}

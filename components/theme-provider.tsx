@@ -15,15 +15,14 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
       document.documentElement.classList.add("ios-device")
     }
 
-    // Force light mode by default
     if (typeof window !== "undefined") {
-      localStorage.setItem("theme", "light")
-      document.documentElement.classList.remove("dark")
+      localStorage.setItem("theme", "dark")
+      document.documentElement.classList.add("dark")
     }
   }, [])
 
   return (
-    <NextThemesProvider {...props} defaultTheme="light" enableSystem={false}>
+    <NextThemesProvider {...props} defaultTheme="dark" enableSystem={false}>
       {children}
     </NextThemesProvider>
   )
