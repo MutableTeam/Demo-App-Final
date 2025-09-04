@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 
@@ -238,107 +237,58 @@ const GridBackground = styled.div`
 
 // Regular Card component with conditional rendering
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => {
-  const { styleMode } = useCyberpunkTheme()
-  const isCyberpunk = styleMode === "cyberpunk"
-
-  if (isCyberpunk) {
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          "rounded-lg border !bg-black/80 !text-cyan-100 shadow-sm cyberpunk-card !border-cyan-500/50",
-          className,
-        )}
-        style={{
-          backgroundColor: "rgba(0, 0, 0, 0.8)",
-          color: "rgb(224, 255, 255)",
-          borderColor: "rgba(6, 182, 212, 0.5)",
-        }}
-        {...props}
-      >
-        <GridBackground />
-        {props.children}
-      </div>
-    )
-  }
-
   return (
     <div
       ref={ref}
-      className={cn("rounded-lg border text-card-foreground shadow-sm", className)}
-      style={{ backgroundColor: "#F5EFDC", ...props.style }}
+      className={cn(
+        "rounded-lg border !bg-black/80 !text-cyan-100 shadow-sm cyberpunk-card !border-cyan-500/50",
+        className,
+      )}
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        color: "rgb(224, 255, 255)",
+        borderColor: "rgba(6, 182, 212, 0.5)",
+      }}
       {...props}
-    />
+    >
+      <GridBackground />
+      {props.children}
+    </div>
   )
 })
 Card.displayName = "Card"
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
-    const { styleMode } = useCyberpunkTheme()
-    const isCyberpunk = styleMode === "cyberpunk"
-
-    if (isCyberpunk) {
-      return <CyberCardHeader ref={ref} className={className} {...props} />
-    }
-
-    return <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
+    return <CyberCardHeader ref={ref} className={className} {...props} />
   },
 )
 CardHeader.displayName = "CardHeader"
 
 const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => {
-    const { styleMode } = useCyberpunkTheme()
-    const isCyberpunk = styleMode === "cyberpunk"
-
-    if (isCyberpunk) {
-      return <CyberCardTitle ref={ref} className={className} {...props} />
-    }
-
-    return <h3 ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+    return <CyberCardTitle ref={ref} className={className} {...props} />
   },
 )
 CardTitle.displayName = "CardTitle"
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => {
-    const { styleMode } = useCyberpunkTheme()
-    const isCyberpunk = styleMode === "cyberpunk"
-
-    if (isCyberpunk) {
-      return <div ref={ref} className={className} {...props} />
-    }
-
-    return <p ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+    return <div ref={ref} className={className} {...props} />
   },
 )
 CardDescription.displayName = "CardDescription"
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
-    const { styleMode } = useCyberpunkTheme()
-    const isCyberpunk = styleMode === "cyberpunk"
-
-    if (isCyberpunk) {
-      return <CyberCardContent ref={ref} className={cn("mt-2 text-cyan-100", className)} {...props} />
-    }
-
-    return <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+    return <CyberCardContent ref={ref} className={cn("mt-2 text-cyan-100", className)} {...props} />
   },
 )
 CardContent.displayName = "CardContent"
 
 const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
-    const { styleMode } = useCyberpunkTheme()
-    const isCyberpunk = styleMode === "cyberpunk"
-
-    if (isCyberpunk) {
-      return <CyberCardFooter ref={ref} className={className} {...props} />
-    }
-
-    return <div ref={ref} className={cn("flex items-center p-6 pt-0", className)} {...props} />
+    return <CyberCardFooter ref={ref} className={className} {...props} />
   },
 )
 CardFooter.displayName = "CardFooter"

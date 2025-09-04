@@ -406,7 +406,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                               </div>
                             )}
 
-                            {/* Regular shine effect for light mode */}
+                            {/* Shine effect for non-cyberpunk mode */}
                             {!isCyberpunk && wallet.available && (
                               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />

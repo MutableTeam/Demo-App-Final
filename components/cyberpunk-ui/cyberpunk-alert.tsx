@@ -1,5 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import { AlertCircle, CheckCircle, Info } from "lucide-react"
 
@@ -11,8 +10,6 @@ interface CyberpunkAlertProps {
 }
 
 export function CyberpunkAlert({ title, description, variant = "default", className }: CyberpunkAlertProps) {
-  const { isCyberpunkMode, styleMode } = useCyberpunkTheme()
-
   const getIcon = () => {
     switch (variant) {
       case "info":
@@ -28,8 +25,6 @@ export function CyberpunkAlert({ title, description, variant = "default", classN
   }
 
   const getCyberpunkStyles = () => {
-    if (!isCyberpunkMode || styleMode !== "cyberpunk") return ""
-
     switch (variant) {
       case "info":
         return "bg-[#00f0ff] bg-opacity-10 border-[#00f0ff] border-opacity-30 text-[#00f0ff]"
@@ -45,38 +40,17 @@ export function CyberpunkAlert({ title, description, variant = "default", classN
   }
 
   return (
-    <Alert
-      className={cn(
-        "relative",
-        getCyberpunkStyles(),
-        isCyberpunkMode && styleMode === "cyberpunk" && "border border-opacity-30",
-        className,
-      )}
-    >
-      {isCyberpunkMode && styleMode === "cyberpunk" && (
-        <>
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-current opacity-70"></div>
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-current opacity-70"></div>
-        </>
-      )}
+    <Alert className={cn("relative border border-opacity-30", getCyberpunkStyles(), className)}>
+      <>
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-current opacity-70"></div>
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-current opacity-70"></div>
+      </>
 
-      <div className={cn("flex items-start gap-3", isCyberpunkMode && styleMode === "cyberpunk" && "text-current")}>
+      <div className={cn("flex items-start gap-3 text-current")}>
         {getIcon()}
         <div>
-          {title && (
-            <AlertTitle
-              className={cn("font-medium mb-1", isCyberpunkMode && styleMode === "cyberpunk" && "text-current")}
-            >
-              {title}
-            </AlertTitle>
-          )}
-          <AlertDescription
-            className={cn(
-              isCyberpunkMode && styleMode === "cyberpunk" ? "text-current opacity-80" : "text-muted-foreground",
-            )}
-          >
-            {description}
-          </AlertDescription>
+          {title && <AlertTitle className={cn("font-medium mb-1 text-current")}>{title}</AlertTitle>}
+          <AlertDescription className={cn("text-current opacity-80")}>{description}</AlertDescription>
         </div>
       </div>
     </Alert>

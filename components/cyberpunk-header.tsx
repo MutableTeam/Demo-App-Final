@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import { StyleSwitcher } from "./style-switcher"
 import { ThemeToggle } from "./theme-toggle"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
@@ -56,7 +55,6 @@ const LogoGlow = styled(Image)`
 
 interface CyberpunkHeaderProps {
   className?: string
-  showStyleSwitcher?: boolean
   showThemeToggle?: boolean
   logo?: React.ReactNode
   title?: string
@@ -65,7 +63,6 @@ interface CyberpunkHeaderProps {
 
 export function CyberpunkHeader({
   className,
-  showStyleSwitcher = true,
   showThemeToggle = true,
   logo,
   title = "MUTABLE PLATFORM",
@@ -89,11 +86,10 @@ export function CyberpunkHeader({
               className="h-8 w-auto"
             />
           )}
-          <h1 className="text-xl font-bold">{title}</h1>
+          <h1 className="text-xl font-bold text-gray-900">{title}</h1>
         </div>
         <div className="flex items-center gap-2">
           {actions}
-          {showStyleSwitcher && <StyleSwitcher size="sm" />}
           {showThemeToggle && <ThemeToggle />}
         </div>
       </header>
@@ -117,7 +113,6 @@ export function CyberpunkHeader({
       </div>
       <div className="flex items-center gap-2">
         {actions}
-        {showStyleSwitcher && <StyleSwitcher size="sm" />}
         {showThemeToggle && <ThemeToggle />}
       </div>
     </CyberHeaderContainer>

@@ -158,45 +158,52 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
           <CardContent className="space-y-4">
             {/* Wallet Address */}
             <div className="space-y-2">
-              <Label className={cn("text-sm font-medium", isCyberpunk && "text-cyan-300")}>Wallet Address</Label>
+              <Label className={cn("text-sm font-medium text-gray-900", isCyberpunk && "text-cyan-300")}>
+                Wallet Address
+              </Label>
               <div
                 className={cn(
-                  "flex items-center gap-2 p-3 bg-gray-50 rounded-md border",
+                  "flex items-center gap-2 p-3 bg-gray-100 rounded-md border border-gray-300",
                   isCyberpunk && "bg-black/50 border-cyan-500/30",
                 )}
               >
-                <code className={cn("flex-1 text-sm font-mono", isCyberpunk && "text-cyan-300")}>
+                <code className={cn("flex-1 text-sm font-mono text-gray-800", isCyberpunk && "text-cyan-300")}>
                   {formatAddress(publicKey)}
                 </code>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={handleCopyAddress}
-                  className={cn("h-8 w-8 p-0", isCyberpunk && "text-cyan-400 hover:bg-cyan-900/30")}
+                  className={cn(
+                    "h-8 w-8 p-0 text-gray-700 hover:text-gray-900 hover:bg-gray-200",
+                    isCyberpunk && "text-cyan-400 hover:bg-cyan-900/30",
+                  )}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
             </div>
 
-            <Separator className={isCyberpunk ? "bg-cyan-500/30" : ""} />
+            <Separator className={isCyberpunk ? "bg-cyan-500/30" : "bg-gray-300"} />
 
             {/* Token Balances */}
             <div className="space-y-3">
-              <Label className={cn("text-sm font-medium", isCyberpunk && "text-cyan-300")}>Token Balances</Label>
+              <Label className={cn("text-sm font-medium text-gray-900", isCyberpunk && "text-cyan-300")}>
+                Token Balances
+              </Label>
 
               {/* SOL Balance */}
               <div
                 className={cn(
-                  "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                  "flex items-center justify-between p-3 bg-gray-100 rounded-md border border-gray-300",
                   isCyberpunk && "bg-black/50 border-cyan-500/30",
                 )}
               >
                 <div className="flex items-center gap-2">
                   <Image src="/solana-logo.png" alt="SOL" width={24} height={24} className="rounded-full" />
-                  <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>SOL</span>
+                  <span className={cn("font-medium text-gray-800", isCyberpunk && "text-cyan-300")}>SOL</span>
                 </div>
-                <span className={cn("font-mono font-bold", isCyberpunk && "text-cyan-400")}>
+                <span className={cn("font-mono font-bold text-gray-900", isCyberpunk && "text-cyan-400")}>
                   {balance?.toFixed(4) || "0.0000"}
                 </span>
               </div>
@@ -204,21 +211,21 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
               {/* MUTB Balance */}
               <div
                 className={cn(
-                  "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                  "flex items-center justify-between p-3 bg-gray-100 rounded-md border border-gray-300",
                   isCyberpunk && "bg-black/50 border-cyan-500/30",
                 )}
               >
                 <div className="flex items-center gap-2">
                   <Image src="/images/mutable-token.png" alt="MUTB" width={24} height={24} className="rounded-full" />
-                  <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>MUTB</span>
+                  <span className={cn("font-medium text-gray-800", isCyberpunk && "text-cyan-300")}>MUTB</span>
                 </div>
-                <span className={cn("font-mono font-bold", isCyberpunk && "text-cyan-400")}>
+                <span className={cn("font-mono font-bold text-gray-900", isCyberpunk && "text-cyan-400")}>
                   {mutbBalance.toFixed(2)}
                 </span>
               </div>
             </div>
 
-            <Separator className={isCyberpunk ? "bg-cyan-500/30" : ""} />
+            <Separator className={isCyberpunk ? "bg-cyan-500/30" : "bg-gray-300"} />
 
             {/* Disconnect Button */}
             <Button
@@ -249,57 +256,63 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
             {/* Games Played */}
             <div
               className={cn(
-                "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                "flex items-center justify-between p-3 bg-gray-100 rounded-md border border-gray-300",
                 isCyberpunk && "bg-black/50 border-cyan-500/30",
               )}
             >
               <div className="flex items-center gap-2">
                 <Gamepad2 className={cn("h-5 w-5 text-blue-600", isCyberpunk && "text-cyan-500")} />
-                <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>Games Played</span>
+                <span className={cn("font-medium text-gray-800", isCyberpunk && "text-cyan-300")}>Games Played</span>
               </div>
-              <span className={cn("font-bold text-lg", isCyberpunk && "text-cyan-400")}>{userStats.gamesPlayed}</span>
+              <span className={cn("font-bold text-lg text-gray-900", isCyberpunk && "text-cyan-400")}>
+                {userStats.gamesPlayed}
+              </span>
             </div>
 
             {/* Wins */}
             <div
               className={cn(
-                "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                "flex items-center justify-between p-3 bg-gray-100 rounded-md border border-gray-300",
                 isCyberpunk && "bg-black/50 border-cyan-500/30",
               )}
             >
               <div className="flex items-center gap-2">
                 <Trophy className={cn("h-5 w-5 text-yellow-600", isCyberpunk && "text-cyan-500")} />
-                <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>Wins</span>
+                <span className={cn("font-medium text-gray-800", isCyberpunk && "text-cyan-300")}>Wins</span>
               </div>
-              <span className={cn("font-bold text-lg", isCyberpunk && "text-cyan-400")}>{userStats.wins}</span>
+              <span className={cn("font-bold text-lg text-gray-900", isCyberpunk && "text-cyan-400")}>
+                {userStats.wins}
+              </span>
             </div>
 
             {/* Win Rate */}
             <div
               className={cn(
-                "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                "flex items-center justify-between p-3 bg-gray-100 rounded-md border border-gray-300",
                 isCyberpunk && "bg-black/50 border-cyan-500/30",
               )}
             >
               <div className="flex items-center gap-2">
                 <TrendingUp className={cn("h-5 w-5 text-green-600", isCyberpunk && "text-cyan-500")} />
-                <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>Win Rate</span>
+                <span className={cn("font-medium text-gray-800", isCyberpunk && "text-cyan-300")}>Win Rate</span>
               </div>
-              <span className={cn("font-bold text-lg", isCyberpunk && "text-cyan-400")}>{userStats.winRate}%</span>
+              <span className={cn("font-bold text-lg text-gray-900", isCyberpunk && "text-cyan-400")}>
+                {userStats.winRate}%
+              </span>
             </div>
 
             {/* Tokens Swapped */}
             <div
               className={cn(
-                "flex items-center justify-between p-3 bg-gray-50 rounded-md border",
+                "flex items-center justify-between p-3 bg-gray-100 rounded-md border border-gray-300",
                 isCyberpunk && "bg-black/50 border-cyan-500/30",
               )}
             >
               <div className="flex items-center gap-2">
                 <ArrowLeftRight className={cn("h-5 w-5 text-purple-600", isCyberpunk && "text-cyan-500")} />
-                <span className={cn("font-medium", isCyberpunk && "text-cyan-300")}>Tokens Swapped</span>
+                <span className={cn("font-medium text-gray-800", isCyberpunk && "text-cyan-300")}>Tokens Swapped</span>
               </div>
-              <span className={cn("font-bold text-lg", isCyberpunk && "text-cyan-400")}>
+              <span className={cn("font-mono font-bold text-gray-900", isCyberpunk && "text-cyan-400")}>
                 {userStats.tokensSwapped.toFixed(2)}
               </span>
             </div>

@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { StyleSwitcher } from "@/components/style-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { CyberHighlight, CyberAccent, CyberSeparator, CyberTag, CyberWrapper } from "@/components/cyberpunk-components"
 import { CyberpunkHeader } from "@/components/cyberpunk-header"
@@ -28,10 +27,6 @@ export default function CyberpunkDemoPage() {
                 <CardDescription>Toggle between UI styles</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>UI Style:</span>
-                  <StyleSwitcher />
-                </div>
                 <div className="flex items-center justify-between">
                   <span>Color Theme:</span>
                   <ThemeToggle />
@@ -218,7 +213,7 @@ export default function CyberpunkDemoPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button variant="outline" className="w-full">
+                    <Button variant="outline" className="w-full bg-transparent">
                       Full Leaderboard
                     </Button>
                   </CardFooter>
@@ -268,7 +263,7 @@ export default function CyberpunkDemoPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button variant="outline" className="w-full">
+                    <Button variant="outline" className="w-full bg-transparent">
                       Trade MUTB
                     </Button>
                   </CardFooter>

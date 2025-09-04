@@ -4,7 +4,6 @@ import { CyberpunkTokenSwap } from "@/components/cyberpunk-ui/cyberpunk-token-sw
 import { CyberpunkTabs } from "@/components/cyberpunk-ui/cyberpunk-tabs"
 import { CyberpunkBadge } from "@/components/cyberpunk-ui/cyberpunk-badge"
 import { CyberpunkAlert } from "@/components/cyberpunk-ui/cyberpunk-alert"
-import { StyleSwitcher } from "@/components/style-switcher"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 
@@ -151,7 +150,6 @@ export default function CyberpunkShowcase() {
           <h1 className={cn("text-3xl font-bold", isCyberpunkMode && styleMode === "cyberpunk" && "text-[#00f0ff]")}>
             Cyberpunk UI Showcase
           </h1>
-          <StyleSwitcher size="sm" />
         </div>
 
         <CyberpunkTabs tabs={tabContent} />
