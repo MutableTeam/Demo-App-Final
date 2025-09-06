@@ -60,6 +60,11 @@
   color: #ffffff !important;
 }
 
+/* Removed invalid CSS selectors and added global span override */
+.ios-dark span {
+  color: #00ffff !important;
+}
+
 /* Force all buttons to have proper styling */
 .ios-dark button:not([class*="bg-"]),
 .ios-dark [class*="Button"]:not([class*="bg-"]) {
@@ -83,9 +88,30 @@
   color: #000000 !important;
 }
 
+/* Added stronger global overrides for all elements */
+.ios-dark * {
+  color: inherit;
+}
+
+.ios-dark *:not([class*="bg-yellow"]):not([class*="bg-amber"]):not([class*="bg-orange"]) {
+  color: #ffffff !important;
+}
+
 /* iOS-safe class for elements that need special handling */
 .ios-dark-safe {
   background-color: #1a1a1a !important;
   color: #ffffff !important;
   border-color: #444444 !important;
+}
+
+/* Added universal span override to force light text */
+span {
+  color: #ffffff !important;
+}
+
+/* Added body-level override for all text elements */
+body.dark span,
+body[data-theme="dark"] span,
+html.dark span {
+  color: #ffffff !important;
 }

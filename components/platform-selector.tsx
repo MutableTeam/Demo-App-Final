@@ -65,7 +65,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
   const { setPlatform } = usePlatform()
   const { styleMode } = useCyberpunkTheme()
 
-  const isCyberpunk = styleMode === "cyberpunk"
+  const isCyberpunk = true
 
   // Initialize audio and wallet detection
   useEffect(() => {
@@ -224,9 +224,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
           <div
             className={cn(
               "inline-flex items-center gap-3 px-6 py-3 rounded-lg border-2 font-mono",
-              isCyberpunk
-                ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-300"
-                : "bg-amber-200/50 border-amber-500/50 text-amber-800",
+              "bg-cyan-500/20 border-cyan-400/50 text-cyan-300",
             )}
           >
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
@@ -252,13 +250,8 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                     "flip-card-front absolute inset-0 overflow-hidden cursor-pointer group",
                     "aspect-[4/3] border-4 p-0",
                     isConnecting && "pointer-events-none opacity-50",
-                    isCyberpunk
-                      ? "border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]"
-                      : "border-amber-600/50 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:border-amber-500/70 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]",
-                    isSelected &&
-                      (isCyberpunk
-                        ? "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]"
-                        : "border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.5)]"),
+                    "border-cyan-500/30 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:border-cyan-400/60 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)]",
+                    isSelected && "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]",
                   )}
                   onClick={() => handlePlatformSelect(platform.type)}
                 >
@@ -289,9 +282,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                   className={cn(
                     "flip-card-back absolute inset-0 overflow-hidden",
                     "aspect-[4/3] border-4 p-0",
-                    isCyberpunk
-                      ? "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]"
-                      : "border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.5)]",
+                    "border-cyan-400/80 shadow-[0_0_25px_rgba(0,255,255,0.5)]",
                   )}
                 >
                   {/* Background Image & Overlay (same as front) */}
@@ -312,9 +303,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           <div
                             className={cn(
                               "cursor-pointer p-2 rounded-full transition-all duration-200",
-                              isCyberpunk
-                                ? "text-slate-400 hover:text-cyan-300"
-                                : "text-amber-300 hover:text-amber-100",
+                              "text-slate-400 hover:text-cyan-300",
                             )}
                           >
                             <HelpCircle className="h-5 w-5" />
@@ -324,18 +313,14 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                           align="end"
                           className={cn(
                             "w-56 border-2 font-mono",
-                            isCyberpunk
-                              ? "bg-slate-900/95 border-slate-600/50 text-slate-300"
-                              : "bg-amber-50/95 border-amber-500/50 text-amber-900",
+                            "bg-slate-900/95 border-slate-600/50 text-slate-300",
                           )}
                         >
                           <DropdownMenuItem
                             onClick={() => handleWalletDownload("phantom")}
                             className={cn(
                               "cursor-pointer transition-colors duration-200",
-                              isCyberpunk
-                                ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
-                                : "hover:bg-amber-200/50 focus:bg-amber-200/50",
+                              "hover:bg-slate-700/50 focus:bg-slate-700/50",
                             )}
                           >
                             <div className="flex items-center gap-3">
@@ -348,7 +333,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                                   className="rounded-full"
                                 />
                               </div>
-                              <span>Get Phantom Wallet</span>
+                              <span className="text-slate-200">Get Phantom Wallet</span>
                               <ExternalLink className="h-3 w-3 ml-auto" />
                             </div>
                           </DropdownMenuItem>
@@ -356,9 +341,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                             onClick={() => handleWalletDownload("solflare")}
                             className={cn(
                               "cursor-pointer transition-colors duration-200",
-                              isCyberpunk
-                                ? "hover:bg-slate-700/50 focus:bg-slate-700/50"
-                                : "hover:bg-amber-200/50 focus:bg-amber-200/50",
+                              "hover:bg-slate-700/50 focus:bg-slate-700/50",
                             )}
                           >
                             <div className="flex items-center gap-3">
@@ -391,37 +374,23 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                             className={cn(
                               "relative w-full justify-center font-bold px-4 border-2 transition-all duration-200 font-mono overflow-hidden group md:h-12 h-10 md:text-sm text-xs",
                               wallet.available
-                                ? isCyberpunk
-                                  ? "bg-slate-800/70 border-slate-600/70 text-slate-200 hover:bg-slate-700/80 hover:border-slate-500/80 hover:text-white hover:scale-[1.02]"
-                                  : "bg-gradient-to-r from-amber-400 to-orange-400 border-amber-600 text-amber-900 hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-[1.02]"
-                                : isCyberpunk
-                                  ? "bg-slate-900/50 border-slate-700/50 text-slate-600 cursor-not-allowed opacity-60"
-                                  : "bg-gray-600/70 border-gray-500/70 text-gray-300 cursor-not-allowed opacity-60",
+                                ? // Brighter hover states with better contrast
+                                  "bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-cyan-400/60 text-cyan-300 hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/40 hover:to-purple-500/40 hover:scale-[1.02] shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.6)] hover:text-white"
+                                : // Always use cyberpunk styling for proper contrast in dark mode
+                                  "bg-slate-900/50 border-slate-700/50 text-slate-500 cursor-not-allowed opacity-60",
                             )}
                           >
                             {/* Subtle shine effect for cyberpunk */}
-                            {isCyberpunk && wallet.available && (
+                            {wallet.available && (
                               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                              </div>
-                            )}
-
-                            {/* Shine effect for non-cyberpunk mode */}
-                            {!isCyberpunk && wallet.available && (
-                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                               </div>
                             )}
 
                             <div className="relative flex items-center justify-center gap-3 z-10">
                               {wallet.type === "test" ? (
                                 <div
-                                  className={cn(
-                                    "p-1.5 rounded-full border-2",
-                                    isCyberpunk
-                                      ? "bg-slate-700/50 border-slate-500/50"
-                                      : "bg-orange-200 border-orange-400",
-                                  )}
+                                  className={cn("p-1.5 rounded-full border-2", "bg-slate-700/50 border-slate-500/50")}
                                 >
                                   <TestTube className="h-4 w-4" />
                                 </div>

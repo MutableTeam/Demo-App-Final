@@ -63,7 +63,7 @@ const SelectedIndicator = styled.div`
   
   &::before {
     content: '✓';
-    color: black;
+    color: white;
     font-weight: bold;
     font-size: 16px;
   }
@@ -219,7 +219,7 @@ export function CyberpunkGameCard({
             isSelected &&
               isCyberpunkMode &&
               styleMode === "cyberpunk" &&
-              "bg-gradient-to-r from-[#ff00ff] to-[#00f0ff] hover:from-[#ff33ff] hover:to-[#33f3ff] text-black font-bold",
+              "bg-gradient-to-r from-[#ff00ff] to-[#00f0ff] hover:from-[#ff33ff] hover:to-[#33f3ff] text-white font-bold",
           )}
         >
           {isSelected ? "LAUNCH GAME" : "PLAY NOW"}

@@ -96,7 +96,7 @@ export default function CountdownTimer({ duration, onComplete, size = "medium", 
     <div className={`flex justify-center items-center ${className}`}>
       <div
         className={`font-mono font-bold ${sizeClasses[size]} text-center ${
-          timeLeft <= 1 ? "text-red-600" : timeLeft <= 2 ? "text-amber-600" : "text-black"
+          timeLeft <= 1 ? "text-red-400" : timeLeft <= 2 ? "text-amber-400" : "text-white"
         }`}
         aria-live="polite"
       >

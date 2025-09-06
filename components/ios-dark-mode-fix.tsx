@@ -22,9 +22,22 @@ export function IOSDarkModeFix() {
           el.classList.add("ios-dark-bg-override")
         })
 
-        // Force all elements with dark text to have light text
-        document.querySelectorAll(".text-black").forEach((el) => {
+        document.querySelectorAll(".text-black, span").forEach((el) => {
           el.classList.add("ios-dark-text-override")
+          // Force inline style as backup with higher specificity
+          if (el instanceof HTMLElement) {
+            el.style.setProperty("color", "#ffffff", "important")
+          }
+        })
+
+        document.querySelectorAll("span").forEach((el) => {
+          if (
+            el instanceof HTMLElement &&
+            (el.textContent?.includes("Phantom") || el.textContent?.includes("Demo Mode"))
+          ) {
+            el.style.setProperty("color", "#00ffff", "important")
+            el.style.setProperty("background-color", "transparent", "important")
+          }
         })
       } else {
         document.documentElement.classList.remove("ios-dark")
@@ -36,6 +49,10 @@ export function IOSDarkModeFix() {
 
         document.querySelectorAll(".ios-dark-text-override").forEach((el) => {
           el.classList.remove("ios-dark-text-override")
+          // Remove inline style
+          if (el instanceof HTMLElement) {
+            el.style.removeProperty("color")
+          }
         })
       }
     }

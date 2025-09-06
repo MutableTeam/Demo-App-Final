@@ -78,7 +78,7 @@ export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk }: Swa
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="slippage" className={cn(isCyberpunk ? "text-cyan-300" : "text-black")}>
+            <Label htmlFor="slippage" className={cn(isCyberpunk ? "text-cyan-300" : "text-gray-900 dark:text-white")}>
               Slippage Tolerance
             </Label>
             <div className="flex items-center gap-2">
@@ -94,7 +94,7 @@ export function SwapSettings({ slippageBps, onSlippageChange, isCyberpunk }: Swa
                         : "border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20"
                       : slippageBps === option.value
                         ? "bg-black text-white"
-                        : "border-black",
+                        : "border-gray-900 dark:border-white text-gray-900 dark:text-white",
                   )}
                 >
                   {option.label}

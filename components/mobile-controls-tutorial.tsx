@@ -83,7 +83,7 @@ export default function MobileControlsTutorial({ isOpen, onClose }: MobileContro
                     orbitron.className,
                   )}
                 >
-                  <span className="text-black font-bold text-xs">DASH</span>
+                  <span className="text-gray-900 font-bold text-xs">DASH</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className={`text-sm sm:text-lg font-bold text-yellow-300 ${orbitron.className}`}>DASH</h3>

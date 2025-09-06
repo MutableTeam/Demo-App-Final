@@ -394,7 +394,7 @@ export default function MutablePlatform({
                 <SoundButton
                   variant="outline"
                   className={cn(
-                    "border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-white dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
+                    "border-2 border-black text-gray-900 hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-gray-900 dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
                     isCyberpunk && "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50 shadow-cyan-500/30",
                   )}
                   onClick={handleBackToSelection}
@@ -446,7 +446,7 @@ export default function MutablePlatform({
                     <SoundButton
                       onClick={handleBackToSelection}
                       className={cn(
-                        "mt-8 bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:bg-[#D4AF37] dark:hover:bg-[#C4A137] dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] dark:text-black",
+                        "mt-8 bg-[#FFD54F] hover:bg-[#FFCA28] text-gray-900 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:bg-[#D4AF37] dark:hover:bg-[#C4A137] dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] dark:text-gray-900",
                         isCyberpunk &&
                           "bg-cyan-900/50 hover:bg-cyan-800/50 text-cyan-400 border-cyan-500 shadow-cyan-500/30",
                       )}
@@ -469,7 +469,12 @@ export default function MutablePlatform({
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <span className={cn("text-sm font-medium", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}>
+                  <span
+                    className={cn(
+                      "text-sm font-medium",
+                      isCyberpunk ? "text-cyan-400" : "text-gray-900 dark:text-white",
+                    )}
+                  >
                     Wager Token:
                   </span>
                   <div className="flex items-center gap-2">
@@ -479,10 +484,10 @@ export default function MutablePlatform({
                         wagerToken === "MUTB"
                           ? isCyberpunk
                             ? "text-cyan-400 font-bold"
-                            : "text-black font-bold"
+                            : "text-gray-900 dark:text-white font-bold"
                           : isCyberpunk
                             ? "text-gray-500"
-                            : "text-gray-600",
+                            : "text-gray-600 dark:text-gray-400",
                       )}
                     >
                       MUTB
@@ -498,10 +503,10 @@ export default function MutablePlatform({
                         wagerToken === "SOL"
                           ? isCyberpunk
                             ? "text-cyan-400 font-bold"
-                            : "text-black font-bold"
+                            : "text-gray-900 dark:text-white font-bold"
                           : isCyberpunk
                             ? "text-gray-500"
-                            : "text-gray-600",
+                            : "text-gray-600 dark:text-gray-400",
                       )}
                     >
                       SOL
@@ -519,7 +524,10 @@ export default function MutablePlatform({
                         className="rounded-full"
                       />
                       <span
-                        className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}
+                        className={cn(
+                          "font-medium font-mono",
+                          isCyberpunk ? "text-cyan-400" : "text-gray-900 dark:text-white font-bold",
+                        )}
                       >
                         {mutbBalance.toFixed(2)} MUTB
                       </span>
@@ -528,7 +536,10 @@ export default function MutablePlatform({
                     <>
                       <Image src="/solana-logo.png" alt="SOL" width={16} height={16} className="rounded-full" />
                       <span
-                        className={cn("font-medium font-mono", isCyberpunk ? "text-cyan-400" : "text-black font-bold")}
+                        className={cn(
+                          "font-medium font-mono",
+                          isCyberpunk ? "text-cyan-400" : "text-gray-900 dark:text-white font-bold",
+                        )}
                       >
                         {localBalance?.toFixed(4) || "0.0000"} SOL
                       </span>

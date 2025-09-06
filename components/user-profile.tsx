@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, Copy, Edit3, Check, X, Trophy, Gamepad2, ArrowLeftRight, TrendingUp } from "lucide-react"
+import { Wallet, Copy, Edit3, Check, X, Trophy, Gamepad2, ArrowLeftRight, TrendingUp, BarChart3 } from "lucide-react"
 import Image from "next/image"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
+import StatisticsModal from "@/components/statistics-modal"
 
 interface UserProfileProps {
   publicKey: string
@@ -28,6 +29,7 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
   const [isEditingUsername, setIsEditingUsername] = useState(false)
   const [username, setUsername] = useState(`Player_${publicKey.substring(0, 4)}`)
   const [tempUsername, setTempUsername] = useState(username)
+  const [showStatsModal, setShowStatsModal] = useState(false)
 
   // Mock user statistics
   const userStats = {
@@ -244,13 +246,29 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
         {/* Platform Statistics */}
         <Card className={cn("arcade-card", isCyberpunk && "bg-black/80 border-cyan-500/50")}>
           <CardHeader>
-            <CardTitle className={cn("flex items-center gap-2", isCyberpunk && "text-cyan-400")}>
-              <Trophy className="h-5 w-5" />
-              Platform Statistics
-            </CardTitle>
-            <CardDescription className={isCyberpunk ? "text-cyan-300/70" : ""}>
-              Your activity on the Mutable platform
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className={cn("flex items-center gap-2", isCyberpunk && "text-cyan-400")}>
+                  <Trophy className="h-5 w-5" />
+                  Platform Statistics
+                </CardTitle>
+                <CardDescription className={isCyberpunk ? "text-cyan-300/70" : ""}>
+                  Your activity on the Mutable platform
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowStatsModal(true)}
+                className={cn(
+                  "flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm min-w-0 shrink-0",
+                  isCyberpunk && "bg-black/50 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30",
+                )}
+              >
+                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                <span>Detailed</span>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Games Played */}
@@ -333,6 +351,11 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
           </CardContent>
         </Card>
       </div>
+
+      {/* Statistics Modal */}
+      {showStatsModal && (
+        <StatisticsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} username={username} />
+      )}
     </div>
   )
 }

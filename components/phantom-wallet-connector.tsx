@@ -234,7 +234,7 @@ export default function PhantomWalletConnector() {
         <CardFooter>
           {!connected ? (
             <Button
-              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
+              className="w-full bg-[#FFD54F] hover:bg-[#FFCA28] text-gray-900 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
               onClick={connectWallet}
               disabled={loading}
             >
@@ -243,7 +243,7 @@ export default function PhantomWalletConnector() {
           ) : (
             <Button
               variant="outline"
-              className="w-full border-2 border-black text-black hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono bg-transparent"
+              className="w-full border-2 border-cyan-500 text-cyan-300 hover:bg-cyan-900/30 hover:text-cyan-200 shadow-[2px_2px_0px_0px_rgba(0,255,255,0.3)] hover:shadow-[1px_1px_0px_0px_rgba(0,255,255,0.3)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono bg-black/50"
               onClick={disconnectWallet}
             >
               DISCONNECT

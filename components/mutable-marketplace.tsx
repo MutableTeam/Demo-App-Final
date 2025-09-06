@@ -343,7 +343,7 @@ export default function MutableMarketplace({ publicKey, balance, mutbBalance }: 
 
                 <CardContent className="p-4">
                   <div className="space-y-2">
-                    <h3 className={cn("font-bold text-sm", isCyberpunk ? "text-cyan-100" : "text-black")}>
+                    <h3 className={cn("font-bold text-sm", isCyberpunk ? "text-cyan-400" : "text-gray-900")}>
                       {item.name}
                     </h3>
 
@@ -360,7 +360,7 @@ export default function MutableMarketplace({ publicKey, balance, mutbBalance }: 
                           height={16}
                           className="rounded-full"
                         />
-                        <span className={cn("font-bold text-sm", isCyberpunk ? "text-cyan-400" : "text-black")}>
+                        <span className={cn("font-bold text-sm", isCyberpunk ? "text-cyan-400" : "text-gray-900")}>
                           {item.price} {item.currency}
                         </span>
                       </div>
@@ -378,7 +378,7 @@ export default function MutableMarketplace({ publicKey, balance, mutbBalance }: 
                     </div>
 
                     <div className="flex items-center justify-between pt-2">
-                      <span className={cn("text-xs", isCyberpunk ? "text-cyan-300/50" : "text-gray-500")}>
+                      <span className={cn("text-xs", isCyberpunk ? "text-cyan-300/50" : "text-gray-600")}>
                         by {item.seller}
                       </span>
 
@@ -404,7 +404,7 @@ export default function MutableMarketplace({ publicKey, balance, mutbBalance }: 
         {sortedItems.length === 0 && (
           <div className="text-center py-12">
             <Package className={cn("h-12 w-12 mx-auto mb-4", isCyberpunk ? "text-cyan-400" : "text-gray-400")} />
-            <h3 className={cn("text-lg font-semibold mb-2", isCyberpunk ? "text-cyan-100" : "text-black")}>
+            <h3 className={cn("text-lg font-semibold mb-2", isCyberpunk ? "text-cyan-100" : "text-gray-900")}>
               No items found
             </h3>
             <p className={cn("text-sm", isCyberpunk ? "text-cyan-300/70" : "text-gray-600")}>

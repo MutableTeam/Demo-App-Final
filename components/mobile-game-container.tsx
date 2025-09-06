@@ -192,7 +192,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
               aria-label="Dash"
               style={{ WebkitTapHighlightColor: "transparent" }}
             >
-              <span className="text-black font-bold text-xs sm:text-sm">DASH</span>
+              <span className="text-gray-900 font-bold text-xs sm:text-sm">DASH</span>
             </button>
           </div>
         </>

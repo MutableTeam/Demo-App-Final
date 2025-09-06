@@ -252,27 +252,13 @@ export default function MultiWalletConnector({
                 "relative w-full justify-start h-14 font-bold text-sm px-6 border-2 transition-all duration-200 font-mono overflow-hidden group",
                 wallet.available
                   ? [
-                      isCyberpunk
-                        ? [
-                            "bg-gradient-to-r from-cyan-500/20 to-purple-500/20",
-                            "border-cyan-400/60 text-cyan-300",
-                            "hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-purple-500/30",
-                            "shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_20px_rgba(0,255,255,0.5)]",
-                            "hover:scale-[1.02]",
-                          ]
-                        : [
-                            "bg-gradient-to-r from-amber-400 to-orange-400",
-                            "border-amber-600 text-amber-900",
-                            "hover:border-amber-700 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500",
-                            "shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)]",
-                            "hover:scale-[1.02]",
-                          ],
+                      "bg-gradient-to-r from-cyan-500/20 to-purple-500/20",
+                      "border-cyan-400/60 text-cyan-300",
+                      "hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/40 hover:to-purple-500/40",
+                      "shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.6)]",
+                      "hover:scale-[1.02] hover:text-white",
                     ]
-                  : [
-                      isCyberpunk
-                        ? ["bg-slate-800/50 border-slate-600/50 text-slate-500", "cursor-not-allowed opacity-60"]
-                        : ["bg-gray-300/70 border-gray-400/70 text-gray-600", "cursor-not-allowed opacity-60"],
-                    ],
+                  : ["bg-slate-800/50 border-slate-600/50 text-slate-500", "cursor-not-allowed opacity-60"],
               )}
             >
               <div className="relative flex items-center gap-4 z-10">
