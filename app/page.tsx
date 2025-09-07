@@ -96,7 +96,7 @@ function HomeContent() {
       <main className="min-h-screen bg-background relative">
         <PromoWatermark />
 
-        <div className="fixed top-4 right-4 md:right-8 z-[90]">
+        <div className="fixed bottom-4 right-4 md:right-8 z-[90]">
           <GlobalAudioControls />
         </div>
 
@@ -116,7 +116,7 @@ function HomeContent() {
       <PromoWatermark />
 
       {/* Audio controls positioned at top right */}
-      <div className="fixed top-4 right-4 md:right-8 z-[90]">
+      <div className="fixed bottom-4 right-4 md:right-8 z-[90]">
         <GlobalAudioControls />
       </div>
 

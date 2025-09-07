@@ -652,7 +652,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
 
                 {activeTab === "achievements" && (
                   <div className="space-y-4 sm:space-y-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6">
                       <Card className={cn("arcade-card", isCyberpunk && "bg-black/60 border-cyan-500/30")}>
                         <CardHeader>
                           <CardTitle className={cn("flex items-center gap-2", isCyberpunk && "text-cyan-400")}>
@@ -666,7 +666,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 justify-items-center">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                             {mockAchievements.map((achievement) => {
                               const rarityColors = getRarityColor(achievement.rarity)
 
@@ -674,7 +674,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                                 <Card
                                   key={achievement.id}
                                   className={cn(
-                                    "relative overflow-hidden border-2 w-full max-w-sm",
+                                    "relative overflow-hidden border-2 w-full",
                                     achievement.unlocked
                                       ? isCyberpunk
                                         ? "bg-black/40 border-cyan-500/50"
@@ -685,11 +685,11 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                                     rarityColors,
                                   )}
                                 >
-                                  <CardContent className="p-4">
+                                  <CardContent className="p-3 lg:p-4">
                                     <div className="flex items-start gap-3">
                                       <div
                                         className={cn(
-                                          "flex items-center justify-center p-2 rounded-lg",
+                                          "flex items-center justify-center p-2 rounded-lg flex-shrink-0",
                                           achievement.unlocked
                                             ? isCyberpunk
                                               ? "bg-cyan-900/50"
@@ -701,7 +701,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                                       >
                                         <div
                                           className={cn(
-                                            "flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30",
+                                            "flex items-center justify-center w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30",
                                             achievement.unlocked
                                               ? isCyberpunk
                                                 ? "bg-cyan-900/50"
@@ -714,15 +714,15 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                                           <img
                                             src={achievement.icon || "/placeholder.svg"}
                                             alt={achievement.title}
-                                            className="w-8 h-8 object-contain"
+                                            className="w-6 h-6 lg:w-8 lg:h-8 object-contain"
                                           />
                                         </div>
                                       </div>
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                                           <h3
                                             className={cn(
-                                              "font-semibold",
+                                              "font-semibold text-sm lg:text-base",
                                               achievement.unlocked
                                                 ? isCyberpunk
                                                   ? "text-cyan-300"
@@ -740,7 +740,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                                         </div>
                                         <p
                                           className={cn(
-                                            "text-sm mb-2",
+                                            "text-xs lg:text-sm mb-2",
                                             achievement.unlocked
                                               ? isCyberpunk
                                                 ? "text-cyan-300/70"
@@ -783,50 +783,52 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                                           </div>
                                         )}
 
-                                        {/* Reward display */}
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className={cn("text-xs", isCyberpunk ? "text-gray-400" : "text-gray-500")}
-                                          >
-                                            Reward:
-                                          </span>
-                                          {achievement.reward.type === "tokens" && (
-                                            <Badge
-                                              className={cn("text-xs", isCyberpunk && "bg-cyan-900/30 text-cyan-300")}
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          {/* Reward display */}
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className={cn("text-xs", isCyberpunk ? "text-gray-400" : "text-gray-500")}
                                             >
-                                              +{achievement.reward.amount} MUTB
-                                            </Badge>
-                                          )}
-                                          {achievement.reward.type === "xp" && (
-                                            <Badge
-                                              className={cn(
-                                                "text-xs",
-                                                isCyberpunk && "bg-purple-900/30 text-purple-300",
-                                              )}
-                                            >
-                                              +{achievement.reward.amount} XP
-                                            </Badge>
-                                          )}
-                                          {achievement.reward.type === "title" && (
-                                            <Badge
-                                              className={cn(
-                                                "text-xs",
-                                                isCyberpunk && "bg-yellow-900/30 text-yellow-300",
-                                              )}
-                                            >
-                                              Title: {achievement.reward.name}
-                                            </Badge>
+                                              Reward:
+                                            </span>
+                                            {achievement.reward.type === "tokens" && (
+                                              <Badge
+                                                className={cn("text-xs", isCyberpunk && "bg-cyan-900/30 text-cyan-300")}
+                                              >
+                                                +{achievement.reward.amount} MUTB
+                                              </Badge>
+                                            )}
+                                            {achievement.reward.type === "xp" && (
+                                              <Badge
+                                                className={cn(
+                                                  "text-xs",
+                                                  isCyberpunk && "bg-purple-900/30 text-purple-300",
+                                                )}
+                                              >
+                                                +{achievement.reward.amount} XP
+                                              </Badge>
+                                            )}
+                                            {achievement.reward.type === "title" && (
+                                              <Badge
+                                                className={cn(
+                                                  "text-xs",
+                                                  isCyberpunk && "bg-yellow-900/30 text-yellow-300",
+                                                )}
+                                              >
+                                                Title: {achievement.reward.name}
+                                              </Badge>
+                                            )}
+                                          </div>
+
+                                          {/* Unlock date for completed achievements */}
+                                          {achievement.unlocked && achievement.unlockedDate && (
+                                            <div className="text-xs">
+                                              <span className={isCyberpunk ? "text-cyan-300/50" : "text-gray-400"}>
+                                                Unlocked: {achievement.unlockedDate}
+                                              </span>
+                                            </div>
                                           )}
                                         </div>
-
-                                        {/* Unlock date for completed achievements */}
-                                        {achievement.unlocked && achievement.unlockedDate && (
-                                          <div className="mt-2 text-xs">
-                                            <span className={isCyberpunk ? "text-cyan-300/50" : "text-gray-400"}>
-                                              Unlocked: {achievement.unlockedDate}
-                                            </span>
-                                          </div>
-                                        )}
                                       </div>
                                     </div>
                                   </CardContent>
