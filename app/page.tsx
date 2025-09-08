@@ -279,8 +279,6 @@ function HomeContent() {
       <CyberpunkFooter />
     </main>
   )
-  \
-  )
 }
 
 export default function Home() {
