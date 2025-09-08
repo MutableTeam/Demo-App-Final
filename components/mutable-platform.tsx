@@ -995,7 +995,7 @@ export default function MutablePlatform({
           />
         </TabsContent>
       </Tabs>
-      {/* Pre-Alpha Build Indicator */}
+      {/* Demo Build Indicator */}
       <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
         <div
           className={cn(
@@ -1005,7 +1005,7 @@ export default function MutablePlatform({
               : "bg-black/80 border-yellow-400/30 text-yellow-300",
           )}
         >
-          <span className="text-[8px] font-mono">Pre-Alpha Build</span>
+          <span className="text-[8px] font-mono">Demo Build</span>
         </div>
       </div>
     </div>
