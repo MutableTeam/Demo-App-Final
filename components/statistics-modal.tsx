@@ -8,7 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X } from "lucide-react"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
-import { Trophy, Target, Sword, Shield, TrendingUp, Gamepad2, Coins, Flame, Award, Medal } from "lucide-react"
+import {
+  Trophy,
+  Target,
+  Sword,
+  Shield,
+  TrendingUp,
+  Gamepad2,
+  Coins,
+  Flame,
+  Award,
+  Medal,
+  BarChart3,
+} from "lucide-react"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,7 +33,7 @@ import {
   Legend,
   ArcElement,
 } from "chart.js"
-import { Line, Bar, Pie } from "react-chartjs-2"
+import { Line, Pie } from "react-chartjs-2"
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement)
@@ -99,129 +111,6 @@ const mockAchievements = [
   },
 ]
 
-const mockChartData = {
-  winRateTrend: [
-    { date: "Jan 1", winRate: 45 },
-    { date: "Jan 8", winRate: 52 },
-    { date: "Jan 15", winRate: 68 },
-    { date: "Jan 22", winRate: 71 },
-    { date: "Jan 29", winRate: 68 },
-  ],
-  gamesByType: [
-    { game: "Archer Arena", count: 28, percentage: 60 },
-    { game: "Last Stand", count: 19, percentage: 40 },
-  ],
-  tokenEarnings: [
-    { week: "Week 1", tokens: 245 },
-    { week: "Week 2", tokens: 387 },
-    { week: "Week 3", tokens: 521 },
-    { week: "Week 4", tokens: 698 },
-  ],
-}
-
-// Mock detailed statistics data
-const mockStats = {
-  overview: {
-    totalGames: 47,
-    totalWins: 32,
-    totalLosses: 15,
-    winRate: 68,
-    avgGameDuration: "4m 32s",
-    tokensEarned: 2847.5,
-    tokensSpent: 1596.75,
-    currentStreak: 5,
-    bestStreak: 12,
-    rank: "Rising Star",
-    xp: 8450,
-  },
-  archerArena: {
-    gamesPlayed: 28,
-    wins: 19,
-    losses: 9,
-    winRate: 68,
-    avgAccuracy: 78,
-    bestScore: 2450,
-    avgScore: 1680,
-    perfectGames: 3,
-    tokensEarned: 1650.25,
-    favoriteMap: "Forest Clearing",
-  },
-  lastStand: {
-    gamesPlayed: 19,
-    wins: 13,
-    losses: 6,
-    winRate: 68,
-    bestWave: 47,
-    avgWave: 23,
-    enemiesKilled: 1247,
-    tokensEarned: 1197.25,
-    favoriteWeapon: "Plasma Rifle",
-  },
-  recentGames: [
-    {
-      id: 1,
-      game: "Archer Arena",
-      result: "Win",
-      score: 2100,
-      duration: "5m 12s",
-      tokensEarned: 45.5,
-      date: "2024-01-15",
-      map: "Forest Clearing",
-      opponent: "OpponentA",
-    },
-    {
-      id: 2,
-      game: "Last Stand",
-      result: "Win",
-      wave: 34,
-      duration: "8m 45s",
-      tokensEarned: 68.25,
-      date: "2024-01-15",
-      weapon: "Plasma Rifle",
-      opponent: "OpponentB",
-    },
-    {
-      id: 3,
-      game: "Archer Arena",
-      result: "Loss",
-      score: 1450,
-      duration: "3m 28s",
-      tokensEarned: 12.75,
-      date: "2024-01-14",
-      map: "Mountain Peak",
-      opponent: "OpponentC",
-    },
-    {
-      id: 4,
-      game: "Last Stand",
-      result: "Win",
-      wave: 28,
-      duration: "6m 33s",
-      tokensEarned: 52.0,
-      date: "2024-01-14",
-      weapon: "Lightning Bow",
-      opponent: "OpponentD",
-    },
-    {
-      id: 5,
-      game: "Archer Arena",
-      result: "Win",
-      score: 1890,
-      duration: "4m 15s",
-      tokensEarned: 38.25,
-      date: "2024-01-13",
-      map: "Desert Ruins",
-      opponent: "OpponentE",
-    },
-  ],
-}
-
-const tabs = [
-  { id: "overview", label: "Overview" },
-  { id: "achievements", label: "Achievements" },
-  { id: "history", label: "Game History" },
-]
-
 export default function StatisticsModal({ isOpen, onClose, username }: StatisticsModalProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
@@ -230,6 +119,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
   const [activeTab, setActiveTab] = useState("overview")
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
   const [showInDevelopment, setShowInDevelopment] = useState(false)
+  const [selectedPnLPeriod, setSelectedPnLPeriod] = useState<"all" | "3months" | "1month">("all")
 
   const chartColors = {
     primary: isCyberpunk ? "#00ffff" : "#3b82f6",
@@ -240,6 +130,151 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
   }
 
   const pieColors = [chartColors.primary, chartColors.secondary, chartColors.accent, "#fbbf24", "#f87171"]
+
+  const mockChartData = {
+    winRateTrend: [
+      { month: "Jan", winRate: 65 },
+      { month: "Feb", winRate: 72 },
+      { month: "Mar", winRate: 68 },
+      { month: "Apr", winRate: 75 },
+      { month: "May", winRate: 71 },
+      { month: "Jun", winRate: 78 },
+    ],
+    gamesByType: [
+      { name: "Archer Arena", value: 45 },
+      { name: "Last Stand", value: 35 },
+      { name: "Other", value: 20 },
+    ],
+    pnlData: {
+      all: [
+        { date: "Jan 1", value: 245 },
+        { date: "Jan 8", value: 387 },
+        { date: "Jan 15", value: 521 },
+        { date: "Jan 22", value: 698 },
+        { date: "Jan 29", value: 456 },
+        { date: "Feb 5", value: 789 },
+        { date: "Feb 12", value: 623 },
+        { date: "Feb 19", value: 892 },
+      ],
+      "3months": [
+        { date: "Nov 1", value: 345 },
+        { date: "Nov 15", value: 567 },
+        { date: "Dec 1", value: 423 },
+        { date: "Dec 15", value: 678 },
+        { date: "Jan 1", value: 789 },
+        { date: "Jan 15", value: 892 },
+      ],
+      "1month": [
+        { date: "Jan 1", value: 245 },
+        { date: "Jan 8", value: 387 },
+        { date: "Jan 15", value: 521 },
+        { date: "Jan 22", value: 698 },
+      ],
+    },
+  }
+
+  // Mock detailed statistics data
+  const mockStats = {
+    overview: {
+      totalGames: 47,
+      totalWins: 32,
+      totalLosses: 15,
+      winRate: 68,
+      avgGameDuration: "4m 32s",
+      tokensEarned: 2847.5,
+      tokensSpent: 1596.75,
+      currentStreak: 5,
+      bestStreak: 12,
+      rank: "Rising Star",
+      xp: 8450,
+    },
+    archerArena: {
+      gamesPlayed: 28,
+      wins: 19,
+      losses: 9,
+      winRate: 68,
+      avgAccuracy: 78,
+      bestScore: 2450,
+      avgScore: 1680,
+      perfectGames: 3,
+      tokensEarned: 1650.25,
+      favoriteMap: "Forest Clearing",
+    },
+    lastStand: {
+      gamesPlayed: 19,
+      wins: 13,
+      losses: 6,
+      winRate: 68,
+      bestWave: 47,
+      avgWave: 23,
+      enemiesKilled: 1247,
+      tokensEarned: 1197.25,
+      favoriteWeapon: "Plasma Rifle",
+    },
+    recentGames: [
+      {
+        id: 1,
+        game: "Archer Arena",
+        result: "Win",
+        score: 2100,
+        duration: "5m 12s",
+        tokensEarned: 45.5,
+        date: "2024-01-15",
+        map: "Forest Clearing",
+        opponent: "OpponentA",
+      },
+      {
+        id: 2,
+        game: "Last Stand",
+        result: "Win",
+        wave: 34,
+        duration: "8m 45s",
+        tokensEarned: 68.25,
+        date: "2024-01-15",
+        weapon: "Plasma Rifle",
+        opponent: "OpponentB",
+      },
+      {
+        id: 3,
+        game: "Archer Arena",
+        result: "Loss",
+        score: 1450,
+        duration: "3m 28s",
+        tokensEarned: 12.75,
+        date: "2024-01-14",
+        map: "Mountain Peak",
+        opponent: "OpponentC",
+      },
+      {
+        id: 4,
+        game: "Last Stand",
+        result: "Win",
+        wave: 28,
+        duration: "6m 33s",
+        tokensEarned: 52.0,
+        date: "2024-01-14",
+        weapon: "Lightning Bow",
+        opponent: "OpponentD",
+      },
+      {
+        id: 5,
+        game: "Archer Arena",
+        result: "Win",
+        score: 1890,
+        duration: "4m 15s",
+        tokensEarned: 38.25,
+        date: "2024-01-13",
+        map: "Desert Ruins",
+        opponent: "OpponentE",
+      },
+    ],
+  }
+
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "achievements", label: "Achievements" },
+    { id: "history", label: "Game History" },
+  ]
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
@@ -274,6 +309,23 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
       winRate: games.length > 0 ? Math.round((wins / games.length) * 100) : 0,
       totalTokens: totalTokens.toFixed(2),
       avgDuration,
+    }
+  }
+
+  const getAllGamesStats = () => {
+    const allGames = mockStats.recentGames
+    const totalGames = allGames.length
+    const wins = allGames.filter((game) => game.result === "Win").length
+    const losses = totalGames - wins
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0
+    const totalTokens = allGames.reduce((sum, game) => sum + game.tokensEarned, 0)
+
+    return {
+      totalGames,
+      wins,
+      losses,
+      winRate,
+      totalTokens,
     }
   }
 
@@ -321,11 +373,99 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
     </Card>
   )
 
-  const InteractiveChart = ({ title, data, type }: { title: string; data: any; type: "line" | "bar" | "pie" }) => {
+  const PnLChart = () => {
+    const currentData = mockChartData.pnlData[selectedPnLPeriod]
+    const totalPnL = currentData.reduce((sum, item) => sum + item.value, 0)
+    const isPositive = totalPnL >= 0
+
+    const chartData = {
+      labels: currentData.map((item) => item.date),
+      datasets: [
+        {
+          label: "P&L",
+          data: currentData.map((item) => item.value),
+          borderColor: isPositive ? "#10b981" : "#ef4444",
+          backgroundColor: isPositive ? "#10b98120" : "#ef444420",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: isPositive ? "#10b981" : "#ef4444",
+          pointBorderColor: isPositive ? "#10b981" : "#ef4444",
+        },
+      ],
+    }
+
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: chartColors.background,
+          titleColor: chartColors.text,
+          bodyColor: chartColors.text,
+          borderColor: isPositive ? "#10b981" : "#ef4444",
+          borderWidth: 1,
+          callbacks: {
+            label: (context: any) => `P&L: ${context.parsed.y >= 0 ? "+" : ""}${context.parsed.y}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: chartColors.text, font: { size: 10 } },
+          grid: { color: isCyberpunk ? "#00ffff20" : "#e5e7eb" },
+        },
+        y: {
+          ticks: {
+            color: chartColors.text,
+            font: { size: 10 },
+            callback: (value: any) => `${value >= 0 ? "+" : ""}${value}`,
+          },
+          grid: { color: isCyberpunk ? "#00ffff20" : "#e5e7eb" },
+        },
+      },
+    }
+
+    return (
+      <Card className={cn("arcade-card", isCyberpunk && "bg-black/60 border-cyan-500/30")}>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className={cn("text-sm flex items-center gap-2", isCyberpunk && "text-cyan-400")}>
+              P&L
+              <span className={cn("font-bold", isPositive ? "text-green-500" : "text-red-500")}>
+                {isPositive ? "+" : ""}
+                {totalPnL.toFixed(0)}
+              </span>
+            </CardTitle>
+            <select
+              value={selectedPnLPeriod}
+              onChange={(e) => setSelectedPnLPeriod(e.target.value as "all" | "3months" | "1month")}
+              className={cn(
+                "text-xs px-2 py-1 rounded border bg-transparent",
+                isCyberpunk ? "border-cyan-500/30 text-cyan-300 bg-black/40" : "border-gray-300 text-gray-700",
+              )}
+            >
+              <option value="all">All Time</option>
+              <option value="3months">Last 3 Months</option>
+              <option value="1month">Last Month</option>
+            </select>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="rounded-lg h-32">
+            <Line data={chartData} options={chartOptions} />
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const InteractiveChart = ({ title, data, type }: { title: string; data: any; type: "line" | "pie" }) => {
     const getChartData = () => {
       if (type === "line") {
         return {
-          labels: data.map((item) => item.date),
+          labels: data.map((item) => item.month),
           datasets: [
             {
               label: "Win Rate %",
@@ -345,10 +485,17 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
           labels: data.map((item) => item.week),
           datasets: [
             {
-              label: "Tokens Earned",
-              data: data.map((item) => item.tokens),
+              label: "Profit",
+              data: data.map((item) => item.profit),
               backgroundColor: chartColors.primary,
               borderColor: chartColors.primary,
+              borderWidth: 1,
+            },
+            {
+              label: "Loss",
+              data: data.map((item) => item.loss),
+              backgroundColor: chartColors.secondary,
+              borderColor: chartColors.secondary,
               borderWidth: 1,
             },
           ],
@@ -357,10 +504,10 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
 
       if (type === "pie") {
         return {
-          labels: data.map((item) => item.game),
+          labels: data.map((item) => item.name),
           datasets: [
             {
-              data: data.map((item) => item.count),
+              data: data.map((item) => item.value),
               backgroundColor: pieColors,
               borderColor: pieColors.map((color) => color),
               borderWidth: 2,
@@ -414,7 +561,6 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
         <CardContent className="pt-0">
           <div className="rounded-lg h-32">
             {type === "line" && <Line data={getChartData()!} options={chartOptions} />}
-            {type === "bar" && <Bar data={getChartData()!} options={chartOptions} />}
             {type === "pie" && <Pie data={getChartData()!} options={chartOptions} />}
           </div>
         </CardContent>
@@ -480,7 +626,7 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                       <InteractiveChart title="Win Rate Trend" data={mockChartData.winRateTrend} type="line" />
                       <InteractiveChart title="Games by Type" data={mockChartData.gamesByType} type="pie" />
-                      <InteractiveChart title="Token Earnings" data={mockChartData.tokenEarnings} type="bar" />
+                      <PnLChart />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -878,6 +1024,85 @@ export default function StatisticsModal({ isOpen, onClose, username }: Statistic
                         </Select>
                       </div>
                     </div>
+
+                    {selectedGameType === "all" && (
+                      <Card className={cn("arcade-card", isCyberpunk && "bg-black/60 border-cyan-500/30")}>
+                        <CardHeader>
+                          <CardTitle className={cn("flex items-center gap-2", isCyberpunk && "text-cyan-400")}>
+                            <div className="flex items-center justify-center h-5 w-5">
+                              <BarChart3 className="h-4 w-4" />
+                            </div>
+                            <span className="leading-none">All Games Analytics</span>
+                          </CardTitle>
+                          <CardDescription className={isCyberpunk ? "text-cyan-300/70" : ""}>
+                            Combined performance metrics across all game types
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4 border border-cyan-500/20">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                              {(() => {
+                                const stats = getAllGamesStats()
+                                return (
+                                  <>
+                                    <div className="text-center">
+                                      <div
+                                        className={cn("text-lg sm:text-2xl font-bold", isCyberpunk && "text-cyan-400")}
+                                      >
+                                        {stats.totalGames}
+                                      </div>
+                                      <div className={cn("text-xs", isCyberpunk && "text-cyan-300/70")}>
+                                        Total Games
+                                      </div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div
+                                        className={cn(
+                                          "text-lg sm:text-2xl font-bold text-green-500",
+                                          isCyberpunk && "text-cyan-400",
+                                        )}
+                                      >
+                                        {stats.wins}
+                                      </div>
+                                      <div className={cn("text-xs", isCyberpunk && "text-cyan-300/70")}>Wins</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div
+                                        className={cn(
+                                          "text-lg sm:text-2xl font-bold text-red-500",
+                                          isCyberpunk && "text-cyan-400",
+                                        )}
+                                      >
+                                        {stats.losses}
+                                      </div>
+                                      <div className={cn("text-xs", isCyberpunk && "text-cyan-300/70")}>Losses</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div
+                                        className={cn("text-lg sm:text-2xl font-bold", isCyberpunk && "text-cyan-400")}
+                                      >
+                                        {stats.winRate}%
+                                      </div>
+                                      <div className={cn("text-xs", isCyberpunk && "text-cyan-300/70")}>Win Rate</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div
+                                        className={cn("text-lg sm:text-2xl font-bold", isCyberpunk && "text-cyan-400")}
+                                      >
+                                        {stats.totalTokens}
+                                      </div>
+                                      <div className={cn("text-xs", isCyberpunk && "text-cyan-300/70")}>
+                                        Tokens Earned
+                                      </div>
+                                    </div>
+                                  </>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
                     {selectedGameType !== "all" && (
                       <Card className={cn("arcade-card", isCyberpunk && "bg-black/60 border-cyan-500/30")}>
