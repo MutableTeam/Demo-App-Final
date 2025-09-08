@@ -999,13 +999,13 @@ export default function MutablePlatform({
       <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
         <div
           className={cn(
-            "px-1.5 py-0 rounded border backdrop-blur-sm",
+            "px-1.5 py-0 sm:px-3 sm:py-1 rounded border backdrop-blur-sm",
             isCyberpunk
               ? "bg-black/50 border-cyan-500/30 text-cyan-400"
               : "bg-black/80 border-yellow-400/30 text-yellow-300",
           )}
         >
-          <span className="text-[8px] font-mono">Demo Build</span>
+          <span className="text-[8px] sm:text-base font-mono">Demo Build</span>
         </div>
       </div>
     </div>
