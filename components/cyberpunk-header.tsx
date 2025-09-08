@@ -6,7 +6,7 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import Image from "next/image"
-import { CyberGlowText, CyberBadge } from "./cyberpunk-components"
+import { CyberGlowText } from "./cyberpunk-components"
 import { cn } from "@/lib/utils"
 
 const scanline = keyframes`
@@ -109,7 +109,6 @@ export function CyberpunkHeader({
           />
         )}
         <CyberGlowText className="text-xl font-bold">{title}</CyberGlowText>
-        <CyberBadge>BETA</CyberBadge>
       </div>
       <div className="flex items-center gap-2">
         {actions}
