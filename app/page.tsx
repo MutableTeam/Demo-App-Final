@@ -14,6 +14,7 @@ import { initializeGoogleAnalytics } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
 import { SignUpBanner } from "@/components/signup-banner"
+import { CyberpunkFooter } from "@/components/cyberpunk-footer"
 
 // Google Analytics Measurement ID
 const GA_MEASUREMENT_ID = "G-41DL97N287"
@@ -93,26 +94,30 @@ function HomeContent() {
   // Show platform selector until wallet is connected and we should show platform
   if (!showPlatform || !walletConnected || !publicKey) {
     return (
-      <main className="min-h-screen bg-background relative">
+      <main className="min-h-screen bg-background relative flex flex-col">
         <PromoWatermark />
 
         <div className="fixed bottom-4 right-4 md:right-8 z-[90]">
           <GlobalAudioControls />
         </div>
 
-        <RetroArcadeBackground>
-          <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative flex items-center justify-center min-h-screen">
-            <PlatformSelector onWalletConnect={handleWalletConnection} />
-            <DebugOverlay initiallyVisible={false} position="bottom-right" />
-          </div>
-        </RetroArcadeBackground>
+        <div className="flex-1">
+          <RetroArcadeBackground>
+            <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative flex items-center justify-center min-h-screen">
+              <PlatformSelector onWalletConnect={handleWalletConnection} />
+              <DebugOverlay initiallyVisible={false} position="bottom-right" />
+            </div>
+          </RetroArcadeBackground>
+        </div>
+
+        <CyberpunkFooter />
       </main>
     )
   }
 
   // Show main platform once wallet is connected (wallet widget removed from top-right)
   return (
-    <main className="min-h-screen bg-background relative">
+    <main className="min-h-screen bg-background relative flex flex-col">
       <PromoWatermark />
 
       {/* Audio controls positioned at top right */}
@@ -120,22 +125,26 @@ function HomeContent() {
         <GlobalAudioControls />
       </div>
 
-      <RetroArcadeBackground>
-        <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
-          <div className="mt-16">
-            <MutablePlatform
-              publicKey={publicKey}
-              balance={balance}
-              provider={provider}
-              connection={connection}
-              onDisconnect={handleDisconnect}
-            />
+      <div className="flex-1">
+        <RetroArcadeBackground>
+          <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
+            <div className="mt-16">
+              <MutablePlatform
+                publicKey={publicKey}
+                balance={balance}
+                provider={provider}
+                connection={connection}
+                onDisconnect={handleDisconnect}
+              />
+            </div>
+            <DebugOverlay initiallyVisible={false} position="bottom-right" />
           </div>
-          <DebugOverlay initiallyVisible={false} position="bottom-right" />
-        </div>
-      </RetroArcadeBackground>
+        </RetroArcadeBackground>
+      </div>
 
       {walletConnected && <SignUpBanner walletConnected={walletConnected} />}
+
+      <CyberpunkFooter />
     </main>
   )
 }
