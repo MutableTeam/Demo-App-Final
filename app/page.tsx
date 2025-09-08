@@ -128,7 +128,7 @@ function HomeContent() {
       <div className="flex-1">
         <RetroArcadeBackground>
           <div className="max-w-6xl mx-auto p-4 md:p-8 z-10 relative">
-            <div className="mt-16">
+            <div className="mt-4">
               <MutablePlatform
                 publicKey={publicKey}
                 balance={balance}

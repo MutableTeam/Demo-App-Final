@@ -256,7 +256,7 @@ export default function MutablePlatform({
     // Track developer contact event
     trackEvent("developer_contact", { source: "develop_tab" })
     window.location.href =
-      "mailto:mutablepvp@gmail.com?subject=Game%20Developer%20Submission&body=I'm%20interested%20in%20developing%20a%20game%20for%20the%20Mutable%20platform.%0A%0AGame%20Name:%20%0AGame%20Type:%20%0ABrief%20Description:%20%0A%0AThank%20you!"
+      "mailto:mutablepvp@gmail.com?subject=Game%20Developer%20Submission&body=I'm%20interested%20in%20developing%20a%20game%20for%20the%20Mutable%20platform.%0A%0AGame%20Name:%20%0A%20Game%20Type:%20%0ABrief%20Description:%20%0A%0AThank%20you!"
   }
 
   // Get filtered games based on category
@@ -999,13 +999,13 @@ export default function MutablePlatform({
       <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
         <div
           className={cn(
-            "px-3 py-1 rounded-lg border backdrop-blur-sm",
+            "px-1.5 py-0 rounded border backdrop-blur-sm",
             isCyberpunk
               ? "bg-black/50 border-cyan-500/30 text-cyan-400"
               : "bg-black/80 border-yellow-400/30 text-yellow-300",
           )}
         >
-          <span className="text-xs font-mono font-bold">Pre-Alpha Build</span>
+          <span className="text-[8px] font-mono">Pre-Alpha Build</span>
         </div>
       </div>
     </div>
