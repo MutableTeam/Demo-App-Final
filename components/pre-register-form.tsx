@@ -91,7 +91,7 @@ interface PreRegisterFormProps {
 }
 
 export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormProps) {
-  const [firstName, setFirstName] = useState("")
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -102,7 +102,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!firstName.trim() || !email.trim()) {
+    if (!username.trim() || !email.trim()) {
       setError("Please fill in all fields")
       return
     }
@@ -117,7 +117,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          firstName: firstName.trim(),
+          username: username.trim(),
           email: email.trim(),
         }),
       })
@@ -126,7 +126,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
 
       if (response.ok && data.success) {
         setIsSuccess(true)
-        setFirstName("")
+        setUsername("")
         setEmail("")
 
         // Auto-close after 2 seconds and trigger success callback
@@ -153,7 +153,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
     if (!isSubmitting) {
       onClose()
       setIsSuccess(false)
-      setFirstName("")
+      setUsername("")
       setEmail("")
       setError("")
     }
@@ -206,17 +206,17 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="firstName" className="text-white font-medium">
-                First Name
+              <Label htmlFor="username" className="text-white font-medium">
+                Username
               </Label>
               <Input
-                id="firstName"
+                id="username"
                 type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 maxLength={40}
                 className="mt-1 bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400 focus:ring-cyan-400"
-                placeholder="Enter your first name"
+                placeholder="Enter your username"
                 disabled={isSubmitting}
               />
             </div>
@@ -276,17 +276,17 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="firstName" className="text-white font-medium">
-                First Name
+              <Label htmlFor="username" className="text-white font-medium">
+                Username
               </Label>
               <Input
-                id="firstName"
+                id="username"
                 type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 maxLength={40}
                 className="mt-1 bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-400 focus:ring-blue-400"
-                placeholder="Enter your first name"
+                placeholder="Enter your username"
                 disabled={isSubmitting}
               />
             </div>
