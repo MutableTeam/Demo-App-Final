@@ -9,6 +9,12 @@ interface RetroArcadeBackgroundProps {
 export default function RetroArcadeBackground({ children }: RetroArcadeBackgroundProps) {
   return (
     <div className="retro-arcade-background">
+      {/* Arcade cabinet decorations */}
+      <div className="arcade-decoration top-left"></div>
+      <div className="arcade-decoration top-right"></div>
+      <div className="arcade-decoration bottom-left"></div>
+      <div className="arcade-decoration bottom-right"></div>
+
       {/* Grid background */}
       <div className="grid-background"></div>
       <div className="horizon-line"></div>
