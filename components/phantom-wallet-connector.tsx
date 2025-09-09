@@ -184,7 +184,7 @@ export default function PhantomWalletConnector() {
     <div className="space-y-6">
       {!connected && (
         <div className="flex justify-center mb-6">
-          <Image src="/images/mutable-logo-transparent.png" alt="Mutable Logo" width={160} height={160} />
+          <Image src="/images/mutable-logo-transparent.png" alt="Mutable Logo" width={144} height={144} />
         </div>
       )}
 
