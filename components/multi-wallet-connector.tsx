@@ -258,7 +258,7 @@ export default function MultiWalletConnector({
                       "shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.6)]",
                       "hover:scale-[1.02] hover:text-white",
                     ]
-                  : ["bg-slate-800/50 border-slate-600/50 text-slate-500", "cursor-not-allowed opacity-60"],
+                  : ["bg-slate-800/50 border-slate-600/50 text-slate-300", "cursor-not-allowed opacity-60"],
               )}
             >
               <div className="relative flex items-center gap-4 z-10">

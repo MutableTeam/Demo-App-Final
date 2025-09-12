@@ -223,7 +223,7 @@ export default function InlineWalletConnector({ onConnect }: InlineWalletConnect
                   ]
                 : [
                     isCyberpunk
-                      ? ["bg-slate-800/50 border-slate-600/50 text-slate-500", "cursor-not-allowed opacity-60"]
+                      ? ["bg-slate-800/50 border-slate-600/50 text-slate-300", "cursor-not-allowed opacity-60"]
                       : ["bg-gray-300/70 border-gray-400/70 text-gray-600", "cursor-not-allowed opacity-60"],
                   ],
             )}

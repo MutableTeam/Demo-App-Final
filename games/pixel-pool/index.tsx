@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { PocketIcon as Pool } from "lucide-react"
+import { PenTool as Pool } from "lucide-react"
 import type { GameConfig, GameImplementation, GameInitParams } from "@/types/game-registry"
 import PixelPoolGameComponent from "./game-component"
 import PixelPoolInstructions from "./instructions"
@@ -10,8 +10,8 @@ import PixelPoolInstructions from "./instructions"
 // Game configuration
 const pixelPoolConfig: GameConfig = {
   id: "pixel-pool",
-  name: "Pixel Pool",
-  description: "Classic 8-ball pool with pixel art graphics",
+  name: "MutaBall Pool",
+  description: "Classic 8-ball pool with futuristic MutaBall physics",
   image: "/images/pixel-art-pool.png",
   icon: <Pool size={16} />,
   status: "coming-soon", // Set status to coming-soon
@@ -22,8 +22,8 @@ const pixelPoolConfig: GameConfig = {
   modes: [
     {
       id: "classic",
-      name: "Classic 8-Ball",
-      description: "Traditional 8-ball pool rules",
+      name: "Classic MutaBall",
+      description: "Traditional 8-ball pool with MutaBall enhancements",
       players: 2,
       icon: <Pool size={16} />,
       minWager: 5,

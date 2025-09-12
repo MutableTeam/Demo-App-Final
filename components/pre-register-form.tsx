@@ -200,7 +200,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-white mb-2">Join the Airdrop</h2>
             <p className="text-cyan-300 text-sm">
-              Sign up to receive free tokens when we launch plus exclusive in-app rewards!
+              Sign up to receive free tokens before we launch plus exclusive in-app rewards!
             </p>
           </div>
 
@@ -270,7 +270,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-white mb-2">Join the Airdrop</h2>
             <p className="text-slate-300 text-sm">
-              Sign up to receive free tokens when we launch plus exclusive in-app rewards!
+              Sign up to receive free tokens before we launch plus exclusive in-app rewards!
             </p>
           </div>
 

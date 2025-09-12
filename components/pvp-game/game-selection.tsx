@@ -342,6 +342,20 @@ export default function GameSelection({
         description: "Classic 8-ball pool with retro pixel art style",
       }
     }
+    if (game.name === "MutaBall Pool") {
+      return {
+        ...game,
+        name: "MutaBall Pool",
+        description: "Classic 8-ball pool with futuristic MutaBall physics",
+      }
+    }
+    if (game.name === "Mutable FPS") {
+      return {
+        ...game,
+        name: "Mutable FPS",
+        description: "Intense first-person shooter battles in cyberpunk arenas",
+      }
+    }
     return game
   })
 
@@ -350,6 +364,9 @@ export default function GameSelection({
     // First, sort by status (live games first)
     if (a.status === "live" && b.status !== "live") return -1
     if (a.status !== "live" && b.status === "live") return 1
+
+    if (a.name === "Mutable FPS" && b.name !== "Mutable FPS") return -1
+    if (a.name !== "Mutable FPS" && b.name === "Mutable FPS") return 1
 
     // Then, ensure "Last Stand" is next to "Archer Arena"
     if (a.name === "Archer Arena" && b.name === "Last Stand") return -1
@@ -369,6 +386,9 @@ export default function GameSelection({
     }
     if (game.id === "pixel-pool") {
       return "/images/pixel-pool-card.png"
+    }
+    if (game.id === "mutable-fps") {
+      return "/images/mutable-fps-card.jpg"
     }
     if (game.id === "closest-to-the-pin") {
       return "/images/closest-to-the-pin-card.png"
@@ -407,6 +427,10 @@ export default function GameSelection({
         trackGamePlay("App-Archer Arena", gameId)
       } else if (game.name === "Last Stand") {
         trackGamePlay("App-Last Stand", gameId)
+      } else if (game.name === "MutaBall Pool") {
+        trackGamePlay("App-MutaBall Pool", gameId)
+      } else if (game.name === "Mutable FPS") {
+        trackGamePlay("App-Mutable FPS", gameId)
       } else {
         // Generic tracking for other games
         trackGamePlay(`App-${game.name}`, gameId)
@@ -478,7 +502,7 @@ export default function GameSelection({
                         {game.status === "coming-soon" && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                             <CyberBadge>
-                              {game.id === "pixel-pool" || game.id === "closest-to-the-pin"
+                              {game.id === "pixel-pool" || game.id === "closest-to-the-pin" || game.id === "mutable-fps"
                                 ? "IN DEVELOPMENT"
                                 : "COMING SOON"}
                             </CyberBadge>
@@ -537,7 +561,7 @@ export default function GameSelection({
                         {game.status === "coming-soon" && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                             <Badge className="bg-yellow-500 text-black font-mono border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                              {game.id === "pixel-pool" || game.id === "closest-to-the-pin"
+                              {game.id === "pixel-pool" || game.id === "closest-to-the-pin" || game.id === "mutable-fps"
                                 ? "IN DEVELOPMENT"
                                 : "COMING SOON"}
                             </Badge>

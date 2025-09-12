@@ -379,8 +379,8 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
                               wallet.available
                                 ? // Brighter hover states with better contrast
                                   "bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-cyan-400/60 text-cyan-300 hover:border-cyan-300 hover:bg-gradient-to-r hover:from-cyan-500/40 hover:to-purple-500/40 hover:scale-[1.02] shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.6)] hover:text-white"
-                                : // Always use cyberpunk styling for proper contrast in dark mode
-                                  "bg-slate-900/50 border-slate-700/50 text-slate-500 cursor-not-allowed opacity-60",
+                                : // Updated disabled text color from text-slate-500 to text-slate-300 for better contrast
+                                  "bg-slate-900/50 border-slate-700/50 text-slate-300 cursor-not-allowed opacity-60",
                             )}
                           >
                             {/* Subtle shine effect for cyberpunk */}

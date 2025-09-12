@@ -3,13 +3,16 @@ import TopDownShooterGame from "./top-down-shooter"
 import PixelPoolGame from "./pixel-pool"
 import LastStandGame from "./last-stand"
 import ClosestToThePinGame from "./closest-to-the-pin"
+import MutableFPSGame from "./mutable-fps"
 
 // Register all games
 export function registerGames() {
+  gameRegistry.registerGame(MutableFPSGame)
+
   // Register the top-down shooter game
   gameRegistry.registerGame(TopDownShooterGame)
 
-  // Register the pixel pool game
+  // Register the pixel pool game (now MutaBall Pool)
   gameRegistry.registerGame(PixelPoolGame)
 
   // Register the Last Stand game

@@ -14,6 +14,7 @@ const topDownShooterConfig = {
   status: "live",
   minWager: 1,
   maxPlayers: 4,
+  minPlayers: 2,
   gameType: "action",
   gameCategory: "PvP", // Add this line
   modes: [

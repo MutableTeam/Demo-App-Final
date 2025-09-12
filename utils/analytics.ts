@@ -46,7 +46,7 @@ export function trackEvent(eventName: string, eventParams: object = {}) {
 
 // Track page landing
 export function trackPageLanding() {
-  trackEvent("Page-Landing", {
+  trackEvent("Page_Landing", {
     event_category: "Navigation",
     event_label: "User landed on page",
   })
@@ -58,7 +58,7 @@ export function trackLogin(
   platform: "mobile" | "desktop",
   walletType?: "phantom" | "solflare" | "test",
 ) {
-  const eventName = `Login-${platform.charAt(0).toUpperCase() + platform.slice(1)}-${walletType ? walletType.charAt(0).toUpperCase() + walletType.slice(1) : loginType === "demo" ? "Demo" : "Wallet"}`
+  const eventName = `Login_${platform.charAt(0).toUpperCase() + platform.slice(1)}_${walletType ? walletType.charAt(0).toUpperCase() + walletType.slice(1) : loginType === "demo" ? "Demo" : "Wallet"}`
 
   trackEvent(eventName, {
     event_category: "Authentication",
@@ -71,7 +71,7 @@ export function trackLogin(
 
 // Track game play events
 export function trackGamePlay(gameName: string, gameId: string) {
-  trackEvent(`${gameName.replace(/\s+/g, "-")}-Play`, {
+  trackEvent(`${gameName.replace(/[\s-]+/g, "_")}_Play`, {
     event_category: "Games",
     event_label: `${gameName} Play Button`,
     game_id: gameId,

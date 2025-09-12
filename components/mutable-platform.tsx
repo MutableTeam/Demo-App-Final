@@ -275,7 +275,7 @@ export default function MutablePlatform({
                 data-value="EXCHANGE"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Exchange", {
+                  trackEvent("Navbar_Exchange", {
                     event_category: "Navigation",
                     event_label: "Exchange Tab Click",
                   })
@@ -289,7 +289,7 @@ export default function MutablePlatform({
                 data-value="GAMES"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Games", {
+                  trackEvent("Navbar_Games", {
                     event_category: "Navigation",
                     event_label: "Games Tab Click",
                   })
@@ -303,7 +303,7 @@ export default function MutablePlatform({
                 data-value="DEVELOP"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Develop", {
+                  trackEvent("Navbar_Develop", {
                     event_category: "Navigation",
                     event_label: "Develop Tab Click",
                   })
@@ -317,7 +317,7 @@ export default function MutablePlatform({
                 data-value="PROFILE"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Profile", {
+                  trackEvent("Navbar_Profile", {
                     event_category: "Navigation",
                     event_label: "Profile Tab Click",
                   })
@@ -334,7 +334,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Exchange", {
+                  trackEvent("Navbar_Exchange", {
                     event_category: "Navigation",
                     event_label: "Exchange Tab Click",
                   })
@@ -348,7 +348,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Games", {
+                  trackEvent("Navbar_Games", {
                     event_category: "Navigation",
                     event_label: "Games Tab Click",
                   })
@@ -362,7 +362,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Develop", {
+                  trackEvent("Navbar_Develop", {
                     event_category: "Navigation",
                     event_label: "Develop Tab Click",
                   })
@@ -376,7 +376,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar-Profile", {
+                  trackEvent("Navbar_Profile", {
                     event_category: "Navigation",
                     event_label: "Profile Tab Click",
                   })
