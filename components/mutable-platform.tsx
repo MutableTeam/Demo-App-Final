@@ -270,38 +270,118 @@ export default function MutablePlatform({
         <div className={isCyberpunk ? "" : tabStyles.container}>
           {isCyberpunk ? (
             <CyberTabsList className="w-full grid grid-cols-4 p-0 h-auto">
-              <CyberTabsTrigger value="exchange" data-value="EXCHANGE" onClick={withClickSound()}>
+              <CyberTabsTrigger
+                value="exchange"
+                data-value="EXCHANGE"
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Exchange", {
+                    event_category: "Navigation",
+                    event_label: "Exchange Tab Click",
+                  })
+                }}
+              >
                 <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">EXCHANGE</span>
               </CyberTabsTrigger>
-              <CyberTabsTrigger value="desktop-games" data-value="GAMES" onClick={withClickSound()}>
+              <CyberTabsTrigger
+                value="desktop-games"
+                data-value="GAMES"
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Games", {
+                    event_category: "Navigation",
+                    event_label: "Games Tab Click",
+                  })
+                }}
+              >
                 <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">GAMES</span>
               </CyberTabsTrigger>
-              <CyberTabsTrigger value="develop" data-value="DEVELOP" onClick={withClickSound()}>
+              <CyberTabsTrigger
+                value="develop"
+                data-value="DEVELOP"
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Develop", {
+                    event_category: "Navigation",
+                    event_label: "Develop Tab Click",
+                  })
+                }}
+              >
                 <Code className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">DEVELOP</span>
               </CyberTabsTrigger>
-              <CyberTabsTrigger value="profile" data-value="PROFILE" onClick={withClickSound()}>
+              <CyberTabsTrigger
+                value="profile"
+                data-value="PROFILE"
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Profile", {
+                    event_category: "Navigation",
+                    event_label: "Profile Tab Click",
+                  })
+                }}
+              >
                 <User className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">PROFILE</span>
               </CyberTabsTrigger>
             </CyberTabsList>
           ) : (
             <TabsList className={tabStyles.list}>
-              <TabsTrigger value="exchange" className={tabStyles.trigger} onClick={withClickSound()}>
+              <TabsTrigger
+                value="exchange"
+                className={tabStyles.trigger}
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Exchange", {
+                    event_category: "Navigation",
+                    event_label: "Exchange Tab Click",
+                  })
+                }}
+              >
                 <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">EXCHANGE</span>
               </TabsTrigger>
-              <TabsTrigger value="desktop-games" className={tabStyles.trigger} onClick={withClickSound()}>
+              <TabsTrigger
+                value="desktop-games"
+                className={tabStyles.trigger}
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Games", {
+                    event_category: "Navigation",
+                    event_label: "Games Tab Click",
+                  })
+                }}
+              >
                 <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">GAMES</span>
               </TabsTrigger>
-              <TabsTrigger value="develop" className={tabStyles.trigger} onClick={withClickSound()}>
+              <TabsTrigger
+                value="develop"
+                className={tabStyles.trigger}
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Develop", {
+                    event_category: "Navigation",
+                    event_label: "Develop Tab Click",
+                  })
+                }}
+              >
                 <Code className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">DEVELOP</span>
               </TabsTrigger>
-              <TabsTrigger value="profile" className={tabStyles.trigger} onClick={withClickSound()}>
+              <TabsTrigger
+                value="profile"
+                className={tabStyles.trigger}
+                onClick={() => {
+                  withClickSound()()
+                  trackEvent("Navbar-Profile", {
+                    event_category: "Navigation",
+                    event_label: "Profile Tab Click",
+                  })
+                }}
+              >
                 <User className="h-4 w-4 mb-1 mx-auto" />
                 <span className="text-xs sm:text-sm whitespace-normal text-center">PROFILE</span>
               </TabsTrigger>

@@ -44,6 +44,7 @@ interface WalletConnectionData {
   balance: number | null
   provider: any
   isTestMode?: boolean
+  walletType?: "phantom" | "solflare" | "test"
 }
 
 interface PlatformSelectorProps {
@@ -133,6 +134,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
             balance: 5.0,
             provider: testWalletData.provider,
             isTestMode: true,
+            walletType: "test",
           }
 
           setTimeout(() => {
@@ -166,6 +168,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
             balance: null,
             provider,
             isTestMode: false,
+            walletType: walletType,
           }
 
           setTimeout(() => {

@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { trackGamePlay } from "@/utils/analytics"
 
 // Define breakpoints locally to avoid import issues
 const breakpoints = {
@@ -402,16 +403,13 @@ export default function GameSelection({
     const game = games.find((g) => g.id === gameId)
 
     if (game) {
-      // Convert game name to kebab case for analytics
-      const eventName = game.name.toLowerCase().replace(/\s+/g, "-")
-
-      // Track the game selection in Google Analytics
-      if (typeof window !== "undefined" && (window as any).gtag) {
-        ;(window as any).gtag("event", eventName, {
-          event_category: "Games",
-          event_label: game.name,
-          wager_token: wagerToken,
-        })
+      if (game.name === "Archer Arena") {
+        trackGamePlay("App-Archer Arena", gameId)
+      } else if (game.name === "Last Stand") {
+        trackGamePlay("App-Last Stand", gameId)
+      } else {
+        // Generic tracking for other games
+        trackGamePlay(`App-${game.name}`, gameId)
       }
     }
 

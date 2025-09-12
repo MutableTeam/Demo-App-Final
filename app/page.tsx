@@ -10,14 +10,15 @@ import MutablePlatform from "@/components/mutable-platform"
 import RetroArcadeBackground from "@/components/retro-arcade-background"
 import { Connection, clusterApiUrl } from "@solana/web3.js"
 import "@/styles/retro-arcade.css"
-import { initializeGoogleAnalytics } from "@/utils/analytics"
+import { initializeGoogleAnalytics, trackPageLanding, trackLogin } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
 import { SignUpBanner } from "@/components/signup-banner"
 import { CyberpunkFooter } from "@/components/cyberpunk-footer"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 // Google Analytics Measurement ID
-const GA_MEASUREMENT_ID = "G-41DL97N287"
+const GA_MEASUREMENT_ID = "G-8TPFC6NL03"
 
 function HomeContent() {
   const [walletConnected, setWalletConnected] = useState(false)
@@ -29,9 +30,12 @@ function HomeContent() {
   // Platform context
   const { isSelected: isPlatformSelected } = usePlatform()
 
+  const isMobile = useIsMobile()
+
   // Initialize Google Analytics
   useEffect(() => {
     initializeGoogleAnalytics(GA_MEASUREMENT_ID)
+    trackPageLanding()
   }, [])
 
   // Initialize games registry
@@ -47,6 +51,7 @@ function HomeContent() {
     balance: number | null
     provider: any
     isTestMode?: boolean
+    walletType?: "phantom" | "solflare" | "test"
   }) => {
     console.log("Wallet connection data received:", walletData)
 
@@ -56,6 +61,12 @@ function HomeContent() {
       setBalance(walletData.balance)
       setProvider(walletData.provider)
       setShowPlatform(true)
+
+      const platform = isMobile ? "mobile" : "desktop"
+      const loginType = walletData.isTestMode ? "demo" : "wallet"
+      const walletType = walletData.walletType || (walletData.isTestMode ? "test" : undefined)
+
+      trackLogin(loginType, platform, walletType)
 
       console.log("Setting wallet state:", {
         connected: true,
