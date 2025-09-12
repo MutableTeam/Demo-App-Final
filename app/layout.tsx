@@ -8,7 +8,6 @@ import { PlatformProvider } from "@/contexts/platform-context"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import IOSDarkModeScript from "./ios-dark-mode-script"
-import { GoogleAnalyticsProvider } from "@/components/google-analytics-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,16 +26,25 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <IOSDarkModeScript />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-8TPFC6NL03"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-8TPFC6NL03');
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           <CyberpunkThemeProvider>
             <PlatformProvider>
-              <GoogleAnalyticsProvider>
-                {children}
-                <Toaster />
-                <SonnerToaster />
-              </GoogleAnalyticsProvider>
+              {children}
+              <Toaster />
+              <SonnerToaster />
             </PlatformProvider>
           </CyberpunkThemeProvider>
         </ThemeProvider>

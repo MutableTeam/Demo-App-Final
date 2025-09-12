@@ -13,7 +13,7 @@ import UserProfile from "./user-profile"
 import type { Connection } from "@solana/web3.js"
 import SoundButton from "./sound-button"
 import { withClickSound } from "@/utils/sound-utils"
-import { trackEvent } from "@/utils/analytics"
+import { trackEvent, trackNavigation, testAnalytics } from "@/utils/analytics"
 import LastStandGameLauncher from "@/games/last-stand/game-launcher"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
@@ -259,6 +259,10 @@ export default function MutablePlatform({
       "mailto:mutablepvp@gmail.com?subject=Game%20Developer%20Submission&body=I'm%20interested%20in%20developing%20a%20game%20for%20the%20Mutable%20platform.%0A%0AGame%20Name:%20%0A%20Game%20Type:%20%0ABrief%20Description:%20%0A%0AThank%20you!"
   }
 
+  const handleTestAnalytics = () => {
+    testAnalytics()
+  }
+
   // Get filtered games based on category
   const getFilteredGames = () => {
     return gameRegistry.getGamesByCategory(gameCategory)
@@ -275,10 +279,7 @@ export default function MutablePlatform({
                 data-value="EXCHANGE"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Exchange", {
-                    event_category: "Navigation",
-                    event_label: "Exchange Tab Click",
-                  })
+                  trackNavigation("Exchange")
                 }}
               >
                 <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
@@ -289,10 +290,7 @@ export default function MutablePlatform({
                 data-value="GAMES"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Games", {
-                    event_category: "Navigation",
-                    event_label: "Games Tab Click",
-                  })
+                  trackNavigation("Games")
                 }}
               >
                 <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
@@ -303,10 +301,7 @@ export default function MutablePlatform({
                 data-value="DEVELOP"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Develop", {
-                    event_category: "Navigation",
-                    event_label: "Develop Tab Click",
-                  })
+                  trackNavigation("Develop")
                 }}
               >
                 <Code className="h-4 w-4 mb-1 mx-auto" />
@@ -317,10 +312,7 @@ export default function MutablePlatform({
                 data-value="PROFILE"
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Profile", {
-                    event_category: "Navigation",
-                    event_label: "Profile Tab Click",
-                  })
+                  trackNavigation("Profile")
                 }}
               >
                 <User className="h-4 w-4 mb-1 mx-auto" />
@@ -334,10 +326,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Exchange", {
-                    event_category: "Navigation",
-                    event_label: "Exchange Tab Click",
-                  })
+                  trackNavigation("Exchange")
                 }}
               >
                 <ArrowLeftRight className="h-4 w-4 mb-1 mx-auto" />
@@ -348,10 +337,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Games", {
-                    event_category: "Navigation",
-                    event_label: "Games Tab Click",
-                  })
+                  trackNavigation("Games")
                 }}
               >
                 <Gamepad2 className="h-4 w-4 mb-1 mx-auto" />
@@ -362,10 +348,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Develop", {
-                    event_category: "Navigation",
-                    event_label: "Develop Tab Click",
-                  })
+                  trackNavigation("Develop")
                 }}
               >
                 <Code className="h-4 w-4 mb-1 mx-auto" />
@@ -376,10 +359,7 @@ export default function MutablePlatform({
                 className={tabStyles.trigger}
                 onClick={() => {
                   withClickSound()()
-                  trackEvent("Navbar_Profile", {
-                    event_category: "Navigation",
-                    event_label: "Profile Tab Click",
-                  })
+                  trackNavigation("Profile")
                 }}
               >
                 <User className="h-4 w-4 mb-1 mx-auto" />
@@ -943,6 +923,20 @@ export default function MutablePlatform({
                       <div className="flex items-center justify-center">
                         <Mail className="h-4 w-4 mr-2 flex-shrink-0" />
                         <span>CONTACT US</span>
+                      </div>
+                    </SoundButton>
+
+                    <SoundButton
+                      onClick={handleTestAnalytics}
+                      className={cn(
+                        "w-full mt-2 bg-[#FF9800] hover:bg-[#F57C00] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
+                        isCyberpunk &&
+                          "bg-pink-900/70 hover:bg-pink-800/70 border-pink-500 shadow-pink-500/30 text-pink-300",
+                      )}
+                    >
+                      <div className="flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                        <span>TEST ANALYTICS</span>
                       </div>
                     </SoundButton>
                   </div>
