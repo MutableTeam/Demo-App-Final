@@ -8,6 +8,8 @@ import { PlatformProvider } from "@/contexts/platform-context"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import IOSDarkModeScript from "./ios-dark-mode-script"
+import { AnalyticsProvider } from "@/components/analytics-provider"
+import { Suspense } from "react"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,21 +35,27 @@ export default function RootLayout({
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', 'G-8TPFC6NL03');
+              gtag('config', 'G-8TPFC6NL03', {
+                page_title: document.title,
+                page_location: window.location.href,
+                debug_mode: ${process.env.NODE_ENV === "development"}
+              });
             `,
           }}
         />
       </head>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          <CyberpunkThemeProvider>
-            <PlatformProvider>
-              {children}
-              <Toaster />
-              <SonnerToaster />
-            </PlatformProvider>
-          </CyberpunkThemeProvider>
-        </ThemeProvider>
+        <Suspense>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+            <CyberpunkThemeProvider>
+              <PlatformProvider>
+                <AnalyticsProvider>{children}</AnalyticsProvider>
+                <Toaster />
+                <SonnerToaster />
+              </PlatformProvider>
+            </CyberpunkThemeProvider>
+          </ThemeProvider>
+        </Suspense>
       </body>
     </html>
   )
