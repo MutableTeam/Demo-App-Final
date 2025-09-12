@@ -13,7 +13,7 @@ import "@/styles/retro-arcade.css"
 import { initializeGoogleAnalytics, trackPageLanding, trackLogin } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
-import { SignUpBanner } from "@/components/signup-banner"
+import { AirdropSideTag } from "@/components/airdrop-side-tag"
 import { CyberpunkFooter } from "@/components/cyberpunk-footer"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
@@ -151,7 +151,7 @@ function HomeContent() {
         </RetroArcadeBackground>
       </div>
 
-      {walletConnected && <SignUpBanner walletConnected={walletConnected} />}
+      {walletConnected && <AirdropSideTag walletConnected={walletConnected} />}
 
       <CyberpunkFooter />
     </main>

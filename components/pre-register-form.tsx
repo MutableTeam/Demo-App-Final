@@ -117,7 +117,7 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: username.trim(),
+          firstName: username.trim(),
           email: email.trim(),
         }),
       })
