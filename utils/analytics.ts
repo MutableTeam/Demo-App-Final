@@ -2,14 +2,14 @@
 
 /**
  * Google Analytics Configuration:
- * - Stream Name: Mutable PvP
- * - Stream URL: https://www.mutablepvp.com
+ * - Stream Name: App.Mutablepvp
+ * - Stream URL: https://app.mutablepvp.com
  * - Stream ID: 11192198601
- * - Measurement ID: G-W6CVTBKPBW
+ * - Measurement ID: G-8TPFC6NL03
  */
 
 // Initialize Google Analytics
-export function initializeGoogleAnalytics(measurementId = "G-W6CVTBKPBW") {
+export function initializeGoogleAnalytics(measurementId = "G-8TPFC6NL03") {
   if (typeof window !== "undefined") {
     // Check if already initialized to prevent duplicate scripts
     if ((window as any).gtag) {
@@ -31,7 +31,7 @@ export function initializeGoogleAnalytics(measurementId = "G-W6CVTBKPBW") {
     gtag("js", new Date())
     gtag("config", measurementId, {
       page_title: "Mutable PvP",
-      page_location: "https://www.mutablepvp.com",
+      page_location: "https://app.mutablepvp.com",
     })
 
     // Make gtag available globally
