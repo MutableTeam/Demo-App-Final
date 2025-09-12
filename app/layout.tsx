@@ -8,6 +8,7 @@ import { PlatformProvider } from "@/contexts/platform-context"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import IOSDarkModeScript from "./ios-dark-mode-script"
+import { GoogleAnalyticsProvider } from "@/components/google-analytics-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -31,9 +32,11 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           <CyberpunkThemeProvider>
             <PlatformProvider>
-              {children}
-              <Toaster />
-              <SonnerToaster />
+              <GoogleAnalyticsProvider>
+                {children}
+                <Toaster />
+                <SonnerToaster />
+              </GoogleAnalyticsProvider>
             </PlatformProvider>
           </CyberpunkThemeProvider>
         </ThemeProvider>

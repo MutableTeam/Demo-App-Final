@@ -10,15 +10,12 @@ import MutablePlatform from "@/components/mutable-platform"
 import RetroArcadeBackground from "@/components/retro-arcade-background"
 import { Connection, clusterApiUrl } from "@solana/web3.js"
 import "@/styles/retro-arcade.css"
-import { initializeGoogleAnalytics, trackPageLanding, trackLogin } from "@/utils/analytics"
+import { trackLogin } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
 import { AirdropSideTag } from "@/components/airdrop-side-tag"
 import { CyberpunkFooter } from "@/components/cyberpunk-footer"
 import { useIsMobile } from "@/components/ui/use-mobile"
-
-// Google Analytics Measurement ID
-const GA_MEASUREMENT_ID = "G-8TPFC6NL03"
 
 function HomeContent() {
   const [walletConnected, setWalletConnected] = useState(false)
@@ -31,12 +28,6 @@ function HomeContent() {
   const { isSelected: isPlatformSelected } = usePlatform()
 
   const isMobile = useIsMobile()
-
-  // Initialize Google Analytics
-  useEffect(() => {
-    initializeGoogleAnalytics(GA_MEASUREMENT_ID)
-    trackPageLanding()
-  }, [])
 
   // Initialize games registry
   useEffect(() => {

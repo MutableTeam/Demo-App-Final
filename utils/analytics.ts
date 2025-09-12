@@ -2,15 +2,21 @@
 
 /**
  * Google Analytics Configuration:
- * - Stream Name: App.Mutablepvp
- * - Stream URL: https://app.mutablepvp.com
- * - Stream ID: 12150943480
- * - Measurement ID: G-8TPFC6NL03
+ * - Stream Name: Mutable PvP
+ * - Stream URL: https://www.mutablepvp.com
+ * - Stream ID: 11192198601
+ * - Measurement ID: G-W6CVTBKPBW
  */
 
 // Initialize Google Analytics
-export function initializeGoogleAnalytics(measurementId = "G-8TPFC6NL03") {
+export function initializeGoogleAnalytics(measurementId = "G-W6CVTBKPBW") {
   if (typeof window !== "undefined") {
+    // Check if already initialized to prevent duplicate scripts
+    if ((window as any).gtag) {
+      console.log("Google Analytics already initialized")
+      return
+    }
+
     // Add Google Analytics script
     const script1 = document.createElement("script")
     script1.async = true
@@ -23,7 +29,10 @@ export function initializeGoogleAnalytics(measurementId = "G-8TPFC6NL03") {
       window.dataLayer.push(args)
     }
     gtag("js", new Date())
-    gtag("config", measurementId)
+    gtag("config", measurementId, {
+      page_title: "Mutable PvP",
+      page_location: "https://www.mutablepvp.com",
+    })
 
     // Make gtag available globally
     ;(window as any).gtag = gtag
@@ -32,15 +41,22 @@ export function initializeGoogleAnalytics(measurementId = "G-8TPFC6NL03") {
   }
 }
 
-// Track an event in Google Analytics with App- prefix
+// Track an event in Google Analytics with App_ prefix
 export function trackEvent(eventName: string, eventParams: object = {}) {
   if (typeof window !== "undefined" && (window as any).gtag) {
-    // Add App- prefix to all event names
-    const prefixedEventName = eventName.startsWith("App-") ? eventName : `App-${eventName}`
-    ;(window as any).gtag("event", prefixedEventName, eventParams)
-    console.log(`Tracked event: ${prefixedEventName}`, eventParams)
+    // Ensure event name uses underscores and has App_ prefix
+    const cleanEventName = eventName.replace(/[-\s]+/g, "_")
+    const prefixedEventName = cleanEventName.startsWith("App_") ? cleanEventName : `App_${cleanEventName}`
+
+    // Use proper gtag event syntax
+    ;(window as any).gtag("event", prefixedEventName, {
+      event_category: "engagement",
+      ...eventParams,
+    })
+
+    console.log(`[v0] Tracked event: ${prefixedEventName}`, eventParams)
   } else {
-    console.warn("gtag is not initialized. Event not tracked:", eventName, eventParams)
+    console.warn("[v0] gtag is not initialized. Event not tracked:", eventName, eventParams)
   }
 }
 

@@ -474,8 +474,8 @@ export default function MutablePlatform({
                 <SoundButton
                   variant="outline"
                   className={cn(
-                    "border-2 border-black text-gray-900 hover:bg-[#FFD54F] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all dark:border-gray-700 dark:text-gray-900 dark:hover:bg-[#D4AF37] dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
-                    isCyberpunk && "border-cyan-500 text-cyan-400 bg-black/50 hover:bg-cyan-900/50 shadow-cyan-500/30",
+                    "border-2 border-cyan-500/50 text-cyan-400 bg-black/30 hover:bg-cyan-900/50 hover:border-cyan-400 shadow-[2px_2px_0px_0px_rgba(6,182,212,0.3)] hover:shadow-[1px_1px_0px_0px_rgba(6,182,212,0.5)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all duration-200",
+                    "backdrop-blur-sm hover:text-cyan-300",
                   )}
                   onClick={handleBackToSelection}
                 >
