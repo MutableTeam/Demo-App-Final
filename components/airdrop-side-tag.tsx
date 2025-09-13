@@ -6,6 +6,7 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import { PreRegisterForm } from "@/components/pre-register-form"
+import { trackEvent } from "@/utils/analytics" // Added analytics import
 
 const slideInRight = keyframes`
   from {
@@ -163,6 +164,10 @@ export function AirdropSideTag({ walletConnected = false }: AirdropSideTagProps)
   }, [walletConnected])
 
   const handleClick = () => {
+    trackEvent("Airdrop_Signup_Click", {
+      theme: isCyberpunk ? "cyberpunk" : "standard",
+      source: "sidebar_widget",
+    })
     setShowPreRegisterForm(true)
   }
 

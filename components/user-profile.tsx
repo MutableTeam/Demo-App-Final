@@ -14,6 +14,7 @@ import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
 import StatisticsModal from "@/components/statistics-modal"
+import { trackEvent } from "@/utils/analytics"
 
 interface UserProfileProps {
   publicKey: string
@@ -67,6 +68,14 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
   const handleCancelEdit = () => {
     setTempUsername(username)
     setIsEditingUsername(false)
+  }
+
+  const handleDetailedAnalyticsClick = () => {
+    trackEvent("Profile_Detailed_Analytics_Click", {
+      source: "profile_tab",
+      theme: isCyberpunk ? "cyberpunk" : "standard",
+    })
+    setShowStatsModal(true)
   }
 
   const formatAddress = (address: string) => {
@@ -259,7 +268,7 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowStatsModal(true)}
+                onClick={handleDetailedAnalyticsClick}
                 className={cn(
                   "flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm min-w-0 shrink-0",
                   isCyberpunk && "bg-black/50 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30",
