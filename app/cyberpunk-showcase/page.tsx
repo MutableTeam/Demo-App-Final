@@ -26,7 +26,7 @@ export default function CyberpunkShowcase() {
           <CyberpunkGameCard
             title="Archer's Quest"
             description="Test your aim in this medieval archery game"
-            imageSrc="/images/archer-game.png"
+            imageSrc="/images/archer-arena-card.jpg"
             players="1 Player"
             onPlay={() => console.log("Play Archer's Quest")}
           />

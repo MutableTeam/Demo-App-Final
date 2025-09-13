@@ -24,7 +24,7 @@ export const TOKENS = {
 
 // Game Images
 export const GAME_IMAGES = {
-  ARCHER: "/images/archer-game.png",
+  ARCHER: "/images/archer-arena-card.jpg",
   LAST_STAND: "/images/last-stand.jpg",
   PIXEL_POOL: "/images/pixel-art-pool.png",
 }

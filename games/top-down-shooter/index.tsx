@@ -9,7 +9,7 @@ const topDownShooterConfig = {
   id: "top-down-shooter",
   name: "Archer Arena",
   description: "A fast-paced top-down archery battle game",
-  image: "/images/archer-game.png",
+  image: "/images/archer-arena-card.jpg",
   icon: <Target className="h-5 w-5" />,
   status: "live",
   minWager: 1,

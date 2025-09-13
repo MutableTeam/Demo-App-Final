@@ -382,10 +382,10 @@ export default function GameSelection({
       return "/images/last-stand-card.png"
     }
     if (game.id === "archer-arena") {
-      return "/images/archer-arena-card.png"
+      return "/images/archer-arena-card.jpg"
     }
     if (game.id === "pixel-pool") {
-      return "/images/pixel-pool-card.png"
+      return "/images/pixel-pool-card.jpg"
     }
     if (game.id === "mutable-fps") {
       return "/images/mutable-fps-card.jpg"
@@ -720,7 +720,7 @@ export default function GameSelection({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 bg-amber-200/80 border-2 border-black text-amber-800 hover:bg-amber-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm lg:text-base min-h-[44px] lg:min-h-[48px]"
+                                className="h-8 w-8 p-0 bg-amber-200/80 border-2 border-black text-amber-800 hover:bg-amber-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono text-xs md:text-sm lg:text-base min-h-[44px] lg:min-h-[48px]"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <HelpCircle className="h-4 w-4" />

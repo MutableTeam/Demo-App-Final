@@ -146,7 +146,7 @@ export function CyberpunkExamplePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { name: "Pixel Pool", image: "/images/pixel-art-pool.png" },
-                  { name: "Archer Game", image: "/images/archer-game.png" },
+                  { name: "Archer Game", image: "/images/archer-arena-card.jpg" },
                   { name: "Last Stand", image: "/images/last-stand.jpg" },
                 ].map((game) => (
                   <NeonBorder key={game.name}>
