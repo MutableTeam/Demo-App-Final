@@ -99,17 +99,33 @@ export function trackLogin(
   platform: "mobile" | "desktop",
   walletType?: "phantom" | "solflare" | "test",
 ) {
-  const eventName = `Login_${platform.charAt(0).toUpperCase() + platform.slice(1)}_${
-    walletType ? walletType.charAt(0).toUpperCase() + walletType.slice(1) : loginType === "demo" ? "Demo" : "Wallet"
-  }`
+  const walletName =
+    walletType === "test"
+      ? "Demo"
+      : walletType
+        ? walletType.charAt(0).toUpperCase() + walletType.slice(1)
+        : loginType === "demo"
+          ? "Demo"
+          : "Wallet"
 
-  console.log(`[v0] 🔐 Tracking login: ${eventName}`)
+  const eventName = `Login_${platform.charAt(0).toUpperCase() + platform.slice(1)}_${walletName}`
+
+  console.log(`[v0] 🔐 Tracking login event:`, {
+    eventName,
+    finalEventName: `App_${eventName}`,
+    loginType,
+    platform,
+    walletType,
+    walletName,
+    windowWidth: typeof window !== "undefined" ? window.innerWidth : "undefined",
+  })
+
   trackEvent(eventName, {
     event_category: "Authentication",
     event_label: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Login`,
     login_method: loginType,
     platform: platform,
-    wallet_type: walletType || (loginType === "demo" ? "test" : "unknown"),
+    wallet_type: walletType || (loginType === "demo" ? "demo" : "unknown"),
   })
 }
 

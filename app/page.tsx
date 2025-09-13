@@ -57,6 +57,18 @@ function HomeContent() {
       const loginType = walletData.isTestMode ? "demo" : "wallet"
       const walletType = walletData.walletType || (walletData.isTestMode ? "test" : undefined)
 
+      console.log("[v0] 🔍 Login tracking debug:", {
+        isMobile,
+        windowWidth: typeof window !== "undefined" ? window.innerWidth : "undefined",
+        breakpoint: 768,
+        platform,
+        loginType,
+        walletType,
+        expectedEventName: `App_Login_${platform.charAt(0).toUpperCase() + platform.slice(1)}_${
+          walletType ? walletType.charAt(0).toUpperCase() + walletType.slice(1) : "Demo"
+        }`,
+      })
+
       trackLogin(loginType, platform, walletType)
 
       console.log("Setting wallet state:", {
