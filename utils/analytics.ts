@@ -1,81 +1,92 @@
 "use client"
 
 /**
- * Google Analytics Configuration:
+ * Google Analytics 4 Configuration:
+ * - GA4 Measurement ID: G-8TPFC6NL03
  * - Stream Name: App.Mutablepvp
  * - Stream URL: https://app.mutablepvp.com
  * - Stream ID: 12150943480
- * - Measurement ID: G-8TPFC6NL03
  */
 
 declare global {
   interface Window {
     dataLayer: any[]
-    gtag: (...args: any[]) => void
+    gtag: Function
   }
 }
 
-// Check if analytics is ready
 export function isAnalyticsReady(): boolean {
   return typeof window !== "undefined" && typeof window.dataLayer !== "undefined" && Array.isArray(window.dataLayer)
 }
 
-// Enhanced event tracking using dataLayer
 export function trackEvent(eventName: string, eventParams: object = {}) {
   if (typeof window === "undefined") {
     console.warn("[v0] Window not available. Event not tracked:", eventName)
     return
   }
 
-  if (!window.dataLayer) {
-    console.warn("[v0] dataLayer not available. Event not tracked:", eventName)
-    return
-  }
+  window.dataLayer = window.dataLayer || []
 
   const cleanEventName = eventName.replace(/[-\s]+/g, "_")
   const prefixedEventName = cleanEventName.startsWith("App_") ? cleanEventName : `App_${cleanEventName}`
 
   try {
-    window.dataLayer.push({
-      event: prefixedEventName,
-      event_category: "engagement",
-      event_timestamp: new Date().toISOString(),
-      ...eventParams,
-    })
-
-    console.log(`[v0] ✅ Successfully tracked event: ${prefixedEventName}`, eventParams)
+    if (typeof window.gtag === "function") {
+      window.gtag("event", prefixedEventName, {
+        event_category: "engagement",
+        event_timestamp: new Date().toISOString(),
+        ...eventParams,
+      })
+      console.log(`[v0] ✅ GA4 event tracked: ${prefixedEventName}`, eventParams)
+    } else {
+      window.dataLayer.push({
+        event: prefixedEventName,
+        event_category: "engagement",
+        event_timestamp: new Date().toISOString(),
+        ...eventParams,
+      })
+      console.log(`[v0] ✅ DataLayer event tracked: ${prefixedEventName}`, eventParams)
+    }
   } catch (error) {
     console.error("[v0] ❌ Error tracking event:", prefixedEventName, error)
   }
 }
 
-// Manual page view tracking for custom navigation
 export function trackPageView(pagePath?: string, pageTitle?: string) {
-  if (typeof window === "undefined" || !window.dataLayer) return
+  if (typeof window === "undefined") return
 
-  window.dataLayer.push({
-    event: "page_view",
-    page_path: pagePath || window.location.pathname,
-    page_title: pageTitle || document.title,
-    page_location: window.location.href,
-  })
+  window.dataLayer = window.dataLayer || []
 
-  console.log("[v0] 📍 Manual page view tracked:", pagePath || window.location.pathname)
+  if (typeof window.gtag === "function") {
+    window.gtag("config", "G-8TPFC6NL03", {
+      page_path: pagePath || window.location.pathname,
+      page_title: pageTitle || document.title,
+      page_location: window.location.href,
+    })
+    console.log("[v0] 📍 GA4 page view tracked:", pagePath || window.location.pathname)
+  } else {
+    window.dataLayer.push({
+      event: "page_view",
+      page_path: pagePath || window.location.pathname,
+      page_title: pageTitle || document.title,
+      page_location: window.location.href,
+    })
+    console.log("[v0] 📍 DataLayer page view tracked:", pagePath || window.location.pathname)
+  }
 }
 
-// Enhanced test function with dataLayer debugging
 export function testAnalytics() {
-  console.log("[v0] 🧪 Testing Google Analytics...")
-  console.log("[v0] dataLayer available:", typeof window.dataLayer)
-  console.log("[v0] dataLayer length:", window.dataLayer?.length)
-  console.log("[v0] gtag available:", typeof window.gtag)
+  console.log("[v0] 🧪 Testing Google Analytics 4...")
+  console.log("[v0] GA4 dataLayer available:", typeof window.dataLayer)
+  console.log("[v0] GA4 gtag available:", typeof window.gtag)
+  console.log("[v0] GA4 dataLayer length:", window.dataLayer?.length)
 
   if (window.dataLayer) {
-    console.log("[v0] Recent dataLayer entries:", window.dataLayer.slice(-5))
+    console.log("[v0] Recent GA4 dataLayer entries:", window.dataLayer.slice(-5))
   }
 
-  // Send a test event via dataLayer
-  trackEvent("Test_Analytics_Connection", {
+  // Send a test event
+  trackEvent("Test_GA4_Connection", {
     test_timestamp: new Date().toISOString(),
     test_source: "manual_test",
     debug_mode: process.env.NODE_ENV === "development",

@@ -60,9 +60,9 @@
   color: #ffffff !important;
 }
 
-/* Removed invalid CSS selectors and added global span override */
+/* Updated span color to white for better contrast */
 .ios-dark span {
-  color: #00ffff !important;
+  color: #ffffff !important;
 }
 
 /* Force all buttons to have proper styling */
@@ -104,12 +104,12 @@
   border-color: #444444 !important;
 }
 
-/* Added universal span override to force light text */
+/* Updated universal span override to use white for better contrast */
 span {
   color: #ffffff !important;
 }
 
-/* Added body-level override for all text elements */
+/* Updated body-level override to use white text */
 body.dark span,
 body[data-theme="dark"] span,
 html.dark span {

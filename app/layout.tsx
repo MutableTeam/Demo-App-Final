@@ -28,7 +28,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <IOSDarkModeScript />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-8TPFC6NL03"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+            `,
+          }}
+        />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-8TPFC6NL03" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -37,14 +44,21 @@ export default function RootLayout({
               gtag('js', new Date());
               gtag('config', 'G-8TPFC6NL03', {
                 page_title: document.title,
-                page_location: window.location.href,
-                debug_mode: ${process.env.NODE_ENV === "development"}
+                page_location: window.location.href
               });
             `,
           }}
         />
       </head>
       <body className={inter.className}>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         <Suspense>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
             <CyberpunkThemeProvider>
