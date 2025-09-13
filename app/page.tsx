@@ -43,6 +43,7 @@ function HomeContent() {
     provider: any
     isTestMode?: boolean
     walletType?: "phantom" | "solflare" | "test"
+    selectedPlatform?: "mobile" | "desktop" // Add selectedPlatform parameter
   }) => {
     console.log("Wallet connection data received:", walletData)
 
@@ -53,19 +54,24 @@ function HomeContent() {
       setProvider(walletData.provider)
       setShowPlatform(true)
 
-      const platform = isMobile ? "mobile" : "desktop"
+      const platform = walletData.selectedPlatform || (isMobile ? "mobile" : "desktop")
       const loginType = walletData.isTestMode ? "demo" : "wallet"
       const walletType = walletData.walletType || (walletData.isTestMode ? "test" : undefined)
 
       console.log("[v0] 🔍 Login tracking debug:", {
-        isMobile,
+        selectedPlatform: walletData.selectedPlatform,
+        deviceIsMobile: isMobile,
         windowWidth: typeof window !== "undefined" ? window.innerWidth : "undefined",
         breakpoint: 768,
-        platform,
+        finalPlatform: platform,
         loginType,
         walletType,
         expectedEventName: `App_Login_${platform.charAt(0).toUpperCase() + platform.slice(1)}_${
-          walletType ? walletType.charAt(0).toUpperCase() + walletType.slice(1) : "Demo"
+          walletType === "test"
+            ? "Demo"
+            : walletType
+              ? walletType.charAt(0).toUpperCase() + walletType.slice(1)
+              : "Demo"
         }`,
       })
 

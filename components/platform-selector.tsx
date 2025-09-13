@@ -45,6 +45,7 @@ interface WalletConnectionData {
   provider: any
   isTestMode?: boolean
   walletType?: "phantom" | "solflare" | "test"
+  selectedPlatform?: "mobile" | "desktop" // Add selectedPlatform to interface
 }
 
 interface PlatformSelectorProps {
@@ -135,6 +136,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
             provider: testWalletData.provider,
             isTestMode: true,
             walletType: "test",
+            selectedPlatform: selectedPlatform, // Pass the selected platform card
           }
 
           setTimeout(() => {
@@ -169,6 +171,7 @@ export default function PlatformSelector({ onWalletConnect }: PlatformSelectorPr
             provider,
             isTestMode: false,
             walletType: walletType,
+            selectedPlatform: selectedPlatform, // Pass the selected platform card
           }
 
           setTimeout(() => {
