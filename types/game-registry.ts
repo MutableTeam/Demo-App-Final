@@ -9,6 +9,11 @@ export interface GameMode {
   players: number
   icon: ReactNode
   minWager: number
+  entryFee?: number
+  duration?: number
+  leaderboardRefresh?: string
+  isOffPlatform?: boolean
+  externalUrl?: string
 }
 
 // Game configuration
@@ -22,9 +27,12 @@ export interface GameConfig {
   minWager: number
   maxPlayers: number
   gameType: string
-  gameCategory: "PvP" | "PvE" // Add this line
+  gameCategory: "PvP" | "PvE"
   modes: GameMode[]
   useEnhancedRenderer?: boolean
+  isOffPlatform?: boolean
+  externalUrl?: string
+  launcherType?: "iframe" | "popup" | "redirect"
 }
 
 // Game initialization parameters

@@ -265,6 +265,33 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     return LoadingComponent
   }
 
+  if (game.config.isOffPlatform && game.config.launcherType === "iframe") {
+    console.log("[v0] Loading off-platform game:", gameId)
+
+    // For off-platform games, use their custom launcher instead of the generic GameComponent
+    const GameComponent = game.GameComponent
+    return (
+      <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
+        <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
+          <span className="text-sm font-medium">Off-Platform Game : Hosted Externally</span>
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Monitor className="h-3 w-3" />
+            {platformType === "mobile" ? "Mobile" : "Desktop"} Mode
+          </Badge>
+        </div>
+        <GameErrorBoundary>
+          <GameComponent
+            publicKey={playerId}
+            playerName={playerName}
+            mutbBalance={1000} // Default balance for demo
+            onExit={onGameEnd}
+            isCyberpunk={isCyberpunk}
+          />
+        </GameErrorBoundary>
+      </div>
+    )
+  }
+
   const initialGameState = game.initializeGameState({
     playerId,
     playerName,
@@ -328,7 +355,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
         <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
         <Badge variant="outline" className="flex items-center gap-1">
           <Monitor className="h-3 w-3" />
-          Desktop Mode
+          {platformType === "mobile" ? "Mobile" : "Desktop"} Mode
         </Badge>
       </div>
       <GameErrorBoundary>{GameContent}</GameErrorBoundary>

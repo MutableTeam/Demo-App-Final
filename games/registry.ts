@@ -4,6 +4,7 @@ import PixelPoolGame from "./pixel-pool"
 import LastStandGame from "./last-stand"
 import ClosestToThePinGame from "./closest-to-the-pin"
 import MutableFPSGame from "./mutable-fps"
+import GalacticVanguardGame from "./galactic-vanguard"
 
 // Register all games
 export function registerGames() {
@@ -17,6 +18,9 @@ export function registerGames() {
 
   // Register the Last Stand game
   gameRegistry.registerGame(LastStandGame)
+
+  // Register the Galactic Vanguard game
+  gameRegistry.registerGame(GalacticVanguardGame)
 
   // Register the Closest to the Pin game
   gameRegistry.registerGame(ClosestToThePinGame)
