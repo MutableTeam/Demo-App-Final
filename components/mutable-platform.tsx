@@ -15,6 +15,7 @@ import SoundButton from "./sound-button"
 import { withClickSound } from "@/utils/sound-utils"
 import { trackEvent, trackNavigation, testAnalytics } from "@/utils/analytics"
 import LastStandGameLauncher from "@/games/last-stand/game-launcher"
+import GalacticVanguardGameLauncher from "@/games/galactic-vanguard/game-launcher"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import { cn } from "@/lib/utils"
 import styled from "@emotion/styled"
@@ -480,6 +481,16 @@ export default function MutablePlatform({
                     isCyberpunk={isCyberpunk}
                   />
                 </div>
+              ) : selectedGame === "galactic-vanguard" ? (
+                <div className="space-y-4">
+                  <GalacticVanguardGameLauncher
+                    publicKey={publicKey}
+                    playerName={getPlayerName()}
+                    mutbBalance={mutbBalance}
+                    onExit={handleBackToSelection}
+                    isCyberpunk={isCyberpunk}
+                  />
+                </div>
               ) : (
                 <Card className={cn("arcade-card", isCyberpunk && "bg-black/80 border-cyan-500/50")}>
                   <CardContent className="p-12 flex flex-col items-center justify-center">
@@ -841,6 +852,9 @@ export default function MutablePlatform({
                         <span>Technical support during development</span>
                       </li>
                     </ul>
+                    <p className={cn("text-sm mt-4 dark:text-gray-300", isCyberpunk && "text-cyan-300/70")}>
+                      Developers can use our SDK and APIs to integrate with our Node.js and React-based platform.
+                    </p>
                   </div>
                 </div>
 

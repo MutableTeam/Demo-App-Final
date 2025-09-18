@@ -1,11 +1,19 @@
 import { neon } from "@neondatabase/serverless"
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is not set")
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL
+
+if (!databaseUrl) {
+  console.error(
+    "Available env vars:",
+    Object.keys(process.env).filter((key) => key.includes("DATABASE") || key.includes("POSTGRES")),
+  )
+  throw new Error(
+    "No database URL found. Please check DATABASE_URL, POSTGRES_URL, or POSTGRES_PRISMA_URL environment variables.",
+  )
 }
 
 // Create a reusable SQL client
-export const sql = neon(process.env.DATABASE_URL)
+export const sql = neon(databaseUrl)
 
 // Database connection test function
 export async function testConnection() {
