@@ -25,7 +25,6 @@ background-color: ${cyberpunkColors.background.dark};
 border: 1px solid ${cyberpunkColors.border.cyan};
 box-shadow: 0 0 15px ${cyberpunkColors.shadow.cyan};
 overflow: hidden;
-z-index: 10000; // Increased z-index to be above footer and airdrop components
 
 &::before {
   content: "";
@@ -39,7 +38,7 @@ z-index: 10000; // Increased z-index to be above footer and airdrop components
     ${cyberpunkColors.primary.cyan}, 
     transparent
   );
-  z-index: 10001; // Increased z-index to be above game container
+  z-index: 1;
 }
 
 &::after {
@@ -53,7 +52,7 @@ z-index: 10000; // Increased z-index to be above footer and airdrop components
     ${cyberpunkColors.primary.magenta}, 
     ${cyberpunkColors.primary.cyan}
   );
-  z-index: 10001; // Increased z-index to be above game container
+  z-index: 1;
 }
 `
 
@@ -218,16 +217,12 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       gameMode,
       platformType,
     })
-
-    const loadingDelay = game?.config.isOffPlatform ? 1000 : 500 // Longer delay for off-platform games
-
     const timer = setTimeout(() => {
       setGameState("playing")
-      debugManager.logInfo("GameContainer", "Game state set to playing", { gameId, loadingDelay })
-    }, loadingDelay)
-
+      debugManager.logInfo("GameContainer", "Game state set to playing")
+    }, 500)
     return () => clearTimeout(timer)
-  }, [gameId, playerId, playerName, isHost, gameMode, platformType, game])
+  }, [gameId, playerId, playerName, isHost, gameMode, platformType])
 
   const handleError = (error: Error) => {
     console.error("Game error:", error)
@@ -270,7 +265,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
     return LoadingComponent
   }
 
-  if (game.config.isOffPlatform === true && game.config.launcherType === "iframe") {
+  if (game.config.isOffPlatform && game.config.launcherType === "iframe") {
     console.log("[v0] Loading off-platform game:", gameId)
 
     // For off-platform games, use their custom launcher instead of the generic GameComponent
@@ -279,10 +274,10 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
         <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
           <span className="text-sm font-medium">Off-Platform Game : Hosted Externally</span>
-          <PlatformBadge>
+          <Badge variant="outline" className="flex items-center gap-1">
             <Monitor className="h-3 w-3" />
             {platformType === "mobile" ? "Mobile" : "Desktop"} Mode
-          </PlatformBadge>
+          </Badge>
         </div>
         <GameErrorBoundary>
           <GameComponent
@@ -355,9 +350,7 @@ export function GameContainer({ gameId, playerId, playerName, isHost, gameMode, 
       <GameErrorBoundary>{GameContent}</GameErrorBoundary>
     </CyberpunkGameContainer>
   ) : (
-    <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden z-[10000]">
-      {" "}
-      {/* Added z-index class for standard theme */}
+    <div className="w-full h-full relative bg-background border rounded-lg overflow-hidden">
       <div className={cn("flex items-center justify-between p-3 border-b", "bg-muted/50 border-border")}>
         <span className="text-sm font-medium">Demo Game : Does Not Represent Final Product</span>
         <Badge variant="outline" className="flex items-center gap-1">

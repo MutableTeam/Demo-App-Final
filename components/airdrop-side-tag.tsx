@@ -45,7 +45,7 @@ const CyberTag = styled.div`
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 9990; /* Reduced z-index from 9998 to 9990 to be below game container */
+  z-index: 9998;
   animation: ${slideInRight} 0.6s ease-out forwards;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -103,7 +103,7 @@ const StandardTag = styled.div`
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 9990; /* Reduced z-index from 9998 to 9990 to be below game container */
+  z-index: 9998;
   animation: ${slideInRight} 0.6s ease-out forwards;
   cursor: pointer;
   transition: all 0.3s ease;
