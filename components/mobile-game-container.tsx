@@ -151,7 +151,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
   return (
     <div
-      className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden", className)}
+      className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden z-[10000]", className)}
       style={{ touchAction: "none" }}
     >
       <MobileControlsTutorial isOpen={showTutorial} onClose={handleCloseTutorial} />

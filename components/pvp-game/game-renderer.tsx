@@ -496,32 +496,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       ctx.stroke()
     }
 
-    // Draw bow draw indicator when player is drawing bow
-    if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = gameState.gameTime
-      const drawTime = currentTime - player.drawStartTime
-      const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
-      const minDrawPercentage = player.minDrawTime / player.maxDrawTime
-
-      // Draw indicator below player
-      const indicatorWidth = 30
-      const indicatorHeight = 4
-      const indicatorY = player.size + 10
-
-      // Background
-      ctx.fillStyle = "#333333"
-      ctx.fillRect(-indicatorWidth / 2, indicatorY, indicatorWidth, indicatorHeight)
-
-      // Fill based on draw percentage
-      ctx.fillStyle = drawPercentage < minDrawPercentage ? "#ff3333" : drawPercentage < 0.7 ? "#ffcc33" : "#33ff33"
-
-      ctx.fillRect(-indicatorWidth / 2, indicatorY, indicatorWidth * drawPercentage, indicatorHeight)
-
-      // Draw minimum threshold marker
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(-indicatorWidth / 2 + indicatorWidth * minDrawPercentage - 1, indicatorY - 1, 2, indicatorHeight + 2)
-    }
-
     // Add a special indicator for weak shot hits
     if (player.lastHitByWeakShot) {
       const indicatorY = player.position.y - player.size - 20
@@ -609,10 +583,9 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
       ctx.fill()
 
       // Draw minimum threshold marker
-      ctx.fillStyle = "#ffffff"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX + bowChargeWidth * minDrawPercentage - 1, bowChargeY - 2, 2, bowChargeHeight + 4, 1)
-      ctx.fill()
+      const thresholdX = bowChargeX + bowChargeWidth * minDrawPercentage
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+      ctx.fillRect(thresholdX - 1, bowChargeY - 2, 2, bowChargeHeight + 4)
     }
 
     // Draw remaining time (top-center)

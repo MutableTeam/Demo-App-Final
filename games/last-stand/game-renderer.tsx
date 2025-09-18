@@ -393,36 +393,6 @@ export default function LastStandRenderer({ gameState }: LastStandRendererProps)
     // Draw health bar
     drawHealthBar(ctx, player.position.x, player.position.y - player.size - 10, player.health, player.maxHealth, 40, 4)
 
-    // Draw bow charge indicator when player is drawing bow
-    if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = Date.now() / 1000
-      const drawTime = currentTime - player.drawStartTime
-      const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
-      const minDrawPercentage = player.minDrawTime / player.maxDrawTime
-
-      // Position below player
-      const indicatorWidth = 30
-      const indicatorHeight = 4
-      const indicatorY = player.position.y + player.size + 10
-
-      // Background
-      ctx.fillStyle = "#333333"
-      ctx.fillRect(player.position.x - indicatorWidth / 2, indicatorY, indicatorWidth, indicatorHeight)
-
-      // Fill based on draw percentage
-      ctx.fillStyle = drawPercentage < minDrawPercentage ? "#ff3333" : drawPercentage < 0.7 ? "#ffcc33" : "#33ff33"
-      ctx.fillRect(player.position.x - indicatorWidth / 2, indicatorY, indicatorWidth * drawPercentage, indicatorHeight)
-
-      // Draw minimum threshold marker
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(
-        player.position.x - indicatorWidth / 2 + indicatorWidth * minDrawPercentage - 1,
-        indicatorY - 1,
-        2,
-        indicatorHeight + 2,
-      )
-    }
-
     // Draw cooldown indicators
     if (player.dashCooldown > 0) {
       drawCooldownIndicator(
