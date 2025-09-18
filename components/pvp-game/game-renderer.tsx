@@ -468,53 +468,28 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
     ctx.fillStyle = "#000000"
     ctx.font = "12px Arial"
     ctx.textAlign = "center"
-    ctx.fillText(player.name, 1, -51)
-
+    ctx.fillText(player.name, 1, -55)
     ctx.fillStyle = "#ffffff"
-    ctx.fillText(player.name, 0, -52)
+    ctx.fillText(player.name, 0, -56)
 
-    // Highlight local player
-    if (isLocal) {
-      // Draw arrow pointing to local player
-      const arrowSize = 10
-      const arrowY = -player.size - 15
-
-      ctx.fillStyle = "#FFFFFF"
-      ctx.beginPath()
-      ctx.moveTo(0, arrowY)
-      ctx.lineTo(-arrowSize / 2, arrowY - arrowSize)
-      ctx.lineTo(arrowSize / 2, arrowY - arrowSize)
-      ctx.closePath()
-      ctx.fill()
-
-      // Replaced pulsating highlight with a static one
-      const staticHighlightSize = player.size + 6
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(0, 0, staticHighlightSize, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-
-    // Draw bow draw indicator when player is drawing bow
+    // Draw bow charge indicator when player is drawing bow (using Last Stand's implementation)
     if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = gameState.gameTime
+      const currentTime = Date.now() / 1000 // Use real time like Last Stand
       const drawTime = currentTime - player.drawStartTime
       const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
       const minDrawPercentage = player.minDrawTime / player.maxDrawTime
 
-      // Draw indicator below player
+      // Position below player (relative to translated context)
       const indicatorWidth = 30
       const indicatorHeight = 4
-      const indicatorY = player.size + 10
+      const indicatorY = player.size + 10 // Relative positioning
 
       // Background
       ctx.fillStyle = "#333333"
       ctx.fillRect(-indicatorWidth / 2, indicatorY, indicatorWidth, indicatorHeight)
 
-      // Fill based on draw percentage
+      // Fill based on draw percentage (Last Stand colors)
       ctx.fillStyle = drawPercentage < minDrawPercentage ? "#ff3333" : drawPercentage < 0.7 ? "#ffcc33" : "#33ff33"
-
       ctx.fillRect(-indicatorWidth / 2, indicatorY, indicatorWidth * drawPercentage, indicatorHeight)
 
       // Draw minimum threshold marker
@@ -548,72 +523,6 @@ export default function GameRenderer({ gameState, localPlayerId }: GameRendererP
   const drawUI = (ctx: CanvasRenderingContext2D, gameState: GameState, localPlayerId: string) => {
     const player = gameState.players[localPlayerId]
     if (!player) return
-
-    // Draw bow charge indicator when drawing bow
-    if (player.isDrawingBow && player.drawStartTime !== null) {
-      const currentTime = Date.now() / 1000
-      const drawTime = currentTime - player.drawStartTime
-      const drawPercentage = Math.min(drawTime / player.maxDrawTime, 1)
-      const minDrawPercentage = player.minDrawTime / player.maxDrawTime
-
-      // Position just below the timer at the top of screen
-      const bowChargeWidth = 240
-      const bowChargeHeight = 12
-      const bowChargeX = (gameState.arenaSize.width - bowChargeWidth) / 2
-      const bowChargeY = 55 // Position below timer (timer is at y=10 with height=36)
-
-      // Draw semi-transparent background with rounded corners
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX - 15, bowChargeY - 8, bowChargeWidth + 30, bowChargeHeight + 16, 10)
-      ctx.fill()
-
-      // Add subtle border
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX - 15, bowChargeY - 8, bowChargeWidth + 30, bowChargeHeight + 16, 10)
-      ctx.stroke()
-
-      // Draw charge bar background with rounded corners
-      ctx.fillStyle = "#333333"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX, bowChargeY, bowChargeWidth, bowChargeHeight, 6)
-      ctx.fill()
-
-      // Draw charge bar fill with rounded left corner
-      const chargeColor =
-        drawPercentage < minDrawPercentage
-          ? "rgba(255, 77, 77, 0.8)"
-          : drawPercentage < 0.7
-            ? "rgba(255, 204, 51, 0.8)"
-            : "rgba(51, 255, 51, 0.8)"
-
-      const fillWidth = bowChargeWidth * drawPercentage
-      ctx.fillStyle = chargeColor
-      ctx.beginPath()
-      if (fillWidth >= bowChargeWidth) {
-        // If completely filled, use rounded rect
-        ctx.roundRect(bowChargeX, bowChargeY, fillWidth, bowChargeHeight, 6)
-      } else {
-        // Otherwise, only round the left corners
-        const radius = 6
-        ctx.moveTo(bowChargeX + radius, bowChargeY)
-        ctx.lineTo(bowChargeX + fillWidth, bowChargeY)
-        ctx.lineTo(bowChargeX + fillWidth, bowChargeY + bowChargeHeight)
-        ctx.lineTo(bowChargeX + radius, bowChargeY + bowChargeHeight)
-        ctx.arcTo(bowChargeX, bowChargeY + bowChargeHeight, bowChargeX, bowChargeY + bowChargeHeight - radius, radius)
-        ctx.lineTo(bowChargeX, bowChargeY + radius)
-        ctx.arcTo(bowChargeX, bowChargeY, bowChargeX + radius, bowChargeY, radius)
-      }
-      ctx.fill()
-
-      // Draw minimum threshold marker
-      ctx.fillStyle = "#ffffff"
-      ctx.beginPath()
-      ctx.roundRect(bowChargeX + bowChargeWidth * minDrawPercentage - 1, bowChargeY - 2, 2, bowChargeHeight + 4, 1)
-      ctx.fill()
-    }
 
     // Draw remaining time (top-center)
     const remainingTime = Math.max(0, gameState.maxGameTime - gameState.gameTime)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { GameState } from "./game-engine"
 import type { PlatformType } from "@/contexts/platform-context"
 import { cn } from "@/lib/utils"
@@ -20,16 +20,87 @@ export default function EnhancedGameRenderer({
 }: EnhancedGameRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
+  const [canvasReady, setCanvasReady] = useState(false)
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Canvas rendering logic
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    const handleResize = () => {
+      console.log("[v0] Canvas resize triggered")
+
+      // Clear any existing resize timeout
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current)
+      }
+
+      // Mark canvas as not ready during resize
+      setCanvasReady(false)
+
+      // Debounce resize to prevent excessive calls during orientation change
+      resizeTimeoutRef.current = setTimeout(() => {
+        const container = canvas.parentElement
+        if (!container) return
+
+        // Calculate proper canvas dimensions maintaining aspect ratio
+        const containerWidth = container.clientWidth
+        const containerHeight = container.clientHeight
+        const gameAspect = gameState.arenaSize.width / gameState.arenaSize.height
+        const containerAspect = containerWidth / containerHeight
+
+        let displayWidth, displayHeight
+
+        if (containerAspect > gameAspect) {
+          displayHeight = containerHeight
+          displayWidth = displayHeight * gameAspect
+        } else {
+          displayWidth = containerWidth
+          displayHeight = displayWidth / gameAspect
+        }
+
+        // Update canvas display size
+        canvas.style.width = `${displayWidth}px`
+        canvas.style.height = `${displayHeight}px`
+
+        console.log("[v0] Canvas resized to:", { displayWidth, displayHeight })
+
+        // Mark canvas as ready after resize
+        setTimeout(() => {
+          setCanvasReady(true)
+        }, 100)
+      }, 300) // 300ms debounce
+    }
+
+    // Initial resize
+    handleResize()
+
+    // Add resize listeners
+    window.addEventListener("resize", handleResize)
+    window.addEventListener("orientationchange", handleResize)
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+      window.removeEventListener("orientationchange", handleResize)
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current)
+      }
+    }
+  }, [gameState.arenaSize.width, gameState.arenaSize.height])
+
+  // Canvas rendering logic
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !canvasReady) return
+
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    console.log("[v0] Starting canvas rendering")
+
     const render = () => {
+      if (!canvasReady) return
+
       // Clear canvas
       ctx.fillStyle = "#1a2a1a" // Dark green background
       ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -194,7 +265,7 @@ export default function EnhancedGameRenderer({
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, localPlayerId, debugMode, platformType])
+  }, [gameState, localPlayerId, debugMode, platformType, canvasReady])
 
   return (
     <canvas

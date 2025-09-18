@@ -547,6 +547,7 @@ export const updateGameState = (state: GameState, deltaTime: number): GameState 
         player.dashStartTime = Date.now() / 1000
         player.dashVelocity = calculateDashVelocity(player)
         player.dashCooldown = 1.5
+        player.controls.dash = false
       }
 
       // Handle active dash

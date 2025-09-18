@@ -136,6 +136,7 @@ export function updateLastStandGameState(
     newState.player.dashCooldown = newState.player.dashCooldownTime
     newState.player.animationState = "dash"
     newState.player.lastAnimationChange = Date.now()
+    newState.player.controls.dash = false
     try {
       audioManager.playSound("dash")
     } catch (error) {

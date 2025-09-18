@@ -42,25 +42,46 @@ export default function MobileGameContainer({ children, className }: MobileGameC
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const [showTutorial, setShowTutorial] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [isOrientationStable, setIsOrientationStable] = useState(false)
   const movementZoneRef = useRef<HTMLDivElement>(null)
   const aimingZoneRef = useRef<HTMLDivElement>(null)
   const moveManagerRef = useRef<nipplejs.JoystickManager | null>(null)
   const aimManagerRef = useRef<nipplejs.JoystickManager | null>(null)
+  const orientationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastOrientationChangeRef = useRef<number>(0)
 
   useEffect(() => {
     setIsMounted(true)
 
-    // Check if tutorial should be shown
     const tutorialShown = sessionStorage.getItem("mobileTutorialShown")
     if (tutorialShown !== "true") {
       setShowTutorial(true)
     }
 
     const handleOrientationChange = () => {
-      // Use both orientation API and aspect ratio for better detection
-      const isLandscape =
-        window.matchMedia("(orientation: landscape)").matches || window.innerWidth > window.innerHeight
-      setOrientation(isLandscape ? "landscape" : "portrait")
+      console.log("[v0] Orientation change detected")
+
+      if (orientationTimeoutRef.current) {
+        clearTimeout(orientationTimeoutRef.current)
+      }
+
+      setIsOrientationStable(false)
+      lastOrientationChangeRef.current = Date.now()
+
+      orientationTimeoutRef.current = setTimeout(() => {
+        const isLandscape =
+          window.matchMedia("(orientation: landscape)").matches || window.innerWidth > window.innerHeight
+
+        const newOrientation = isLandscape ? "landscape" : "portrait"
+        console.log("[v0] Setting orientation to:", newOrientation)
+
+        setOrientation(newOrientation)
+
+        setTimeout(() => {
+          setIsOrientationStable(true)
+          console.log("[v0] Orientation stabilized")
+        }, 300)
+      }, 500)
     }
 
     handleOrientationChange()
@@ -70,11 +91,14 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     return () => {
       window.removeEventListener("resize", handleOrientationChange)
       window.removeEventListener("orientationchange", handleOrientationChange)
+      if (orientationTimeoutRef.current) {
+        clearTimeout(orientationTimeoutRef.current)
+      }
     }
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isUiActive || orientation === "portrait" || showTutorial) {
+    if (!isMounted || isUiActive || orientation === "portrait" || showTutorial || !isOrientationStable) {
       if (moveManagerRef.current) {
         moveManagerRef.current.destroy()
         moveManagerRef.current = null
@@ -88,6 +112,8 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
     const initializeJoysticks = async () => {
       try {
+        console.log("[v0] Initializing joysticks after orientation stabilized")
+
         const nippleModule = await import("nipplejs")
         const nipplejs = nippleModule.default
 
@@ -117,6 +143,8 @@ export default function MobileGameContainer({ children, className }: MobileGameC
           aimManager.on("end", () => gameInputHandler.handleNippleAimingEnd())
           aimManagerRef.current = aimManager
         }
+
+        console.log("[v0] Joysticks initialized successfully")
       } catch (error) {
         console.error("Failed to initialize joysticks:", error)
       }
@@ -134,7 +162,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
         aimManagerRef.current = null
       }
     }
-  }, [isMounted, isUiActive, orientation, showTutorial])
+  }, [isMounted, isUiActive, orientation, showTutorial, isOrientationStable])
 
   const handleCloseTutorial = () => {
     setShowTutorial(false)
@@ -142,16 +170,25 @@ export default function MobileGameContainer({ children, className }: MobileGameC
   }
 
   if (!isMounted) {
-    return null // Prevent hydration mismatch
+    return null
   }
 
   if (orientation === "portrait") {
     return <PortraitWarning />
   }
 
+  if (!isOrientationStable) {
+    return (
+      <div className="fixed inset-0 bg-black z-[200] flex flex-col items-center justify-center text-white p-4">
+        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className={`text-lg text-center text-cyan-400 ${orbitron.className}`}>Preparing Game...</p>
+      </div>
+    )
+  }
+
   return (
     <div
-      className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden", className)}
+      className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden z-[10000]", className)}
       style={{ touchAction: "none" }}
     >
       <MobileControlsTutorial isOpen={showTutorial} onClose={handleCloseTutorial} />
@@ -160,7 +197,6 @@ export default function MobileGameContainer({ children, className }: MobileGameC
 
       {!isUiActive && !showTutorial && (
         <>
-          {/* Disclaimer Text - Bottom Left */}
           <div
             className={cn(
               "absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-20 bg-black/50 text-white/70 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs flex items-center gap-1 sm:gap-2",
@@ -172,11 +208,9 @@ export default function MobileGameContainer({ children, className }: MobileGameC
             <span className="sm:hidden">Demo game</span>
           </div>
 
-          {/* Touch Zones for Joysticks */}
           <div ref={movementZoneRef} className="absolute top-0 left-0 w-1/2 h-full z-10" />
           <div ref={aimingZoneRef} className="absolute top-0 right-0 w-1/2 h-full z-10" />
 
-          {/* Dash Button */}
           <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-20">
             <button
               className={cn(
@@ -184,7 +218,7 @@ export default function MobileGameContainer({ children, className }: MobileGameC
                 "flex items-center justify-center border-2 border-yellow-400/50",
                 "shadow-lg shadow-yellow-500/30 transition-all duration-200",
                 "active:scale-95 active:shadow-yellow-500/50 focus:outline-none",
-                "min-h-[44px] min-w-[44px]", // Ensure minimum touch target
+                "min-h-[44px] min-w-[44px]",
                 orbitron.className,
               )}
               onTouchStart={() => gameInputHandler.handleButtonPress("dash")}
