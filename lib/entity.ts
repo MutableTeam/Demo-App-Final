@@ -104,3 +104,5 @@ export abstract class Entity<T extends Record<string, any>> {
     await sql`DELETE FROM ${sql(entityName)} WHERE id = ${this.id}`
   }
 }
+
+export { Entity }

@@ -6,12 +6,10 @@ import { Rocket, Smartphone, Monitor } from "lucide-react"
 import Image from "next/image"
 import SoundButton from "@/components/sound-button"
 import { galacticVanguardConfig } from "./config"
-import GalacticVanguardInstructions from "./instructions"
 import { withClickSound } from "@/utils/sound-utils"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { usePlatform } from "@/contexts/platform-context"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import SpaceShooter from "./space-shooter"
 import GamePopOutContainer, { type GamePopOutContainerRef } from "@/components/game-pop-out-container"
 
@@ -56,6 +54,16 @@ export default function GalacticVanguardGameLauncher({
     }
 
     setSelectedMode(modeId)
+    setGameStarted(true)
+    setIsGamePopOutOpen(true)
+    setTimeout(() => {
+      popOutRef.current?.triggerFullscreen()
+    }, 100)
+
+    toast({
+      title: "Loading Game",
+      description: "Galactic Vanguard is loading...",
+    })
   }
 
   const handleStartGame = () => {
@@ -230,70 +238,6 @@ export default function GalacticVanguardGameLauncher({
     )
   }
 
-  if (selectedMode) {
-    const mode = galacticVanguardConfig.modes.find((m) => m.id === selectedMode)!
-
-    return (
-      <Card
-        className={cn(
-          "bg-[#fbf3de] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
-          isCyberpunk && "!bg-black/80 !border-cyan-500/50",
-          isMobile ? "w-full h-full max-w-none border-0 rounded-none" : "w-full max-w-4xl mx-auto",
-        )}
-        style={isCyberpunk ? { backgroundColor: "rgba(0, 0, 0, 0.8)", borderColor: "rgba(6, 182, 212, 0.5)" } : {}}
-        data-game="galactic-vanguard"
-      >
-        <CardHeader className={cn(isMobile ? "p-3" : "p-6")}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Rocket className={cn("h-5 w-5", isCyberpunk && "text-cyan-400")} />
-              <CardTitle className={cn("font-mono", isMobile ? "text-lg" : "text-xl")}>GALACTIC VANGUARD</CardTitle>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {isMobile ? <Smartphone className="h-3 w-3" /> : <Monitor className="h-3 w-3" />}
-              <span>{isMobile ? "Mobile" : "Desktop"}</span>
-            </div>
-          </div>
-          <CardDescription className={cn(isMobile ? "text-sm" : "text-base")}>
-            Confirm your entry to {mode.name}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          <ScrollArea className={cn("p-4", isMobile ? "h-[calc(100vh-220px)] min-h-[200px]" : "max-h-[60vh]")}>
-            <GalacticVanguardInstructions mode={mode} isCyberpunk={isCyberpunk} isMobile={isMobile} />
-          </ScrollArea>
-        </CardContent>
-
-        <CardFooter className={cn("flex justify-between", isMobile ? "p-3 gap-2" : "p-6")}>
-          <SoundButton
-            className={cn(
-              lightButtonStyle,
-              isCyberpunk && "!border-cyan-500/50 !text-cyan-400 hover:!bg-cyan-900/30",
-              isMobile ? "text-sm px-4 py-3 min-h-[44px]" : "",
-            )}
-            onClick={() => setSelectedMode(null)}
-          >
-            BACK
-          </SoundButton>
-
-          <SoundButton
-            className={cn(
-              lightButtonStyle,
-              isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
-              isMobile ? "text-sm px-4 py-3 min-h-[44px]" : "",
-            )}
-            onClick={handleStartGame}
-          >
-            {(mode.entryFee || mode.minWager || 0) > 0
-              ? `PAY ${mode.entryFee || mode.minWager} MUTB & LAUNCH`
-              : "LAUNCH GAME"}
-          </SoundButton>
-        </CardFooter>
-      </Card>
-    )
-  }
-
   return (
     <Card
       className={cn(
@@ -392,7 +336,7 @@ export default function GalacticVanguardGameLauncher({
                   onClick={() => handleModeSelect(mode.id)}
                   disabled={(mode.entryFee || mode.minWager || 0) > mutbBalance}
                 >
-                  {(mode.entryFee || mode.minWager || 0) > mutbBalance ? "INSUFFICIENT FUNDS" : "SELECT"}
+                  {(mode.entryFee || mode.minWager || 0) > mutbBalance ? "INSUFFICIENT FUNDS" : "Pay Fee & Play"}
                 </SoundButton>
               </CardFooter>
             </Card>

@@ -25,7 +25,7 @@ export default function StartScreen({ onStart, playerName, setPlayerName, isMobi
                 isMobile ? "text-2xl" : "text-3xl"
               }`}
             >
-              GALACTIC VANGUARD
+              SPACE DEFENDER
             </h1>
             <p className="text-gray-400 text-sm">
               {isMobile ? "Touch-optimized space combat" : "Defend humanity against the alien invasion"}
@@ -87,7 +87,7 @@ export default function StartScreen({ onStart, playerName, setPlayerName, isMobi
             }`}
             disabled={!playerName.trim()}
           >
-            LAUNCH MISSION
+            Launch Mission
           </Button>
 
           <div className="text-xs text-gray-500 space-y-1">

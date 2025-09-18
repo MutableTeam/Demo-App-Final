@@ -68,7 +68,7 @@ export default function SpaceShooter({
   const [wave, setWave] = useState(1) // NEW: State for wave
   const [isMobile, setIsMobile] = useState(false)
   const [isLandscape, setIsLandscape] = useState(false)
-  const [playerName, setPlayerName] = useState("Player")
+  const [playerName, setPlayerName] = useState("")
   const [abilitySlots, setAbilitySlots] = useState([null, null]) // State for ability slots UI
   const [selectedAbilitySlot, setSelectedAbilitySlot] = useState(null) // State for selected ability UI
   const animationRef = useRef()

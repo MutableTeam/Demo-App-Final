@@ -1,4 +1,4 @@
-import { Zap } from "lucide-react"
+import { Zap, Target } from "lucide-react"
 
 export const galacticVanguardConfig = {
   id: "galactic-vanguard",
@@ -16,6 +16,16 @@ export const galacticVanguardConfig = {
   externalUrl: "https://galactic-vanguard-c1030fc2.base44.app",
   launcherType: "iframe" as const,
   modes: [
+    {
+      id: "practice",
+      name: "Practice",
+      description: "Practice your skills with no entry fee. Perfect for learning the game mechanics.",
+      players: 1,
+      icon: <Target className="h-4 w-4" />,
+      minWager: 0,
+      entryFee: 0,
+      isOffPlatform: false, // Use local game for practice
+    },
     {
       id: "survival",
       name: "Survival",
