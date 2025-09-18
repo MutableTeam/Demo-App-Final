@@ -83,9 +83,12 @@ export default function LastStandGameLauncher({
   }
 
   const handleStartGame = () => {
-    popOutRef.current?.triggerFullscreen()
     setGameStarted(true)
     setIsGamePopOutOpen(true)
+    // Trigger fullscreen immediately after state update
+    setTimeout(() => {
+      popOutRef.current?.triggerFullscreen()
+    }, 100)
   }
 
   const handleClosePopOut = () => {

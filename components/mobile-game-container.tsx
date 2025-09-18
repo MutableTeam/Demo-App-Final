@@ -5,10 +5,12 @@ import { useEffect, useRef, useState } from "react"
 import { usePlatform } from "@/contexts/platform-context"
 import { gameInputHandler } from "@/utils/game-input-handler"
 import type nipplejs from "nipplejs"
-import { RotateCw, Info } from "lucide-react"
+import { RotateCw, Info, X, Minimize2 } from "lucide-react"
 import { Orbitron } from "next/font/google"
 import { cn } from "@/lib/utils"
 import MobileControlsTutorial from "./mobile-controls-tutorial"
+import SoundButton from "./sound-button"
+import { withClickSound } from "@/utils/sound-utils"
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -35,14 +37,16 @@ function PortraitWarning() {
 interface MobileGameContainerProps {
   children: React.ReactNode
   className?: string
+  onClose?: () => void // Added onClose prop for closing the game
 }
 
-export default function MobileGameContainer({ children, className }: MobileGameContainerProps) {
+export default function MobileGameContainer({ children, className, onClose }: MobileGameContainerProps) {
   const { isUiActive } = usePlatform()
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("landscape")
   const [showTutorial, setShowTutorial] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [isOrientationStable, setIsOrientationStable] = useState(false)
+  const [isMinimized, setIsMinimized] = useState(false) // Added minimize state
   const movementZoneRef = useRef<HTMLDivElement>(null)
   const aimingZoneRef = useRef<HTMLDivElement>(null)
   const moveManagerRef = useRef<nipplejs.JoystickManager | null>(null)
@@ -169,6 +173,20 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     sessionStorage.setItem("mobileTutorialShown", "true")
   }
 
+  const handleMinimize = () => {
+    setIsMinimized(true)
+  }
+
+  const handleMaximize = () => {
+    setIsMinimized(false)
+  }
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose()
+    }
+  }
+
   if (!isMounted) {
     return null
   }
@@ -186,12 +204,61 @@ export default function MobileGameContainer({ children, className }: MobileGameC
     )
   }
 
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 right-4 z-[10000] bg-black/90 border-2 border-cyan-500 rounded-lg p-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="text-cyan-400 font-mono text-sm">Game Minimized</div>
+          <SoundButton
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 border-2 border-cyan-500 bg-black hover:bg-gray-900 text-cyan-400"
+            onClick={withClickSound(handleMaximize)}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+            <span className="sr-only">Maximize</span>
+          </SoundButton>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn("fixed inset-0 bg-black w-screen h-screen overflow-hidden z-[10000]", className)}
       style={{ touchAction: "none" }}
     >
       <MobileControlsTutorial isOpen={showTutorial} onClose={handleCloseTutorial} />
+
+      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+        <SoundButton
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 border-2 border-cyan-500 bg-black/80 hover:bg-gray-900 text-cyan-400 backdrop-blur-sm"
+          onClick={withClickSound(handleMinimize)}
+        >
+          <Minimize2 size={16} />
+          <span className="sr-only">Minimize</span>
+        </SoundButton>
+        {onClose && (
+          <SoundButton
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 border-2 border-cyan-500 bg-black/80 hover:bg-gray-900 text-cyan-400 backdrop-blur-sm"
+            onClick={withClickSound(handleClose)}
+          >
+            <X size={16} />
+            <span className="sr-only">Close</span>
+          </SoundButton>
+        )}
+      </div>
 
       {children}
 
