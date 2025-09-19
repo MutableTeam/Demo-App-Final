@@ -48,8 +48,8 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
             <button
               key={index}
               onClick={() => onTimedAbilityClick(index)}
-              className={`absolute w-20 h-20 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg pointer-events-auto ${
-                index === 0 ? "bottom-32 left-6" : "bottom-32 right-6"
+              className={`absolute w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg pointer-events-auto ${
+                index === 0 ? "bottom-20 left-4" : "bottom-20 right-4"
               } ${
                 ability.cooldown > 0
                   ? "border-gray-600 bg-gray-800/80 opacity-60"
@@ -59,12 +59,12 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
             >
               <div className="flex items-center justify-center h-full relative z-10">
                 {index === 0 ? (
-                  <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <div className="text-white text-2xl font-bold">💥</div>
+                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+                    <div className="text-white text-xl font-bold">💥</div>
                   </div>
                 ) : (
-                  <div className="w-14 h-14 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center shadow-lg">
-                    <div className="text-white text-2xl font-bold">⚡</div>
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center shadow-lg">
+                    <div className="text-white text-xl font-bold">⚡</div>
                   </div>
                 )}
               </div>
