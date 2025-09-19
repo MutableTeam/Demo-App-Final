@@ -29,7 +29,8 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
   useEffect(() => {
     const loadHighScores = async () => {
       try {
-        const response = await fetch("/api/galactic-vanguard-highscores?limit=10")
+        const limit = isMobile ? 5 : 10
+        const response = await fetch(`/api/galactic-vanguard-highscores?limit=${limit}`)
         if (response.ok) {
           const data = await response.json()
           setHighScores(data.highScores || [])
@@ -42,7 +43,7 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
     }
 
     loadHighScores()
-  }, [])
+  }, [isMobile])
 
   const getRankIcon = (position: number) => {
     if (position === 1) return <Trophy className="w-5 h-5 text-yellow-500" />
@@ -61,14 +62,14 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
     "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
 
   return (
-    <div className="absolute inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-30 p-4">
+    <div className="absolute inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-30 p-4 overflow-hidden">
       <Card
         className={cn(
           "bg-gradient-to-b from-gray-900 to-black border-cyan-500 border-2 shadow-2xl shadow-cyan-500/20",
-          isMobile ? "w-full max-w-sm p-4" : "max-w-2xl w-full p-6",
+          isMobile ? "w-full max-w-sm max-h-[85vh] flex flex-col my-8" : "max-w-2xl w-full p-6",
         )}
       >
-        <CardHeader className="text-center space-y-4">
+        <CardHeader className={cn("text-center space-y-4 flex-shrink-0", isMobile ? "py-4" : "")}>
           <div className="flex justify-center mb-2">
             <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center">
               <Trophy className="w-6 h-6 text-white" />
@@ -87,7 +88,7 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
           </p>
         </CardHeader>
 
-        <CardContent className="space-y-4">
+        <CardContent className={cn("space-y-4", isMobile ? "flex-1 overflow-hidden px-4 pb-4" : "")}>
           {isLoading ? (
             <div className="text-center text-gray-500 py-8">Loading leaderboard...</div>
           ) : highScores.length === 0 ? (
@@ -97,7 +98,12 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
               <p className="text-sm">Be the first pilot to make it onto the leaderboard.</p>
             </div>
           ) : (
-            <div className={cn("space-y-2 overflow-y-auto", isMobile ? "max-h-64" : "max-h-80")}>
+            <div
+              className={cn(
+                "space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/30 scrollbar-track-transparent",
+                isMobile ? "flex-1 pr-2" : "max-h-80",
+              )}
+            >
               {highScores.map((highScore, index) => (
                 <div
                   key={highScore.id}
@@ -154,7 +160,7 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
             </div>
           )}
 
-          <div className={cn("flex gap-3 pt-4", isMobile ? "flex-col-reverse" : "flex-row")}>
+          <div className={cn("flex gap-3 pt-4 flex-shrink-0", isMobile ? "flex-col-reverse mt-4" : "flex-row")}>
             <Button
               onClick={onContinue}
               className={cn(
