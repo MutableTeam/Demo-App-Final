@@ -39,7 +39,7 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
         </div>
       </div>
 
-      <div className="absolute bottom-22 left-0 right-0 z-30 pointer-events-none">
+      <div className="absolute bottom-8 left-0 right-0 z-30 pointer-events-none">
         <div className="flex justify-between px-4 pointer-events-auto">
           {timedAbilities.map((ability, index) => {
             const cooldownProgress =
