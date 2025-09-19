@@ -39,45 +39,45 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-0 right-0 z-30 pointer-events-none">
-        <div className="flex justify-between px-4 pointer-events-auto">
-          {timedAbilities.map((ability, index) => {
-            const cooldownProgress =
-              ability.cooldown > 0 ? (ability.maxCooldown - ability.cooldown) / ability.maxCooldown : 1
+      <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
+        {timedAbilities.map((ability, index) => {
+          const cooldownProgress =
+            ability.cooldown > 0 ? (ability.maxCooldown - ability.cooldown) / ability.maxCooldown : 1
 
-            return (
-              <button
-                key={index}
-                onClick={() => onTimedAbilityClick(index)}
-                className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
-                  ability.cooldown > 0
-                    ? "border-gray-600 bg-gray-800/80 opacity-60"
-                    : "border-orange-500 bg-orange-500/30 hover:bg-orange-500/40 active:bg-orange-500/50 hover:scale-105"
-                }`}
-                disabled={ability.cooldown > 0}
-              >
-                <div className="flex items-center justify-center h-full relative z-10">
-                  {index === 0 ? (
-                    <img src="/images/bomb-missile-icon.jpg" alt="Bomb Missile" className="w-10 h-10 object-contain" />
-                  ) : (
-                    <img src="/images/pulse-cannon-icon.jpg" alt="Pulse Cannon" className="w-10 h-10 object-contain" />
-                  )}
-                </div>
-
-                {ability.cooldown > 0 && (
-                  <div className="absolute inset-0 text-orange-400">
-                    {createCircularProgress(cooldownProgress)}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs text-white font-bold bg-black/70 rounded px-1 py-0.5">
-                        {Math.ceil(ability.cooldown / 1000)}
-                      </span>
-                    </div>
-                  </div>
+          return (
+            <button
+              key={index}
+              onClick={() => onTimedAbilityClick(index)}
+              className={`absolute w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg pointer-events-auto ${
+                index === 0 ? "bottom-4 left-4" : "bottom-4 right-4"
+              } ${
+                ability.cooldown > 0
+                  ? "border-gray-600 bg-gray-800/80 opacity-60"
+                  : "border-cyan-400 bg-cyan-500/30 hover:bg-cyan-500/40 active:bg-cyan-500/50 hover:scale-105"
+              }`}
+              disabled={ability.cooldown > 0}
+            >
+              <div className="flex items-center justify-center h-full relative z-10">
+                {index === 0 ? (
+                  <img src="/images/bomb-missile-ability.jpg" alt="Bomb Missile" className="w-12 h-12 object-contain" />
+                ) : (
+                  <img src="/images/pulse-cannon-ability.jpg" alt="Pulse Cannon" className="w-12 h-12 object-contain" />
                 )}
-              </button>
-            )
-          })}
-        </div>
+              </div>
+
+              {ability.cooldown > 0 && (
+                <div className="absolute inset-0 text-cyan-400">
+                  {createCircularProgress(cooldownProgress)}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs text-white font-bold bg-black/70 rounded px-1 py-0.5">
+                      {Math.ceil(ability.cooldown / 1000)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </button>
+          )
+        })}
       </div>
     </>
   )
