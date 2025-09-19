@@ -10,6 +10,7 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 import IOSDarkModeScript from "./ios-dark-mode-script"
 import { AnalyticsProvider } from "@/components/analytics-provider"
 import { Suspense } from "react"
+import { Analytics } from "@vercel/analytics/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -77,6 +78,7 @@ export default function RootLayout({
                 <AnalyticsProvider>{children}</AnalyticsProvider>
                 <Toaster />
                 <SonnerToaster />
+                <Analytics />
               </PlatformProvider>
             </CyberpunkThemeProvider>
           </ThemeProvider>

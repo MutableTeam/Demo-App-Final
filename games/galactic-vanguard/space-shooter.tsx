@@ -37,7 +37,8 @@ export default function SpaceShooter({
       momentumX: 0, // Add momentum for thrust effect
       momentumY: 0,
     },
-    bullets: [],
+    bullets: [], // Renamed from 'bullets' to 'playerBullets' for clarity
+    playerBullets: [], // New array for player projectiles
     enemies: [],
     particles: [],
     smokeParticles: [], // For damaged ship effect
@@ -69,8 +70,6 @@ export default function SpaceShooter({
   const [isMobile, setIsMobile] = useState(false)
   const [isLandscape, setIsLandscape] = useState(false)
   const [playerName, setPlayerName] = useState("")
-  const [abilitySlots, setAbilitySlots] = useState([null, null]) // State for ability slots UI
-  const [selectedAbilitySlot, setSelectedAbilitySlot] = useState(null) // State for selected ability UI
   const animationRef = useRef()
   const lastTimeRef = useRef(0)
   const startTimeRef = useRef(0)
@@ -79,6 +78,25 @@ export default function SpaceShooter({
 
   // Mobile controls - We'll still need this state for general mobile input logic
   const [mobileInput, setMobileInput] = useState({ x: 0, y: 0, magnitude: 0 })
+
+  const [timedAbilities, setTimedAbilities] = useState([
+    {
+      name: "Bomb Missile",
+      color: "#ff4444",
+      cooldown: 0,
+      maxCooldown: 15000, // 15 seconds
+    },
+    {
+      name: "Pulse Beam",
+      color: "#44ff44",
+      cooldown: 0,
+      maxCooldown: 20000, // 20 seconds
+    },
+  ])
+
+  // State for ability slots and selected slot
+  const [abilitySlots, setAbilitySlots] = useState([null, null])
+  const [selectedAbilitySlot, setSelectedAbilitySlot] = useState(null)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -198,19 +216,19 @@ export default function SpaceShooter({
 
   const enemyTypes = useMemo(() => {
     const desktopTypes = {
-      scout: { health: 25, speed: 2.2, color: "#ff4444", size: 15, points: 10, behavior: "direct" }, // Increased from 1.4, red ships are fastest
-      fighter: { health: 50, speed: 1.6, color: "#4444ff", size: 20, points: 25, behavior: "zigzag" }, // Increased from 1.1
-      bomber: { health: 100, speed: 0.9, color: "#ff8844", size: 30, points: 50, behavior: "shoot" }, // Increased from 0.6
-      hunter: { health: 40, speed: 2.8, color: "#f56565", size: 20, points: 75, behavior: "strafe_shoot" }, // Increased from 1.75, red ships are fast
-      guardian: { health: 250, speed: 0.5, color: "#a0aec0", size: 45, points: 250, behavior: "spread_shot" }, // Increased from 0.3
+      scout: { health: 30, speed: 2.2, color: "#ff4444", size: 15, points: 10, behavior: "direct" }, // 3 shots to kill
+      fighter: { health: 80, speed: 1.6, color: "#4444ff", size: 20, points: 25, behavior: "zigzag" }, // 8 shots to kill
+      bomber: { health: 150, speed: 0.9, color: "#ff8844", size: 30, points: 50, behavior: "shoot" }, // 15 shots to kill
+      hunter: { health: 60, speed: 2.8, color: "#f56565", size: 20, points: 75, behavior: "strafe_shoot" }, // 6 shots to kill
+      guardian: { health: 400, speed: 0.5, color: "#a0aec0", size: 45, points: 250, behavior: "spread_shot" }, // 40 shots to kill - boss-like
     }
 
     const mobileTypes = {
-      scout: { health: 18, speed: 1.4, color: "#ff4444", size: 22, points: 15, behavior: "direct" }, // Increased from 0.9
-      fighter: { health: 35, speed: 1.1, color: "#4444ff", size: 28, points: 30, behavior: "zigzag" }, // Increased from 0.75
-      bomber: { health: 70, speed: 0.6, color: "#ff8844", size: 38, points: 60, behavior: "shoot" }, // Increased from 0.4
-      hunter: { health: 30, speed: 2.0, color: "#f56565", size: 25, points: 80, behavior: "strafe_shoot" }, // Increased from 1.4
-      guardian: { health: 180, speed: 0.35, color: "#a0aec0", size: 50, points: 275, behavior: "spread_shot" }, // Increased from 0.225
+      scout: { health: 25, speed: 1.4, color: "#ff4444", size: 22, points: 15, behavior: "direct" }, // 2.5 shots to kill
+      fighter: { health: 60, speed: 1.1, color: "#4444ff", size: 28, points: 30, behavior: "zigzag" }, // 6 shots to kill
+      bomber: { health: 120, speed: 0.6, color: "#ff8844", size: 38, points: 60, behavior: "shoot" }, // 12 shots to kill
+      hunter: { health: 50, speed: 2.0, color: "#f56565", size: 25, points: 80, behavior: "strafe_shoot" }, // 5 shots to kill
+      guardian: { health: 300, speed: 0.35, color: "#a0aec0", size: 50, points: 275, behavior: "spread_shot" }, // 30 shots to kill
     }
 
     return isMobile ? mobileTypes : desktopTypes
@@ -339,27 +357,99 @@ export default function SpaceShooter({
     [setAbilitySlots, setSelectedAbilitySlot],
   )
 
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (!e.code) return
-      gameStateRef.current.keys[e.code.toLowerCase()] = true
+  // Timed abilities system
+  const activateTimedAbility = useCallback(
+    (abilityIndex) => {
+      const game = gameStateRef.current
+      if (!game.player || game.gameStatus !== "playing") return
 
-      // Handle ability activation with Q and E keys
-      if (gameStateRef.current.gameStatus === "playing") {
-        if (e.code === "KeyQ" && gameStateRef.current.abilitySlots[0]) {
-          // Activate first ability slot
-          const ability = gameStateRef.current.abilitySlots[0]
-          activateStoredAbility(0, ability)
-          e.preventDefault()
-        } else if (e.code === "KeyE" && gameStateRef.current.abilitySlots[1]) {
-          // Activate second ability slot
-          const ability = gameStateRef.current.abilitySlots[1]
-          activateStoredAbility(1, ability)
-          e.preventDefault()
+      const ability = timedAbilities[abilityIndex]
+      if (!ability || ability.cooldown > 0) return
+
+      if (abilityIndex === 0) {
+        const bombProjectile = {
+          x: game.player.x,
+          y: game.player.y - 30,
+          vx: 0,
+          vy: -8, // Travels upward
+          friendly: true,
+          type: "bomb",
+          damage: 200,
+          size: 8,
+          color: "#ff4444",
+          life: 60, // Explodes after 60 frames if no collision
+          maxLife: 60,
         }
+
+        game.playerBullets.push(bombProjectile)
+
+        // Start cooldown
+        setTimedAbilities((prev) =>
+          prev.map((ability, index) =>
+            index === abilityIndex ? { ...ability, cooldown: ability.maxCooldown } : ability,
+          ),
+        )
+      } else if (abilityIndex === 1) {
+        const beamWidth = dimensions.width * 0.3 // 30% of screen width
+        const beamProjectile = {
+          x: game.player.x,
+          y: game.player.y - 20,
+          vx: 0,
+          vy: -6, // Reduced speed from -12 to -6 for slower pulse cannon movement
+          friendly: true,
+          type: "pulse_beam",
+          damage: 150,
+          size: beamWidth,
+          height: 20,
+          color: "#00ff88",
+          life: 120, // Increased life to compensate for slower speed
+          maxLife: 120,
+        }
+
+        game.playerBullets.push(beamProjectile)
+
+        // Start cooldown
+        setTimedAbilities((prev) =>
+          prev.map((ability, index) =>
+            index === abilityIndex ? { ...ability, cooldown: ability.maxCooldown } : ability,
+          ),
+        )
       }
     },
-    [activateStoredAbility],
+    [timedAbilities, dimensions.width],
+  )
+
+  // Handle keyboard input
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (gameStateRef.current.gameStatus !== "playing") return
+
+      const key = e.key.toLowerCase()
+      const code = e.code.toLowerCase()
+
+      // Set movement keys
+      if (
+        code === "keyw" ||
+        code === "arrowup" ||
+        code === "keya" ||
+        code === "arrowleft" ||
+        code === "keys" ||
+        code === "arrowdown" ||
+        code === "keyd" ||
+        code === "arrowright"
+      ) {
+        gameStateRef.current.keys[code] = true
+      }
+
+      if (key === "q") {
+        e.preventDefault()
+        activateTimedAbility(0) // Bomb Missile
+      } else if (key === "e") {
+        e.preventDefault()
+        activateTimedAbility(1) // Pulse Beam
+      }
+    },
+    [activateTimedAbility],
   )
 
   const handleKeyUp = useCallback((e) => {
@@ -441,7 +531,7 @@ export default function SpaceShooter({
         momentumX: 0, // Reset momentum
         momentumY: 0,
       },
-      bullets: [],
+      playerBullets: [], // Initialize player bullets array
       enemies: [],
       particles: [],
       smokeParticles: [],
@@ -529,6 +619,149 @@ export default function SpaceShooter({
     },
     [dimensions.width, dimensions.height],
   )
+
+  const checkBulletCollisions = useCallback(
+    (game) => {
+      game.playerBullets.forEach((bullet, bulletIndex) => {
+        if (!bullet.friendly) return
+
+        // Handle bomb projectile explosion
+        if (bullet.type === "bomb") {
+          bullet.life--
+
+          let shouldExplode = bullet.life <= 0 || bullet.y <= 0 // Explode if hits top of screen
+
+          if (!shouldExplode) {
+            game.enemies.forEach((enemy) => {
+              const dx = bullet.x - enemy.x
+              const dy = bullet.y - enemy.y
+              const distance = Math.sqrt(dx * dx + dy * dy)
+              if (distance < bullet.size + enemy.size) {
+                shouldExplode = true
+              }
+            })
+          }
+
+          if (shouldExplode) {
+            // Create explosion
+            const bombX = bullet.x
+            const bombY = bullet.y
+
+            // Create explosion particles
+            for (let i = 0; i < 40; i++) {
+              const angle = Math.random() * Math.PI * 2
+              const speed = Math.random() * 12 + 6
+              game.particles.push({
+                x: bombX,
+                y: bombY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 50,
+                color: bullet.y <= 0 ? "#ff6644" : "#ff4444", // Different color if hit screen edge
+                size: Math.random() * 8 + 4,
+              })
+            }
+
+            // Damage all enemies within AOE range
+            const aoeRange = 150
+            game.enemies.forEach((enemy, enemyIndex) => {
+              const dx = enemy.x - bombX
+              const dy = enemy.y - bombY
+              const distance = Math.sqrt(dx * dx + dy * dy)
+
+              if (distance < aoeRange) {
+                game.enemies.splice(enemyIndex, 1)
+                game.score += 200
+                // Create destruction particles
+                for (let i = 0; i < 10; i++) {
+                  game.particles.push(createParticle(enemy.x, enemy.y, "#ff8800"))
+                }
+              }
+            })
+
+            // Remove the bomb projectile
+            game.playerBullets.splice(bulletIndex, 1)
+            return
+          }
+        }
+
+        if (bullet.type === "pulse_beam") {
+          bullet.life--
+
+          // Create trailing particles for visual effect
+          for (let i = 0; i < 3; i++) {
+            game.particles.push({
+              x: bullet.x + (Math.random() - 0.5) * bullet.size,
+              y: bullet.y + Math.random() * bullet.height,
+              vx: (Math.random() - 0.5) * 2,
+              vy: Math.random() * 2,
+              life: 15,
+              color: "#00ff88",
+              size: Math.random() * 4 + 2,
+            })
+          }
+
+          // Check collision with all enemies in beam width
+          game.enemies.forEach((enemy, enemyIndex) => {
+            const dx = Math.abs(enemy.x - bullet.x)
+            const dy = Math.abs(enemy.y - bullet.y)
+
+            if (dx < bullet.size / 2 && dy < bullet.height / 2) {
+              // Hit enemy with pulse beam
+              game.enemies.splice(enemyIndex, 1)
+              game.score += 150
+
+              // Create destruction particles
+              for (let i = 0; i < 8; i++) {
+                game.particles.push(createParticle(enemy.x, enemy.y, "#00ff88"))
+              }
+            }
+          })
+
+          // Remove beam if it goes off screen or life expires
+          if (bullet.life <= 0 || bullet.y < -bullet.height) {
+            game.playerBullets.splice(bulletIndex, 1)
+            return
+          }
+        }
+
+        // Regular bullet collision detection
+        if (bullet.type !== "bomb" && bullet.type !== "pulse_beam") {
+          game.enemies.forEach((enemy, enemyIndex) => {
+            const dx = bullet.x - enemy.x
+            const dy = bullet.y - enemy.y
+            const distance = Math.sqrt(dx * dx + dy * dy)
+
+            if (distance < bullet.size + enemy.size) {
+              const bulletDamage = 10 // Standard bullet damage
+              enemy.health -= bulletDamage
+              game.playerBullets.splice(bulletIndex, 1)
+
+              // Create hit particles
+              for (let i = 0; i < 3; i++) {
+                game.particles.push(createParticle(enemy.x, enemy.y, "#ffaa00"))
+              }
+
+              // Only remove enemy if health reaches 0
+              if (enemy.health <= 0) {
+                game.enemies.splice(enemyIndex, 1)
+
+                const baseScore = enemy.points || 50
+                const bonusScore = Math.floor(game.gameTime / 10000) * 10
+                game.score += baseScore + bonusScore
+
+                // Create destruction particles
+                for (let i = 0; i < 5; i++) {
+                  game.particles.push(createParticle(enemy.x, enemy.y, "#ff8800"))
+                }
+              }
+            }
+          })
+        }
+      })
+    },
+    [createParticle],
+  ) // Added createParticle as a dependency
 
   const gameLoop = useCallback(
     (currentTime) => {
@@ -639,18 +872,39 @@ export default function SpaceShooter({
 
           if (hasDualShot) {
             // Dual shot for both platforms with upgrade
-            game.bullets.push(
-              { x: game.player.x - 8, y: game.player.y - 20, vx: bulletVx - 0.5, vy: bulletVy, friendly: true },
-              { x: game.player.x + 8, y: game.player.y - 20, vx: bulletVx + 0.5, vy: bulletVy, friendly: true },
+            game.playerBullets.push(
+              {
+                x: game.player.x - 8,
+                y: game.player.y - 20,
+                vx: bulletVx - 0.5,
+                vy: bulletVy,
+                friendly: true,
+                type: "normal",
+                damage: 10,
+                size: 2,
+              },
+              {
+                x: game.player.x + 8,
+                y: game.player.y - 20,
+                vx: bulletVx + 0.5,
+                vy: bulletVy,
+                friendly: true,
+                type: "normal",
+                damage: 10,
+                size: 2,
+              },
             )
           } else {
             // Single shot default
-            game.bullets.push({
+            game.playerBullets.push({
               x: game.player.x,
               y: game.player.y - 20,
               vx: bulletVx,
               vy: bulletVy,
               friendly: true,
+              type: "normal",
+              damage: 10,
+              size: 2,
             })
           }
           game.lastShot = game.gameTime
@@ -754,7 +1008,7 @@ export default function SpaceShooter({
         }
 
         // Update bullets with new physics
-        game.bullets = game.bullets.filter((bullet) => {
+        game.playerBullets = game.playerBullets.filter((bullet) => {
           bullet.x += bullet.vx
           bullet.y += bullet.vy
           // Bullets with momentum can go slightly off-screen horizontally
@@ -809,12 +1063,15 @@ export default function SpaceShooter({
                 if (playerDist > 0) {
                   // Sometimes shoot slightly off-target for chaos
                   const accuracy = Math.random() < 0.8 ? 1 : 0.7 + Math.random() * 0.6
-                  game.bullets.push({
+                  game.playerBullets.push({
                     x: enemy.x,
                     y: enemy.y + 15,
                     vx: (playerDx / playerDist) * 3.5 * accuracy,
                     vy: (playerDy / playerDist) * 3.5 * accuracy,
                     friendly: false,
+                    type: "enemy",
+                    damage: 15,
+                    size: 3,
                   })
                 }
                 enemy.lastShot = game.gameTime
@@ -833,13 +1090,16 @@ export default function SpaceShooter({
                 const playerDy = game.player.y - enemy.y
                 const playerDist = Math.sqrt(playerDx * playerDx + playerDy * playerDy)
                 if (playerDist > 0) {
-                  game.bullets.push({
+                  game.playerBullets.push({
                     x: enemy.x,
                     y: enemy.y + 10,
                     vx: (playerDx / playerDist) * 6,
                     vy: (playerDy / playerDist) * 6, // Even faster bullets
                     friendly: false,
                     color: "#f56565",
+                    type: "enemy",
+                    damage: 20,
+                    size: 3,
                   })
                 }
                 enemy.lastShot = game.gameTime
@@ -852,13 +1112,16 @@ export default function SpaceShooter({
               if (game.gameTime - enemy.lastShot > guardianShootFreq && enemy.y > 0 && game.player) {
                 const spread = [-0.4, -0.2, 0, 0.2, 0.4] // 5-shot spread instead of 3
                 spread.forEach((angle) => {
-                  game.bullets.push({
+                  game.playerBullets.push({
                     x: enemy.x,
                     y: enemy.y + 20,
                     vx: Math.sin(angle) * 3.5,
                     vy: Math.cos(angle) * 3.5,
                     friendly: false,
                     color: "#a0aec0",
+                    type: "enemy",
+                    damage: 15,
+                    size: 3,
                   })
                 })
                 enemy.lastShot = game.gameTime
@@ -867,79 +1130,51 @@ export default function SpaceShooter({
           }
         })
 
-        // Collision detection
-        game.bullets.forEach((bullet, bulletIndex) => {
-          if (!bullet) return // Skip null bullets
-          if (bullet.friendly) {
-            game.enemies.forEach((enemy, enemyIndex) => {
-              if (!enemy) return // Skip null enemies
-              const dx = bullet.x - enemy.x
-              const dy = bullet.y - enemy.y
-              const distance = Math.sqrt(dx * dx + dy * dy)
+        checkBulletCollisions(game) // Pass game state to the function
 
-              if (distance < enemy.size / 2 + (isMobile ? 2 : 1)) {
-                // Adjusted collision for bullet size
-                // Hit enemy
-                enemy.health -= isMobile ? 25 : 20 // More damage on mobile
-                game.bullets.splice(bulletIndex, 1)
+        // Enemy bullets hitting player or shield
+        game.playerBullets.forEach((bullet, bulletIndex) => {
+          if (bullet.friendly) return // Skip player bullets
 
-                // Create particles
-                for (let i = 0; i < 5; i++) {
-                  game.particles.push(createParticle(enemy.x, enemy.y, enemy.color))
-                }
+          if (!game.player) return
+          const dx = bullet.x - game.player.x
+          const dy = bullet.y - game.player.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
 
-                if (enemy.health <= 0) {
-                  game.score += enemy.points
-                  game.enemies.splice(enemyIndex, 1)
+          const playerSize = isMobile ? 18 : 20
+          const shieldRadius = playerSize * 2.2
+          const hasShield = game.playerUpgrades.shield > 0
 
-                  // Explosion particles
-                  for (let i = 0; i < 10; i++) {
-                    game.particles.push(createParticle(enemy.x, enemy.y, "#ffff00"))
-                  }
-                }
-              }
-            })
-          } else {
-            // Enemy bullet hitting player or shield
-            if (!game.player) return
-            const dx = bullet.x - game.player.x
-            const dy = bullet.y - game.player.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
+          if (hasShield && distance < shieldRadius) {
+            // SHIELD REFLECTS BULLET
+            // Calculate reflection angle
+            const angle = Math.atan2(dy, dx)
+            const reflectionSpeed = 4
 
-            const playerSize = isMobile ? 18 : 20
-            const shieldRadius = playerSize * 2.2
-            const hasShield = game.playerUpgrades.shield > 0
+            // Convert enemy bullet to friendly reflected bullet
+            bullet.friendly = true
+            bullet.vx = Math.cos(angle + Math.PI) * reflectionSpeed
+            bullet.vy = Math.sin(angle + Math.PI) * reflectionSpeed
+            bullet.color = "#0088ff" // Shield color
+            bullet.type = "reflected" // Mark as reflected
 
-            if (hasShield && distance < shieldRadius) {
-              // SHIELD REFLECTS BULLET
-              // Calculate reflection angle
-              const angle = Math.atan2(dy, dx)
-              const reflectionSpeed = 4
+            // Shield reflection particles
+            for (let i = 0; i < 5; i++) {
+              game.particles.push(createParticle(bullet.x, bullet.y, "#0088ff"))
+            }
+          } else if (distance < playerSize / 2 + (isMobile ? 2 : 1)) {
+            // Direct hit on player
+            game.player.health -= bullet.damage
+            setPlayerHealth(game.player.health)
+            for (let i = 0; i < 3; i++) {
+              game.particles.push(createParticle(game.player.x, game.player.y, "#ff0000"))
+            }
+            game.playerBullets.splice(bulletIndex, 1)
 
-              // Convert enemy bullet to friendly reflected bullet
-              bullet.friendly = true
-              bullet.vx = Math.cos(angle + Math.PI) * reflectionSpeed
-              bullet.vy = Math.sin(angle + Math.PI) * reflectionSpeed
-              bullet.color = "#0088ff" // Shield color
-
-              // Shield reflection particles
-              for (let i = 0; i < 5; i++) {
-                game.particles.push(createParticle(bullet.x, bullet.y, "#0088ff"))
-              }
-            } else if (distance < playerSize / 2 + (isMobile ? 2 : 1)) {
-              // Direct hit on player
-              game.player.health -= isMobile ? 8 : 10
-              setPlayerHealth(game.player.health)
-              for (let i = 0; i < 3; i++) {
-                game.particles.push(createParticle(game.player.x, game.player.y, "#ff0000"))
-              }
-              game.bullets.splice(bulletIndex, 1)
-
-              if (game.player.health <= 0) {
-                game.gameStatus = "exploding"
-                triggerPlayerExplosion()
-                explosionTimeoutRef.current = setTimeout(endGame, 2000)
-              }
+            if (game.player.health <= 0) {
+              game.gameStatus = "exploding"
+              triggerPlayerExplosion()
+              explosionTimeoutRef.current = setTimeout(endGame, 2000)
             }
           }
         })
@@ -957,9 +1192,8 @@ export default function SpaceShooter({
             if (distance < enemy.size / 2 + playerSize / 2) {
               // Enemy ship hits player - deal damage
               const hasShield = game.playerUpgrades.shield > 0
-              const shieldRadius = playerSize * 2.2
 
-              if (hasShield && distance < shieldRadius) {
+              if (hasShield && distance < playerSize * 2.2) {
                 // Shield absorbs the collision - destroy enemy but no player damage
                 game.score += enemy.points
                 game.enemies.splice(enemyIndex, 1)
@@ -997,7 +1231,7 @@ export default function SpaceShooter({
           })
         }
 
-        // Power-up collision detection - CHANGED TO IMMEDIATE ACTIVATION
+        // Power-up collision detection - All pickups now activate immediately
         if (game.player) {
           const playerSize = isMobile ? 18 : 20
           game.powerUps.forEach((powerUp, powerUpIndex) => {
@@ -1006,42 +1240,13 @@ export default function SpaceShooter({
             const distance = Math.sqrt(dx * dx + dy * dy)
 
             if (distance < powerUp.size / 2 + playerSize / 2) {
-              // Collected power-up - IMMEDIATE ACTIVATION
+              // Collected power-up - IMMEDIATE ACTIVATION ONLY
               game.powerUps.splice(powerUpIndex, 1)
               game.score += 100
 
-              // Check if power-up should be stored or immediately activated
-              // Mobile always activates immediately. Desktop has a chance to store.
-              const shouldStore = !isMobile && Math.random() < 0.3 // 30% chance to store on desktop
-
-              if (shouldStore) {
-                // Try to add to ability slots first (desktop only)
-                let addedToSlot = false
-                for (let i = 0; i < game.abilitySlots.length; i++) {
-                  if (!game.abilitySlots[i]) {
-                    game.abilitySlots[i] = {
-                      type: powerUp.type,
-                      name: powerUp.name,
-                      color: powerUp.color,
-                      duration: powerUp.duration,
-                    }
-                    setAbilitySlots([...game.abilitySlots])
-                    addedToSlot = true
-                    console.log(`${powerUp.name} stored in slot ${i + 1}. Press ${i === 0 ? "Q" : "E"} to activate.`)
-                    break
-                  }
-                }
-
-                if (!addedToSlot) {
-                  // Slots full, activate immediately
-                  game.playerUpgrades[powerUp.type] = game.gameTime + powerUp.duration
-                  console.log(`${powerUp.name} activated immediately (slots full)`)
-                }
-              } else {
-                // Immediate activation (mobile or 70% chance on desktop)
-                game.playerUpgrades[powerUp.type] = game.gameTime + powerUp.duration
-                console.log(`${powerUp.name} activated immediately`)
-              }
+              // Always activate immediately
+              game.playerUpgrades[powerUp.type] = game.gameTime + powerUp.duration
+              console.log(`${powerUp.name} activated immediately`)
 
               // Create particles for collection feedback
               for (let i = 0; i < 8; i++) {
@@ -1115,7 +1320,7 @@ export default function SpaceShooter({
         if (upgrades.speed > 0) {
           ctx.fillStyle = `rgba(255, 136, 0, ${0.4 + Math.sin(game.gameTime * 0.02) * 0.3})`
           ctx.beginPath()
-          ctx.moveTo(0, size * 0.8)
+          ctx.moveTo(0, -size * 0.8)
           ctx.lineTo(size * 0.5, size * 1.2)
           ctx.lineTo(0, size * 1.6)
           ctx.lineTo(-size * 0.5, size * 1.2)
@@ -1292,15 +1497,66 @@ export default function SpaceShooter({
 
         drawPlayer(game.player, game.playerUpgrades)
 
-        game.bullets.forEach((bullet) => {
-          ctx.fillStyle = bullet.color || (bullet.friendly ? "#00ffff" : "#ff0044")
-          const bulletSize = isMobile ? 4 : 2
-          const bulletHeight = isMobile ? 12 : 10
-          ctx.save()
-          ctx.shadowBlur = 8
-          ctx.shadowColor = ctx.fillStyle
-          ctx.fillRect(bullet.x - bulletSize / 2, bullet.y - bulletHeight / 2, bulletSize, bulletHeight)
-          ctx.restore()
+        game.playerBullets.forEach((bullet) => {
+          if (bullet.type === "bomb") {
+            // Render bomb missile with pulsing effect
+            const pulseSize = bullet.size + Math.sin(Date.now() * 0.01) * 2
+            ctx.fillStyle = bullet.color
+            ctx.beginPath()
+            ctx.arc(bullet.x, bullet.y, pulseSize, 0, Math.PI * 2)
+            ctx.fill()
+
+            // Add glow effect
+            ctx.shadowColor = bullet.color
+            ctx.shadowBlur = 10
+            ctx.beginPath()
+            ctx.arc(bullet.x, bullet.y, pulseSize * 0.7, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.shadowBlur = 0
+          } else if (bullet.type === "pulse_beam") {
+            // Render pulse beam as a wide horizontal rectangle
+            ctx.fillStyle = bullet.color
+            ctx.shadowColor = bullet.color
+            ctx.shadowBlur = 15
+            ctx.fillRect(bullet.x - bullet.size / 2, bullet.y - bullet.height / 2, bullet.size, bullet.height)
+            ctx.shadowBlur = 0
+
+            // Add inner bright core
+            ctx.fillStyle = "#ffffff"
+            ctx.fillRect(bullet.x - bullet.size / 2, bullet.y - bullet.height / 4, bullet.size, bullet.height / 2)
+          } else {
+            ctx.fillStyle = bullet.color || "#00ffff"
+            ctx.shadowColor = bullet.color || "#00ffff"
+            ctx.shadowBlur = 8
+
+            // Draw laser as elongated rectangle with rounded ends
+            const laserWidth = bullet.size
+            const laserHeight = bullet.size * 3 // Make it 3x taller for laser appearance
+
+            ctx.beginPath()
+            ctx.roundRect(
+              bullet.x - laserWidth / 2,
+              bullet.y - laserHeight / 2,
+              laserWidth,
+              laserHeight,
+              laserWidth / 2,
+            )
+            ctx.fill()
+
+            // Add bright core
+            ctx.fillStyle = "#ffffff"
+            ctx.beginPath()
+            ctx.roundRect(
+              bullet.x - laserWidth / 4,
+              bullet.y - laserHeight / 2,
+              laserWidth / 2,
+              laserHeight,
+              laserWidth / 4,
+            )
+            ctx.fill()
+
+            ctx.shadowBlur = 0
+          }
         })
 
         game.enemies.forEach(drawEnemy)
@@ -1320,9 +1576,28 @@ export default function SpaceShooter({
       wave,
       abilitySlots,
       powerUpTypes,
-      isLandscape, // Added isLandscape to dependencies
+      isLandscape,
+      dimensions.width,
+      dimensions.height,
+      activateTimedAbility,
+      timedAbilities,
+      checkBulletCollisions, // Now properly defined above
     ],
   )
+
+  useEffect(() => {
+    const updateTimedAbilities = () => {
+      setTimedAbilities((prev) =>
+        prev.map((ability) => ({
+          ...ability,
+          cooldown: Math.max(0, ability.cooldown - 16.67), // Reduce by ~16.67ms per frame (60fps)
+        })),
+      )
+    }
+
+    const interval = setInterval(updateTimedAbilities, 16.67)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     if (!isMobile) {
@@ -1395,21 +1670,14 @@ export default function SpaceShooter({
       {gameState === "playing" && (
         <>
           {isMobile ? (
-            <MobileGameUI
-              score={score}
-              abilitySlots={abilitySlots}
-              selectedAbilitySlot={selectedAbilitySlot}
-              onAbilitySlotClick={handleAbilitySlotClick}
-              isPortrait={!isLandscape}
-            />
+            <MobileGameUI score={score} timedAbilities={timedAbilities} onTimedAbilityClick={activateTimedAbility} />
           ) : (
             <GameUI
               score={score}
               health={playerHealth}
               maxHealth={playerMaxHealth}
-              abilitySlots={abilitySlots}
-              selectedAbilitySlot={selectedAbilitySlot}
-              onAbilitySlotClick={handleAbilitySlotClick}
+              timedAbilities={timedAbilities}
+              onTimedAbilityClick={activateTimedAbility}
             />
           )}
         </>
@@ -1434,7 +1702,7 @@ export default function SpaceShooter({
         <div className="mt-4 text-cyan-400 text-center">
           <p className="text-sm">Use WASD or Arrow Keys to move • Auto-firing enabled</p>
           <p className="text-xs text-yellow-400 mt-1">
-            Power-ups activate on pickup (30% chance to store) • Press Q/E to use stored abilities
+            Power-ups activate on pickup • Press Q/E to use timed abilities
           </p>
           {selectedAbilitySlot !== null && (
             <p className="text-xs text-yellow-400 mt-1">Click anywhere on the game area to use selected ability</p>

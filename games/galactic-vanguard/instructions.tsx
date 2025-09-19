@@ -36,6 +36,30 @@ export default function GalacticVanguardInstructions({
           </div>
 
           <div>
+            <h3 className={cn("font-semibold mb-2", isMobile ? "text-base" : "text-lg")}>Controls</h3>
+            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+              <ul className={cn("space-y-1", isMobile ? "text-xs" : "text-sm")}>
+                <li>
+                  • <strong>Movement:</strong> Use WASD or Arrow Keys to move
+                </li>
+                <li>
+                  • <strong>Auto-firing:</strong> Your ship fires automatically
+                </li>
+                <li>
+                  • <strong>Power-ups:</strong> Fly over power-ups to activate (30% chance to store for later use)
+                </li>
+                <li>
+                  • <strong>Q Key:</strong> Use stored missile bomb ability - causes large AOE damage
+                </li>
+                <li>
+                  • <strong>E Key:</strong> Use pulse cannon ability - fires a long horizontal laser that damages all
+                  enemies in its path
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div>
             <h3 className={cn("font-semibold mb-2", isMobile ? "text-base" : "text-lg")}>Scoring System</h3>
             <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
               <ul className={cn("space-y-1", isMobile ? "text-xs" : "text-sm")}>
