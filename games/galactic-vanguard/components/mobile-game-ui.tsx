@@ -49,7 +49,7 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
               key={index}
               onClick={() => onTimedAbilityClick(index)}
               className={`absolute w-20 h-20 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg pointer-events-auto ${
-                index === 0 ? "bottom-16 left-6" : "bottom-16 right-6"
+                index === 0 ? "bottom-32 left-6" : "bottom-32 right-6"
               } ${
                 ability.cooldown > 0
                   ? "border-gray-600 bg-gray-800/80 opacity-60"
