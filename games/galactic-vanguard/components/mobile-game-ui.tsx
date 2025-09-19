@@ -52,15 +52,16 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
         >
           <div className="flex items-center justify-center h-full relative z-10">
             <div className="w-8 h-8 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-red-400">
-                {/* Missile body - solid filled */}
-                <path d="M12 2L15 8H9L12 2Z" />
-                {/* Explosion burst - solid filled */}
-                <path d="M12 10L16 12L12 14L8 12L12 10Z" />
-                <path d="M12 14L15 18L12 16L9 18L12 14Z" />
-                {/* Fins */}
-                <path d="M6 10L10 12L6 14Z" />
-                <path d="M18 10L14 12L18 14Z" />
+              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-orange-400 stroke-orange-300" strokeWidth="1">
+                {/* Missile body - main triangle */}
+                <path d="M12 2L16 10H8L12 2Z" fill="currentColor" />
+                {/* Explosion burst - diamond shape */}
+                <path d="M12 10L18 12L12 14L6 12L12 10Z" fill="currentColor" />
+                {/* Bottom explosion */}
+                <path d="M12 14L15 20L12 18L9 20L12 14Z" fill="currentColor" />
+                {/* Side fins for missile look */}
+                <path d="M8 8L4 10L8 12Z" fill="currentColor" />
+                <path d="M16 8L20 10L16 12Z" fill="currentColor" />
               </svg>
             </div>
           </div>
