@@ -53,7 +53,14 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
           <div className="flex items-center justify-center h-full relative z-10">
             <div className="w-8 h-8 flex items-center justify-center">
               <svg viewBox="0 0 24 24" className="w-6 h-6 fill-red-400">
-                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 13L13 11L15 9H13V7H21V9ZM12 8C15.31 8 18 10.69 18 14C18 17.31 15.31 20 12 20C8.69 20 6 17.31 6 14C6 10.69 8.69 8 12 8ZM12 10C9.79 10 8 11.79 8 14C8 16.21 9.79 18 12 18C14.21 18 16 16.21 16 14C16 11.79 14.21 10 12 10Z" />
+                {/* Missile body */}
+                <path d="M12 2L14 8H10L12 2Z" />
+                {/* Explosion burst */}
+                <path d="M12 10L16 12L12 14L8 12L12 10Z" />
+                <path d="M12 14L15 18L12 16L9 18L12 14Z" />
+                {/* Additional explosion spikes */}
+                <path d="M6 10L10 12L6 14L4 12L6 10Z" />
+                <path d="M18 10L20 12L18 14L14 12L18 10Z" />
               </svg>
             </div>
           </div>
@@ -87,7 +94,12 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
           <div className="flex items-center justify-center h-full relative z-10">
             <div className="w-8 h-8 flex items-center justify-center">
               <svg viewBox="0 0 24 24" className="w-6 h-6 fill-green-400">
-                <path d="M2 12H4L6 9H8L10 12H12L14 9H16L18 12H20L22 9V15H20L18 12H16L14 15H12L10 12H8L6 15H4L2 12Z" />
+                {/* Concentric pulse rings */}
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.7" />
+                {/* Energy beam lines */}
+                <path d="M12 4L12 8M12 16L12 20M4 12L8 12M16 12L20 12" stroke="currentColor" strokeWidth="1.5" />
               </svg>
             </div>
           </div>
@@ -105,10 +117,6 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
             </div>
           )}
         </button>
-      </div>
-
-      <div className="flex justify-center mt-2">
-        <div className="text-xs text-orange-400/80 text-center font-medium">TIMED ABILITIES</div>
       </div>
     </>
   )
