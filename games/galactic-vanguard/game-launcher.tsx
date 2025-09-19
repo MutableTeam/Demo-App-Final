@@ -275,7 +275,7 @@ export default function GalacticVanguardGameLauncher({
       </CardHeader>
 
       <CardContent className={cn(isMobile ? "p-4" : "p-6")}>
-        <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3")}>
+        <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-2")}>
           {galacticVanguardConfig.modes.map((mode) => (
             <Card
               key={mode.id}

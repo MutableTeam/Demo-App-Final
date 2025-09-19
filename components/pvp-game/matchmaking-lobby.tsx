@@ -596,6 +596,11 @@ export default function MatchmakingLobby({
     )
   }
 
+  // Get filtered games based on category
+  const getFilteredGames = () => {
+    return gameRegistry.getGamesByCategory("PvP")
+  }
+
   // Render based on game state
   if (gameState === "results") {
     return isCyberpunk ? (
@@ -670,7 +675,7 @@ export default function MatchmakingLobby({
   }
 
   // Default: lobby state
-  const allGames = gameRegistry.getLiveGames()
+  const allGames = getFilteredGames()
   const filteredLobbies = selectedGameImpl
     ? lobbies.filter((lobby) => lobby.gameType === selectedGameImpl.config.id)
     : []

@@ -939,20 +939,6 @@ export default function MutablePlatform({
                         <span>CONTACT US</span>
                       </div>
                     </SoundButton>
-
-                    <SoundButton
-                      onClick={handleTestAnalytics}
-                      className={cn(
-                        "w-full mt-2 bg-[#FF9800] hover:bg-[#F57C00] text-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono dark:border-gray-700 dark:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]",
-                        isCyberpunk &&
-                          "bg-pink-900/70 hover:bg-pink-800/70 border-pink-500 shadow-pink-500/30 text-pink-300",
-                      )}
-                    >
-                      <div className="flex items-center justify-center">
-                        <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                        <span>TEST ANALYTICS</span>
-                      </div>
-                    </SoundButton>
                   </div>
 
                   <div
