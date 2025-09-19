@@ -52,7 +52,7 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
         >
           <div className="flex items-center justify-center h-full relative z-10">
             <div className="w-8 h-8 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-red-400">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 fill-orange-400 stroke-orange-300" strokeWidth="0.5">
                 {/* Missile body */}
                 <path d="M12 2L14 8H10L12 2Z" />
                 {/* Explosion burst */}
@@ -70,11 +70,6 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
               {createCircularProgress(
                 (timedAbilities[0].maxCooldown - timedAbilities[0].cooldown) / timedAbilities[0].maxCooldown,
               )}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs text-white font-bold bg-black/70 rounded px-1">
-                  {Math.ceil(timedAbilities[0].cooldown / 1000)}
-                </span>
-              </div>
             </div>
           )}
         </button>
@@ -109,11 +104,6 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
               {createCircularProgress(
                 (timedAbilities[1].maxCooldown - timedAbilities[1].cooldown) / timedAbilities[1].maxCooldown,
               )}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs text-white font-bold bg-black/70 rounded px-1">
-                  {Math.ceil(timedAbilities[1].cooldown / 1000)}
-                </span>
-              </div>
             </div>
           )}
         </button>
