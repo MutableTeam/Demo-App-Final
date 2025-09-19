@@ -48,8 +48,8 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
             <button
               key={index}
               onClick={() => onTimedAbilityClick(index)}
-              className={`absolute w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg pointer-events-auto ${
-                index === 0 ? "bottom-4 left-4" : "bottom-4 right-4"
+              className={`absolute w-20 h-20 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg pointer-events-auto ${
+                index === 0 ? "bottom-16 left-6" : "bottom-16 right-6"
               } ${
                 ability.cooldown > 0
                   ? "border-gray-600 bg-gray-800/80 opacity-60"
@@ -59,9 +59,13 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
             >
               <div className="flex items-center justify-center h-full relative z-10">
                 {index === 0 ? (
-                  <img src="/images/bomb-missile-ability.jpg" alt="Bomb Missile" className="w-12 h-12 object-contain" />
+                  <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+                    <div className="text-white text-2xl font-bold">💥</div>
+                  </div>
                 ) : (
-                  <img src="/images/pulse-cannon-ability.jpg" alt="Pulse Cannon" className="w-12 h-12 object-contain" />
+                  <div className="w-14 h-14 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center shadow-lg">
+                    <div className="text-white text-2xl font-bold">⚡</div>
+                  </div>
                 )}
               </div>
 
@@ -69,7 +73,7 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
                 <div className="absolute inset-0 text-cyan-400">
                   {createCircularProgress(cooldownProgress)}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs text-white font-bold bg-black/70 rounded px-1 py-0.5">
+                    <span className="text-sm text-white font-bold bg-black/70 rounded px-2 py-1">
                       {Math.ceil(ability.cooldown / 1000)}
                     </span>
                   </div>
