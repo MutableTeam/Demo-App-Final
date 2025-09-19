@@ -91,14 +91,7 @@ export default function GameUI({ score, health, maxHealth, timedAbilities, onTim
                   </div>
 
                   {ability.cooldown > 0 && (
-                    <div className="absolute inset-0 text-orange-400">
-                      {createCircularProgress(cooldownProgress)}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xs text-white font-bold bg-black/80 rounded px-1">
-                          {Math.ceil(ability.cooldown / 1000)}
-                        </span>
-                      </div>
-                    </div>
+                    <div className="absolute inset-0 text-orange-400">{createCircularProgress(cooldownProgress)}</div>
                   )}
                 </button>
               )
