@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { usePlatform } from "@/contexts/platform-context"
 import SpaceShooter from "./space-shooter"
 import GamePopOutContainer, { type GamePopOutContainerRef } from "@/components/game-pop-out-container"
+import LeaderboardScreen from "./components/leaderboard-screen"
 
 interface GalacticVanguardGameLauncherProps {
   publicKey: string
@@ -31,6 +32,7 @@ export default function GalacticVanguardGameLauncher({
   const [selectedMode, setSelectedMode] = useState<string | null>(null)
   const [gameStarted, setGameStarted] = useState(false)
   const [isGamePopOutOpen, setIsGamePopOutOpen] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const { toast } = useToast()
   const { platformType } = usePlatform()
   const isMobile = platformType === "mobile"
@@ -54,6 +56,11 @@ export default function GalacticVanguardGameLauncher({
     }
 
     setSelectedMode(modeId)
+    setShowLeaderboard(true)
+  }
+
+  const handleContinueToGame = () => {
+    setShowLeaderboard(false)
     setGameStarted(true)
     setIsGamePopOutOpen(true)
     setTimeout(() => {
@@ -66,17 +73,9 @@ export default function GalacticVanguardGameLauncher({
     })
   }
 
-  const handleStartGame = () => {
-    setGameStarted(true)
-    setIsGamePopOutOpen(true)
-    setTimeout(() => {
-      popOutRef.current?.triggerFullscreen()
-    }, 100)
-
-    toast({
-      title: "Loading Game",
-      description: "Space Defender is loading...",
-    })
+  const handleBackFromLeaderboard = () => {
+    setShowLeaderboard(false)
+    setSelectedMode(null)
   }
 
   const handleClosePopOut = () => {
@@ -103,6 +102,17 @@ export default function GalacticVanguardGameLauncher({
           platformType={platformType}
         />
       </div>
+    )
+  }
+
+  if (showLeaderboard && selectedMode) {
+    return (
+      <LeaderboardScreen
+        onContinue={handleContinueToGame}
+        onBack={handleBackFromLeaderboard}
+        isCyberpunk={isCyberpunk}
+        isMobile={isMobile}
+      />
     )
   }
 

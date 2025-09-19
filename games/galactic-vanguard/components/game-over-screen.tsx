@@ -12,7 +12,7 @@ export default function GameOverScreen({ score, wave, onRestart, isMobile }) {
 
   const loadHighScores = useCallback(async () => {
     try {
-      const response = await fetch("/api/highscores?limit=10&gameType=galactic-vanguard")
+      const response = await fetch("/api/galactic-vanguard-highscores?limit=10")
       if (response.ok) {
         const data = await response.json()
         setHighScores(data.highScores)

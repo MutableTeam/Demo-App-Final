@@ -198,19 +198,19 @@ export default function SpaceShooter({
 
   const enemyTypes = useMemo(() => {
     const desktopTypes = {
-      scout: { health: 25, speed: 1.4, color: "#ff4444", size: 15, points: 10, behavior: "direct" }, // Reduced from 2.8
-      fighter: { health: 50, speed: 1.1, color: "#4444ff", size: 20, points: 25, behavior: "zigzag" }, // Reduced from 2.2
-      bomber: { health: 100, speed: 0.6, color: "#ff8844", size: 30, points: 50, behavior: "shoot" }, // Reduced from 1.2
-      hunter: { health: 40, speed: 1.75, color: "#f56565", size: 20, points: 75, behavior: "strafe_shoot" }, // Reduced from 3.5
-      guardian: { health: 250, speed: 0.3, color: "#a0aec0", size: 45, points: 250, behavior: "spread_shot" }, // Reduced from 0.6
+      scout: { health: 25, speed: 2.2, color: "#ff4444", size: 15, points: 10, behavior: "direct" }, // Increased from 1.4, red ships are fastest
+      fighter: { health: 50, speed: 1.6, color: "#4444ff", size: 20, points: 25, behavior: "zigzag" }, // Increased from 1.1
+      bomber: { health: 100, speed: 0.9, color: "#ff8844", size: 30, points: 50, behavior: "shoot" }, // Increased from 0.6
+      hunter: { health: 40, speed: 2.8, color: "#f56565", size: 20, points: 75, behavior: "strafe_shoot" }, // Increased from 1.75, red ships are fast
+      guardian: { health: 250, speed: 0.5, color: "#a0aec0", size: 45, points: 250, behavior: "spread_shot" }, // Increased from 0.3
     }
 
     const mobileTypes = {
-      scout: { health: 18, speed: 0.9, color: "#ff4444", size: 22, points: 15, behavior: "direct" }, // Reduced from 1.8
-      fighter: { health: 35, speed: 0.75, color: "#4444ff", size: 28, points: 30, behavior: "zigzag" }, // Reduced from 1.5
-      bomber: { health: 70, speed: 0.4, color: "#ff8844", size: 38, points: 60, behavior: "shoot" }, // Reduced from 0.8
-      hunter: { health: 30, speed: 1.4, color: "#f56565", size: 25, points: 80, behavior: "strafe_shoot" }, // Reduced from 2.8
-      guardian: { health: 180, speed: 0.225, color: "#a0aec0", size: 50, points: 275, behavior: "spread_shot" }, // Reduced from 0.45
+      scout: { health: 18, speed: 1.4, color: "#ff4444", size: 22, points: 15, behavior: "direct" }, // Increased from 0.9
+      fighter: { health: 35, speed: 1.1, color: "#4444ff", size: 28, points: 30, behavior: "zigzag" }, // Increased from 0.75
+      bomber: { health: 70, speed: 0.6, color: "#ff8844", size: 38, points: 60, behavior: "shoot" }, // Increased from 0.4
+      hunter: { health: 30, speed: 2.0, color: "#f56565", size: 25, points: 80, behavior: "strafe_shoot" }, // Increased from 1.4
+      guardian: { health: 180, speed: 0.35, color: "#a0aec0", size: 50, points: 275, behavior: "spread_shot" }, // Increased from 0.225
     }
 
     return isMobile ? mobileTypes : desktopTypes
@@ -341,6 +341,7 @@ export default function SpaceShooter({
 
   const handleKeyDown = useCallback(
     (e) => {
+      if (!e.code) return
       gameStateRef.current.keys[e.code.toLowerCase()] = true
 
       // Handle ability activation with Q and E keys
@@ -362,6 +363,7 @@ export default function SpaceShooter({
   )
 
   const handleKeyUp = useCallback((e) => {
+    if (!e.code) return
     gameStateRef.current.keys[e.code.toLowerCase()] = false
   }, [])
 
@@ -390,7 +392,7 @@ export default function SpaceShooter({
     const playDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
 
     try {
-      const response = await fetch("/api/highscores", {
+      const response = await fetch("/api/galactic-vanguard-highscores", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -405,6 +407,8 @@ export default function SpaceShooter({
 
       if (!response.ok) {
         console.error("Failed to save high score")
+      } else {
+        console.log("[v0] High score saved successfully")
       }
     } catch (error) {
       console.error("Error saving high score:", error)
@@ -566,8 +570,8 @@ export default function SpaceShooter({
           game.player.prevY = game.player.y
         }
 
-        // Update player position with reduced speed
-        const baseSpeed = 3 // Reduced from 6 (50% reduction)
+        // Update player position with increased speed
+        const baseSpeed = 3 // Reduced from 6 to 3 (50% reduction)
         const speedMultiplier = game.playerUpgrades.speed > 0 ? 1.5 : 1
         const maxSpeed = baseSpeed * speedMultiplier
 
@@ -678,30 +682,26 @@ export default function SpaceShooter({
           return powerUp.y < canvas.height + 20
         })
 
-        // SEGREGATED WAVE PROGRESSION: Mobile vs Desktop (ACCELERATED)
+        // SEGREGATED WAVE PROGRESSION: Mobile vs Desktop (FASTER START)
         if (isMobile) {
-          // Accelerated: What was wave 3 is now wave 1
-          game.wave = Math.floor(game.gameTime / 6000) + 3 // Faster progression, start at effective wave 3
+          game.wave = Math.floor(game.gameTime / 4000) + 1 // Faster progression, start at wave 1
         } else {
-          // Accelerated: What was wave 3 is now wave 1
-          game.wave = Math.floor(game.gameTime / 7500) + 3 // Faster progression, start at effective wave 3
+          game.wave = Math.floor(game.gameTime / 5000) + 1 // Faster progression, start at wave 1
         }
 
         // SEGREGATED ENEMY SPAWNING: Mobile gets more aggressive progression
         let waveProgression, spawnRateMultiplier, currentSpawnRate, minSpawnInterval
 
         if (isMobile) {
-          // Mobile: More aggressive difficulty curve (adjusted for new wave offset)
-          waveProgression = Math.pow(game.wave - 3, 1.6) // Adjusted base since we start at wave 3
-          spawnRateMultiplier = 1 + waveProgression * 0.18 // Higher scaling
+          waveProgression = Math.pow(game.wave, 1.6)
+          spawnRateMultiplier = 1 + waveProgression * 0.18
           currentSpawnRate = game.baseEnemySpawnRate * spawnRateMultiplier
-          minSpawnInterval = 300 // Shorter intervals between spawns
+          minSpawnInterval = 250 // Reduced from 300 for faster enemy spawning
         } else {
-          // Desktop: Balanced difficulty curve (adjusted for new wave offset)
-          waveProgression = Math.pow(game.wave - 3, 1.4) // Adjusted base since we start at wave 3
-          spawnRateMultiplier = 1 + waveProgression * 0.12 // Gentler scaling
+          waveProgression = Math.pow(game.wave, 1.4)
+          spawnRateMultiplier = 1 + waveProgression * 0.12
           currentSpawnRate = game.baseEnemySpawnRate * spawnRateMultiplier
-          minSpawnInterval = 400 // Longer intervals between spawns
+          minSpawnInterval = 300 // Reduced from 400 for faster enemy spawning
         }
 
         if (Math.random() < currentSpawnRate && game.gameTime - game.lastEnemySpawn > minSpawnInterval) {
@@ -709,15 +709,14 @@ export default function SpaceShooter({
           let spawnCount, enemyType
 
           if (isMobile) {
-            // Mobile: Adjusted thresholds since we now start at effective wave 3
-            spawnCount = game.wave > 5 && Math.random() < 0.3 ? 2 : 1
+            spawnCount = game.wave > 3 && Math.random() < 0.3 ? 2 : 1
 
             const rand = Math.random()
-            if (game.wave >= 8 && rand > 0.95) {
+            if (game.wave >= 6 && rand > 0.95) {
               enemyType = "guardian"
-            } else if (game.wave >= 6 && rand > 0.85) {
+            } else if (game.wave >= 4 && rand > 0.85) {
               enemyType = "hunter"
-            } else if (game.wave >= 4 && rand > 0.6) {
+            } else if (game.wave >= 2 && rand > 0.6) {
               enemyType = "bomber"
             } else if (rand > 0.4) {
               enemyType = "fighter"
@@ -725,15 +724,14 @@ export default function SpaceShooter({
               enemyType = "scout"
             }
           } else {
-            // Desktop: Adjusted thresholds since we now start at effective wave 3
-            spawnCount = game.wave > 6 && Math.random() < 0.2 ? 2 : 1
+            spawnCount = game.wave > 4 && Math.random() < 0.2 ? 2 : 1
 
             const rand = Math.random()
-            if (game.wave >= 10 && rand > 0.97) {
+            if (game.wave >= 8 && rand > 0.97) {
               enemyType = "guardian"
-            } else if (game.wave >= 7 && rand > 0.9) {
+            } else if (game.wave >= 5 && rand > 0.9) {
               enemyType = "hunter"
-            } else if (game.wave >= 5 && rand > 0.7) {
+            } else if (game.wave >= 3 && rand > 0.7) {
               enemyType = "bomber"
             } else if (rand > 0.5) {
               enemyType = "fighter"
@@ -764,7 +762,7 @@ export default function SpaceShooter({
         })
 
         // Update enemies with CHAOTIC BEHAVIOR
-        game.enemies.forEach((enemy) => {
+        game.enemies.forEach((enemy, enemyIndex) => {
           enemy.behaviorTimer += deltaTime
           const chaosWave = Math.sin(game.gameTime * 0.001 + enemy.chaosOffset) * 0.5
 
@@ -871,8 +869,10 @@ export default function SpaceShooter({
 
         // Collision detection
         game.bullets.forEach((bullet, bulletIndex) => {
+          if (!bullet) return // Skip null bullets
           if (bullet.friendly) {
             game.enemies.forEach((enemy, enemyIndex) => {
+              if (!enemy) return // Skip null enemies
               const dx = bullet.x - enemy.x
               const dy = bullet.y - enemy.y
               const distance = Math.sqrt(dx * dx + dy * dy)
@@ -944,57 +944,54 @@ export default function SpaceShooter({
           }
         })
 
-        // Enemy-player collision and SHIELD DAMAGE
+        // Ship-to-ship collision detection (enemies hitting player directly)
         if (game.player) {
+          const playerSize = isMobile ? 18 : 20
           game.enemies.forEach((enemy, enemyIndex) => {
-            if (!game.player) return
-
+            if (!enemy) return // Skip null enemies
             const dx = enemy.x - game.player.x
             const dy = enemy.y - game.player.y
             const distance = Math.sqrt(dx * dx + dy * dy)
 
-            const playerSize = isMobile ? 18 : 20
-            const hasShield = game.playerUpgrades.shield > 0
-            const shieldRadius = playerSize * 2.2
-            const collisionDistance = enemy.size / 2 + playerSize / 2
+            // Check if enemy ship collides with player ship
+            if (distance < enemy.size / 2 + playerSize / 2) {
+              // Enemy ship hits player - deal damage
+              const hasShield = game.playerUpgrades.shield > 0
+              const shieldRadius = playerSize * 2.2
 
-            if (hasShield && distance < shieldRadius) {
-              // SHIELD DAMAGES ENEMY
-              enemy.health -= isMobile ? 2 : 3 // Continuous shield damage
-
-              // Shield damage particles
-              for (let i = 0; i < 3; i++) {
-                game.particles.push(createParticle(enemy.x, enemy.y, "#0088ff"))
-              }
-
-              // Push enemy away from shield
-              const pushForce = 3
-              enemy.x += (dx / distance) * pushForce
-              enemy.y += (dy / distance) * pushForce
-
-              if (enemy.health <= 0) {
+              if (hasShield && distance < shieldRadius) {
+                // Shield absorbs the collision - destroy enemy but no player damage
                 game.score += enemy.points
                 game.enemies.splice(enemyIndex, 1)
 
-                // Explosion particles
-                for (let i = 0; i < 10; i++) {
-                  game.particles.push(createParticle(enemy.x, enemy.y, "#ffff00"))
+                // Shield collision particles
+                for (let i = 0; i < 8; i++) {
+                  game.particles.push(createParticle(enemy.x, enemy.y, "#0088ff"))
                 }
-              }
-            } else if (distance < collisionDistance) {
-              // Direct collision with player
-              game.player.health -= isMobile ? 3 : 5
-              setPlayerHealth(game.player.health)
-              for (let i = 0; i < 5; i++) game.particles.push(createParticle(game.player.x, game.player.y, "#ff0000"))
+              } else {
+                // Direct collision - damage player and destroy enemy
+                const collisionDamage = isMobile ? 15 : 20 // Higher damage for ship collisions
+                game.player.health -= collisionDamage
+                setPlayerHealth(game.player.health)
 
-              enemy.health -= 1
-              game.player.x -= (dx / distance) * 2
-              game.player.y -= (dy / distance) * 2
+                // Remove the enemy that collided
+                game.score += Math.floor(enemy.points * 0.5) // Half points for ramming
+                game.enemies.splice(enemyIndex, 1)
 
-              if (game.player.health <= 0) {
-                game.gameStatus = "exploding"
-                triggerPlayerExplosion()
-                explosionTimeoutRef.current = setTimeout(endGame, 2000)
+                // Create collision particles
+                for (let i = 0; i < 10; i++) {
+                  game.particles.push(createParticle(enemy.x, enemy.y, "#ff0000"))
+                }
+                for (let i = 0; i < 5; i++) {
+                  game.particles.push(createParticle(game.player.x, game.player.y, "#ffff00"))
+                }
+
+                // Check if player died from collision
+                if (game.player.health <= 0) {
+                  game.gameStatus = "exploding"
+                  triggerPlayerExplosion()
+                  explosionTimeoutRef.current = setTimeout(endGame, 2000)
+                }
               }
             }
           })
@@ -1095,7 +1092,7 @@ export default function SpaceShooter({
 
       if (game.gameStatus === "playing") {
         // Remove off-screen enemies
-        game.enemies = game.enemies.filter((enemy) => enemy.y < canvas.height + 50)
+        game.enemies = game.enemies.filter((enemy) => enemy && enemy.y < canvas.height + 50)
       }
 
       // --- DRAWING FUNCTIONS ---
