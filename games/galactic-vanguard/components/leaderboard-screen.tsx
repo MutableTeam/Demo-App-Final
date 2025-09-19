@@ -58,42 +58,26 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
   }
 
-  const lightButtonStyle =
-    "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
-
-  return (
-    <div className="absolute inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-30 p-4 overflow-hidden">
-      <Card
-        className={cn(
-          "bg-gradient-to-b from-gray-900 to-black border-cyan-500 border-2 shadow-2xl shadow-cyan-500/20",
-          isMobile ? "w-full max-w-sm h-[90vh] max-h-[600px] flex flex-col" : "max-w-2xl w-full p-6",
-        )}
-      >
-        <CardHeader className={cn("text-center space-y-2 flex-shrink-0", isMobile ? "py-3 px-4" : "")}>
-          <div className="flex justify-center mb-1">
-            <div
-              className={cn(
-                "rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center",
-                isMobile ? "w-10 h-10" : "w-12 h-12",
-              )}
-            >
-              <Trophy className={cn("text-white", isMobile ? "w-5 h-5" : "w-6 h-6")} />
+  if (isMobile) {
+    return (
+      <div className="absolute inset-0 bg-black/95 backdrop-blur-md z-30 flex flex-col">
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 px-4 pt-6 pb-4 text-center">
+          <div className="flex justify-center mb-2">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-white" />
             </div>
           </div>
-          <CardTitle
-            className={cn(
-              "font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent",
-              isMobile ? "text-lg leading-tight" : "text-2xl",
-            )}
-          >
-            TOP PILOTS LEADERBOARD
-          </CardTitle>
-          <p className={cn("text-gray-400", isMobile ? "text-xs" : "text-sm")}>
+          <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent leading-tight">
+            TOP PILOTS
+          </h1>
+          <p className="text-xs text-gray-400 mt-1">
             {highScores.length > 0 ? "Current top performers" : "Be the first to set a record!"}
           </p>
-        </CardHeader>
+        </div>
 
-        <CardContent className={cn("flex flex-col", isMobile ? "flex-1 px-4 pb-4 min-h-0" : "space-y-4")}>
+        {/* Scrollable Content */}
+        <div className="flex-1 px-4 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="text-center text-gray-500 py-8">Loading leaderboard...</div>
           ) : highScores.length === 0 ? (
@@ -103,64 +87,135 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
               <p className="text-sm">Be the first pilot to make it onto the leaderboard.</p>
             </div>
           ) : (
-            <div
-              className={cn(
-                "space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/30 scrollbar-track-transparent",
-                isMobile ? "flex-1 pr-2 mb-4" : "max-h-80",
-              )}
-            >
+            <div className="space-y-3 pb-4">
               {highScores.map((highScore, index) => (
                 <div
                   key={highScore.id}
                   className={cn(
-                    "flex items-center bg-black/40 rounded-lg border",
+                    "bg-black/40 rounded-lg border p-3",
                     index < 3 ? "border-cyan-500/30" : "border-gray-700/30",
-                    isMobile ? "flex-col gap-2 p-2" : "justify-between p-3",
                   )}
                 >
-                  <div className={cn("flex items-center gap-3", isMobile ? "w-full" : "")}>
+                  <div className="flex items-center gap-3 mb-2">
                     {getRankIcon(index + 1)}
-                    <div className={cn("flex-1", isMobile ? "min-w-0" : "")}>
-                      <div className={cn("font-medium text-gray-300 truncate", isMobile ? "text-sm" : "text-base")}>
-                        {highScore.player_name}
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-300 truncate text-sm">{highScore.player_name}</div>
                       <div className="text-xs text-gray-500">{new Date(highScore.created_at).toLocaleDateString()}</div>
                     </div>
                   </div>
 
-                  <div
-                    className={cn(
-                      "flex text-right",
-                      isMobile ? "flex-row gap-4 w-full justify-center" : "items-center gap-4",
-                    )}
-                  >
-                    <div
-                      className={cn("flex items-center gap-1", isMobile ? "text-xs flex-col" : "flex-col items-end")}
-                    >
-                      <div className={cn("font-bold text-cyan-400", isMobile ? "text-xs" : "text-base")}>
-                        {highScore.score.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-500">SCORE</div>
+                  <div className="flex justify-between text-xs">
+                    <div className="text-center">
+                      <div className="font-bold text-cyan-400">{highScore.score.toLocaleString()}</div>
+                      <div className="text-gray-500">SCORE</div>
                     </div>
 
-                    <div
-                      className={cn("flex items-center gap-1", isMobile ? "text-xs flex-col" : "flex-col items-end")}
-                    >
-                      <Zap className="w-3 h-3" />
-                      <div className={cn("font-bold text-purple-400", isMobile ? "text-xs" : "text-base")}>
+                    <div className="text-center">
+                      <div className="font-bold text-purple-400 flex items-center justify-center gap-1">
+                        <Zap className="w-3 h-3" />
                         {highScore.wave}
                       </div>
-                      <div className="text-xs text-gray-500">WAVE</div>
+                      <div className="text-gray-500">WAVE</div>
                     </div>
 
-                    <div
-                      className={cn("flex items-center gap-1", isMobile ? "text-xs flex-col" : "flex-col items-end")}
-                    >
-                      <Clock className="w-3 h-3" />
-                      <div className={cn("font-bold text-green-400", isMobile ? "text-xs" : "text-base")}>
+                    <div className="text-center">
+                      <div className="font-bold text-green-400 flex items-center justify-center gap-1">
+                        <Clock className="w-3 h-3" />
                         {formatDuration(highScore.play_duration)}
                       </div>
-                      <div className="text-xs text-gray-500">TIME</div>
+                      <div className="text-gray-500">TIME</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Fixed Footer Buttons */}
+        <div className="flex-shrink-0 p-4 space-y-3">
+          <Button
+            onClick={onContinue}
+            className="w-full py-3 text-base bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 text-white font-bold rounded-lg shadow-lg shadow-cyan-500/30 transition-all duration-300"
+          >
+            CONTINUE
+          </Button>
+
+          <Button
+            onClick={onBack}
+            className="w-full py-3 text-base bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-all duration-300"
+          >
+            BACK
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="absolute inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-30 p-8">
+      <Card className="bg-gradient-to-b from-gray-900 to-black border-cyan-500 border-2 shadow-2xl shadow-cyan-500/20 max-w-4xl w-full">
+        <CardHeader className="text-center space-y-4 pb-6">
+          <div className="flex justify-center mb-2">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center">
+              <Trophy className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+            TOP PILOTS LEADERBOARD
+          </CardTitle>
+          <p className="text-gray-400 text-lg">
+            {highScores.length > 0 ? "Current top performers" : "Be the first to set a record!"}
+          </p>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {isLoading ? (
+            <div className="text-center text-gray-500 py-12 text-xl">Loading leaderboard...</div>
+          ) : highScores.length === 0 ? (
+            <div className="text-center text-gray-400 py-12 space-y-4">
+              <Trophy className="w-20 h-20 text-gray-600 mx-auto mb-6" />
+              <p className="text-2xl font-semibold">No scores yet!</p>
+              <p className="text-lg">Be the first pilot to make it onto the leaderboard.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-500/30 scrollbar-track-transparent pr-2">
+              {highScores.map((highScore, index) => (
+                <div
+                  key={highScore.id}
+                  className={cn(
+                    "flex items-center justify-between bg-black/40 rounded-lg border p-4 hover:bg-black/60 transition-colors",
+                    index < 3 ? "border-cyan-500/30" : "border-gray-700/30",
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    {getRankIcon(index + 1)}
+                    <div>
+                      <div className="font-medium text-gray-300 text-lg">{highScore.player_name}</div>
+                      <div className="text-sm text-gray-500">{new Date(highScore.created_at).toLocaleDateString()}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <div className="font-bold text-cyan-400 text-xl">{highScore.score.toLocaleString()}</div>
+                      <div className="text-sm text-gray-500">SCORE</div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-bold text-purple-400 text-xl flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        {highScore.wave}
+                      </div>
+                      <div className="text-sm text-gray-500">WAVE</div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-bold text-green-400 text-xl flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        {formatDuration(highScore.play_duration)}
+                      </div>
+                      <div className="text-sm text-gray-500">TIME</div>
                     </div>
                   </div>
                 </div>
@@ -168,25 +223,19 @@ export default function LeaderboardScreen({ onContinue, onBack, isCyberpunk, isM
             </div>
           )}
 
-          <div className={cn("flex gap-3 flex-shrink-0", isMobile ? "flex-col-reverse" : "flex-row pt-4")}>
+          <div className="flex gap-4 pt-6">
             <Button
               onClick={onContinue}
-              className={cn(
-                "flex-1 bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 text-white font-bold rounded-lg shadow-lg shadow-cyan-500/30 transition-all duration-300",
-                isMobile ? "py-3 text-base" : "py-2",
-              )}
+              className="flex-1 py-3 text-lg bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 text-white font-bold rounded-lg shadow-lg shadow-cyan-500/30 transition-all duration-300"
             >
-              CONTINUE
+              CONTINUE TO GAME
             </Button>
 
             <Button
               onClick={onBack}
-              className={cn(
-                "flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-all duration-300",
-                isMobile ? "py-3 text-base" : "py-2",
-              )}
+              className="flex-1 py-3 text-lg bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg transition-all duration-300"
             >
-              BACK
+              BACK TO MODES
             </Button>
           </div>
         </CardContent>
