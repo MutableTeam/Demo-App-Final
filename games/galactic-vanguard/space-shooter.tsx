@@ -733,7 +733,7 @@ export default function SpaceShooter({
             const distance = Math.sqrt(dx * dx + dy * dy)
 
             if (distance < bullet.size + enemy.size) {
-              const bulletDamage = 10 // Standard bullet damage
+              const bulletDamage = 15 // Standard bullet damage
               enemy.health -= bulletDamage
               game.playerBullets.splice(bulletIndex, 1)
 
@@ -880,7 +880,7 @@ export default function SpaceShooter({
                 vy: bulletVy,
                 friendly: true,
                 type: "normal",
-                damage: 10,
+                damage: 15,
                 size: 2,
               },
               {
@@ -890,7 +890,7 @@ export default function SpaceShooter({
                 vy: bulletVy,
                 friendly: true,
                 type: "normal",
-                damage: 10,
+                damage: 15,
                 size: 2,
               },
             )
@@ -903,7 +903,7 @@ export default function SpaceShooter({
               vy: bulletVy,
               friendly: true,
               type: "normal",
-              damage: 10,
+              damage: 15,
               size: 2,
             })
           }
