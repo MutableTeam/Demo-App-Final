@@ -53,52 +53,92 @@ export default function GameUI({ score, health, maxHealth, timedAbilities, onTim
       </div>
 
       {timedAbilities && timedAbilities.length > 0 && (
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
-          <div className="text-xs text-orange-400 mb-2 text-center font-semibold">TIMED ABILITIES</div>
-          <div className="flex gap-4 justify-center">
-            {timedAbilities.map((ability, index) => {
-              const cooldownProgress =
-                ability.cooldown > 0 ? (ability.maxCooldown - ability.cooldown) / ability.maxCooldown : 1
+        <>
+          {/* Left side button - Bomb Missile */}
+          <div className="absolute left-4 bottom-20 z-30 pointer-events-auto">
+            <button
+              onClick={() => onTimedAbilityClick && onTimedAbilityClick(0)}
+              className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
+                timedAbilities[0]?.cooldown > 0
+                  ? "border-gray-600 bg-gray-800/80 opacity-60"
+                  : "border-orange-500 bg-orange-500/30 hover:bg-orange-500/40 active:bg-orange-500/50 hover:scale-105 shadow-orange-500/50 shadow-2xl animate-pulse"
+              }`}
+              disabled={timedAbilities[0]?.cooldown > 0}
+              style={
+                timedAbilities[0]?.cooldown > 0
+                  ? {}
+                  : {
+                      boxShadow: "0 0 20px rgba(249, 115, 22, 0.6), 0 0 40px rgba(249, 115, 22, 0.3)",
+                    }
+              }
+            >
+              <div className="flex items-center justify-center h-full relative z-10">
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6 fill-orange-400 stroke-orange-300" strokeWidth="1">
+                    {/* Missile body - main triangle */}
+                    <path d="M12 2L16 10H8L12 2Z" fill="currentColor" />
+                    {/* Explosion burst - diamond shape */}
+                    <path d="M12 10L18 12L12 14L6 12L12 10Z" fill="currentColor" />
+                    {/* Bottom explosion */}
+                    <path d="M12 14L15 20L12 18L9 20L12 14Z" fill="currentColor" />
+                    {/* Side fins for missile look */}
+                    <path d="M8 8L4 10L8 12Z" fill="currentColor" />
+                    <path d="M16 8L20 10L16 12Z" fill="currentColor" />
+                  </svg>
+                </div>
+              </div>
 
-              return (
-                <button
-                  key={index}
-                  onClick={() => onTimedAbilityClick && onTimedAbilityClick(index)}
-                  className={`w-16 h-16 rounded-lg border-2 transition-all duration-200 relative overflow-hidden ${
-                    ability.cooldown > 0
-                      ? "border-gray-600 bg-gray-800/60 opacity-60"
-                      : "border-orange-500 bg-orange-500/20 hover:bg-orange-500/30 hover:scale-105"
-                  }`}
-                  disabled={ability.cooldown > 0}
-                  title={`${ability.name} - Press ${index === 0 ? "Q" : "E"} key`}
-                >
-                  <div className="flex flex-col items-center justify-center h-full relative z-10">
-                    {index === 0 ? (
-                      // Bomb Missile Icon
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        <svg viewBox="0 0 24 24" className="w-6 h-6 fill-red-400">
-                          <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 13L13 11L15 9H13V7H21V9ZM12 8C15.31 8 18 10.69 18 14C18 17.31 15.31 20 12 20C8.69 20 6 17.31 6 14C6 10.69 8.69 8 12 8ZM12 10C9.79 10 8 11.79 8 14C8 16.21 9.79 18 12 18C14.21 18 16 16.21 16 14C16 11.79 14.21 10 12 10Z" />
-                        </svg>
-                      </div>
-                    ) : (
-                      // Pulse Beam Icon
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        <svg viewBox="0 0 24 24" className="w-6 h-6 fill-green-400">
-                          <path d="M2 12H4L6 9H8L10 12H12L14 9H16L18 12H20L22 9V15H20L18 12H16L14 15H12L10 12H8L6 15H4L2 12Z" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-
-                  {ability.cooldown > 0 && (
-                    <div className="absolute inset-0 text-orange-400">{createCircularProgress(cooldownProgress)}</div>
+              {timedAbilities[0]?.cooldown > 0 && (
+                <div className="absolute inset-0 text-orange-400">
+                  {createCircularProgress(
+                    (timedAbilities[0].maxCooldown - timedAbilities[0].cooldown) / timedAbilities[0].maxCooldown,
                   )}
-                </button>
-              )
-            })}
+                </div>
+              )}
+            </button>
           </div>
-          <div className="text-xs text-gray-400 mt-1 text-center">Press Q/E</div>
-        </div>
+
+          {/* Right side button - Pulse Beam */}
+          <div className="absolute right-4 bottom-20 z-30 pointer-events-auto">
+            <button
+              onClick={() => onTimedAbilityClick && onTimedAbilityClick(1)}
+              className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
+                timedAbilities[1]?.cooldown > 0
+                  ? "border-gray-600 bg-gray-800/80 opacity-60"
+                  : "border-green-500 bg-green-500/30 hover:bg-green-500/40 active:bg-green-500/50 hover:scale-105 shadow-green-500/50 shadow-2xl animate-pulse"
+              }`}
+              disabled={timedAbilities[1]?.cooldown > 0}
+              style={
+                timedAbilities[1]?.cooldown > 0
+                  ? {}
+                  : {
+                      boxShadow: "0 0 20px rgba(34, 197, 94, 0.6), 0 0 40px rgba(34, 197, 94, 0.3)",
+                    }
+              }
+            >
+              <div className="flex items-center justify-center h-full relative z-10">
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6 fill-green-400">
+                    {/* Concentric pulse rings */}
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.7" />
+                    {/* Energy beam lines */}
+                    <path d="M12 4L12 8M12 16L12 20M4 12L8 12M16 12L20 12" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </div>
+              </div>
+
+              {timedAbilities[1]?.cooldown > 0 && (
+                <div className="absolute inset-0 text-orange-400">
+                  {createCircularProgress(
+                    (timedAbilities[1].maxCooldown - timedAbilities[1].cooldown) / timedAbilities[1].maxCooldown,
+                  )}
+                </div>
+              )}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
