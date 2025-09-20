@@ -46,9 +46,16 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
           className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
             timedAbilities[0]?.cooldown > 0
               ? "border-gray-600 bg-gray-800/80 opacity-60"
-              : "border-orange-500 bg-orange-500/30 hover:bg-orange-500/40 active:bg-orange-500/50 hover:scale-105"
+              : "border-orange-500 bg-orange-500/30 hover:bg-orange-500/40 active:bg-orange-500/50 hover:scale-105 shadow-orange-500/50 shadow-2xl animate-pulse"
           }`}
           disabled={timedAbilities[0]?.cooldown > 0}
+          style={
+            timedAbilities[0]?.cooldown > 0
+              ? {}
+              : {
+                  boxShadow: "0 0 20px rgba(249, 115, 22, 0.6), 0 0 40px rgba(249, 115, 22, 0.3)",
+                }
+          }
         >
           <div className="flex items-center justify-center h-full relative z-10">
             <div className="w-8 h-8 flex items-center justify-center">
@@ -83,9 +90,16 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
           className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
             timedAbilities[1]?.cooldown > 0
               ? "border-gray-600 bg-gray-800/80 opacity-60"
-              : "border-orange-500 bg-orange-500/30 hover:bg-orange-500/40 active:bg-orange-500/50 hover:scale-105"
+              : "border-green-500 bg-green-500/30 hover:bg-green-500/40 active:bg-green-500/50 hover:scale-105 shadow-green-500/50 shadow-2xl animate-pulse"
           }`}
           disabled={timedAbilities[1]?.cooldown > 0}
+          style={
+            timedAbilities[1]?.cooldown > 0
+              ? {}
+              : {
+                  boxShadow: "0 0 20px rgba(34, 197, 94, 0.6), 0 0 40px rgba(34, 197, 94, 0.3)",
+                }
+          }
         >
           <div className="flex items-center justify-center h-full relative z-10">
             <div className="w-8 h-8 flex items-center justify-center">
