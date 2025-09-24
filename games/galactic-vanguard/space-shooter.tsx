@@ -94,7 +94,7 @@ export default function SpaceShooter({
     },
   ])
 
-  // State for ability slots and selected slot
+  // State for ability slot selection (UI state)
   const [abilitySlots, setAbilitySlots] = useState([null, null])
   const [selectedAbilitySlot, setSelectedAbilitySlot] = useState(null)
 
@@ -141,24 +141,105 @@ export default function SpaceShooter({
 
     const handleTouchStart = (e) => {
       if (!isMobile || gameStateRef.current.gameStatus !== "playing") return
-      if (gameStateRef.current.selectedAbilitySlot === null) {
-        e.preventDefault()
-      }
+
+      // Check if touch is on a UI button (timed abilities)
       const touch = e.touches[0]
-      if (touch) {
-        const rect = e.target.getBoundingClientRect()
-        touchStartRef.current = { x: touch.clientX - rect.left, y: touch.clientY - rect.top }
+      const rect = e.target.getBoundingClientRect()
+      const touchX = touch.clientX - rect.left
+      const touchY = touch.clientY - rect.top
+
+      // Define button areas (bottom left and right corners)
+      const buttonSize = 64 // 16 * 4 (w-16 h-16 in Tailwind)
+      const buttonMargin = 16 // left-4, right-4, bottom-20 (80px from bottom)
+      const bottomMargin = 80 // bottom-20 in Tailwind
+
+      const leftButtonArea = {
+        x: buttonMargin,
+        y: rect.height - bottomMargin - buttonSize,
+        width: buttonSize,
+        height: buttonSize,
+      }
+
+      const rightButtonArea = {
+        x: rect.width - buttonMargin - buttonSize,
+        y: rect.height - bottomMargin - buttonSize,
+        width: buttonSize,
+        height: buttonSize,
+      }
+
+      // Check if touch is within button areas
+      const isOnLeftButton =
+        touchX >= leftButtonArea.x &&
+        touchX <= leftButtonArea.x + leftButtonArea.width &&
+        touchY >= leftButtonArea.y &&
+        touchY <= leftButtonArea.y + leftButtonArea.height
+      const isOnRightButton =
+        touchX >= rightButtonArea.x &&
+        touchX <= rightButtonArea.x + rightButtonArea.width &&
+        touchY >= rightButtonArea.y &&
+        touchY <= rightButtonArea.y + rightButtonArea.height
+
+      // Only prevent default and handle movement if NOT touching buttons
+      if (!isOnLeftButton && !isOnRightButton) {
+        if (gameStateRef.current.selectedAbilitySlot === null) {
+          e.preventDefault()
+        }
+        touchStartRef.current = { x: touchX, y: touchY }
       }
     }
 
     const handleTouchMove = (e) => {
       if (!isMobile || gameStateRef.current.gameStatus !== "playing" || !touchStartRef.current) return
-      e.preventDefault()
-      const touch = e.touches[0]
-      if (touch) {
+
+      let movementTouch = null
+
+      // Find the touch that corresponds to movement (not on buttons)
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i]
         const rect = e.target.getBoundingClientRect()
-        const currentX = touch.clientX - rect.left
-        const currentY = touch.clientY - rect.top
+        const touchX = touch.clientX - rect.left
+        const touchY = touch.clientY - rect.top
+
+        // Check if this touch is in the movement area (not on buttons)
+        const buttonSize = 64
+        const buttonMargin = 16
+        const bottomMargin = 80
+
+        const leftButtonArea = {
+          x: buttonMargin,
+          y: rect.height - bottomMargin - buttonSize,
+          width: buttonSize,
+          height: buttonSize,
+        }
+
+        const rightButtonArea = {
+          x: rect.width - buttonMargin - buttonSize,
+          y: rect.height - bottomMargin - buttonSize,
+          width: buttonSize,
+          height: buttonSize,
+        }
+
+        const isOnButton =
+          (touchX >= leftButtonArea.x &&
+            touchX <= leftButtonArea.x + leftButtonArea.width &&
+            touchY >= leftButtonArea.y &&
+            touchY <= leftButtonArea.y + leftButtonArea.height) ||
+          (touchX >= rightButtonArea.x &&
+            touchX <= rightButtonArea.x + rightButtonArea.width &&
+            touchY >= rightButtonArea.y &&
+            touchY <= rightButtonArea.y + rightButtonArea.height)
+
+        if (!isOnButton) {
+          movementTouch = touch
+          break
+        }
+      }
+
+      if (movementTouch) {
+        e.preventDefault()
+        const rect = e.target.getBoundingClientRect()
+        const currentX = movementTouch.clientX - rect.left
+        const currentY = movementTouch.clientY - rect.top
 
         const startX = touchStartRef.current.x
         const startY = touchStartRef.current.y
@@ -183,10 +264,56 @@ export default function SpaceShooter({
       }
     }
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e) => {
       if (!isMobile) return
-      touchStartRef.current = null // Reset start position
-      setMobileInput({ x: 0, y: 0, magnitude: 0 })
+
+      let hasMovementTouch = false
+
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i]
+        const rect = e.target.getBoundingClientRect()
+        const touchX = touch.clientX - rect.left
+        const touchY = touch.clientY - rect.top
+
+        // Check if remaining touches are movement touches (not on buttons)
+        const buttonSize = 64
+        const buttonMargin = 16
+        const bottomMargin = 80
+
+        const leftButtonArea = {
+          x: buttonMargin,
+          y: rect.height - bottomMargin - buttonSize,
+          width: buttonSize,
+          height: buttonSize,
+        }
+
+        const rightButtonArea = {
+          x: rect.width - buttonMargin - buttonSize,
+          y: rect.height - bottomMargin - buttonSize,
+          width: buttonSize,
+          height: buttonSize,
+        }
+
+        const isOnButton =
+          (touchX >= leftButtonArea.x &&
+            touchX <= leftButtonArea.x + leftButtonArea.width &&
+            touchY >= leftButtonArea.y &&
+            touchY <= leftButtonArea.y + leftButtonArea.height) ||
+          (touchX >= rightButtonArea.x &&
+            touchX <= rightButtonArea.x + rightButtonArea.width &&
+            touchY >= rightButtonArea.y &&
+            touchY <= rightButtonArea.y + rightButtonArea.height)
+
+        if (!isOnButton) {
+          hasMovementTouch = true
+          break
+        }
+      }
+
+      if (!hasMovementTouch) {
+        touchStartRef.current = null
+        setMobileInput({ x: 0, y: 0, magnitude: 0 })
+      }
     }
 
     // Capture canvas reference at the start of the effect

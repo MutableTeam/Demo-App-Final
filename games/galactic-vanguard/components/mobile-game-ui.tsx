@@ -43,6 +43,13 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
       <div className="absolute left-4 bottom-20 z-30 pointer-events-auto">
         <button
           onClick={() => onTimedAbilityClick(0)}
+          onTouchStart={(e) => {
+            e.stopPropagation() // Prevent interference with ship movement
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation() // Prevent interference with ship movement
+            onTimedAbilityClick(0)
+          }}
           className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
             timedAbilities[0]?.cooldown > 0
               ? "border-gray-600 bg-gray-800/80 opacity-60"
@@ -87,6 +94,13 @@ export default function MobileGameUI({ score, timedAbilities, onTimedAbilityClic
       <div className="absolute right-4 bottom-20 z-30 pointer-events-auto">
         <button
           onClick={() => onTimedAbilityClick(1)}
+          onTouchStart={(e) => {
+            e.stopPropagation() // Prevent interference with ship movement
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation() // Prevent interference with ship movement
+            onTimedAbilityClick(1)
+          }}
           className={`w-16 h-16 rounded-xl border-2 transition-all duration-200 relative overflow-hidden shadow-lg ${
             timedAbilities[1]?.cooldown > 0
               ? "border-gray-600 bg-gray-800/80 opacity-60"
