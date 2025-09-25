@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import PromoWatermark from "@/components/promo-watermark"
-import GlobalAudioControls from "@/components/global-audio-controls"
 import DebugOverlay from "@/components/debug-overlay"
 import PlatformSelector from "@/components/platform-selector"
 import { registerGames } from "@/games/registry"
@@ -117,10 +116,6 @@ function HomeContent() {
       <main className="min-h-screen bg-background relative flex flex-col">
         <PromoWatermark />
 
-        <div className="fixed bottom-4 right-4 md:right-8 z-[90]">
-          <GlobalAudioControls />
-        </div>
-
         <div className="flex-1 pb-4">
           <RetroArcadeBackground>
             <div className="max-w-6xl mx-auto p-2 pt-4 md:p-8 md:pt-6 z-10 relative flex items-start justify-center">
@@ -141,10 +136,6 @@ function HomeContent() {
   return (
     <main className="min-h-screen bg-background relative flex flex-col">
       <PromoWatermark />
-
-      <div className="fixed bottom-4 right-4 md:right-8 z-[90]">
-        <GlobalAudioControls />
-      </div>
 
       <div className="flex-1 pb-4">
         <RetroArcadeBackground>

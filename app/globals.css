@@ -29,6 +29,15 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.5rem;
+
+    /* Chat-specific tokens */
+    --chat-background: 222.2 84% 3.9%;
+    --chat-surface: 217.2 32.6% 15.5%;
+    --chat-border: 217.2 32.6% 20.5%;
+    --chat-accent: 142.1 76.2% 36.3%;
+    --chat-accent-foreground: 355.7 100% 97.3%;
+    --chat-online: 142.1 76.2% 36.3%;
+    --chat-typing: 47.9 95.8% 53.1%;
   }
 }
 
@@ -140,6 +149,63 @@
   overflow: hidden;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 40, 0.9) 100%);
+}
+
+/* Chat-specific styles */
+.chat-container {
+  background: hsl(var(--chat-background));
+  border: 1px solid hsl(var(--chat-border));
+  backdrop-filter: blur(8px);
+}
+
+.chat-message {
+  transition: all 0.2s ease-in-out;
+}
+
+.chat-message:hover {
+  background: hsl(var(--chat-surface) / 0.5);
+}
+
+.chat-input {
+  background: hsl(var(--chat-surface));
+  border: 1px solid hsl(var(--chat-border));
+  transition: all 0.2s ease-in-out;
+}
+
+.chat-input:focus {
+  border-color: hsl(var(--chat-accent));
+  box-shadow: 0 0 0 2px hsl(var(--chat-accent) / 0.2);
+}
+
+.chat-online-indicator {
+  background: hsl(var(--chat-online));
+  box-shadow: 0 0 0 2px hsl(var(--chat-background)), 0 0 8px hsl(var(--chat-online) / 0.4);
+}
+
+.chat-typing-indicator {
+  color: hsl(var(--chat-typing));
+}
+
+.chat-scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--chat-border)) transparent;
+}
+
+.chat-scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-scroll-area::-webkit-scrollbar-thumb {
+  background: hsl(var(--chat-border));
+  border-radius: 3px;
+}
+
+.chat-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--chat-accent) / 0.6);
 }
 
 /* Mobile optimizations */

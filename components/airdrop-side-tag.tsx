@@ -1,12 +1,15 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import { Gift } from "lucide-react"
+import { Gift, X } from "lucide-react"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import { PreRegisterForm } from "@/components/pre-register-form"
-import { trackEvent } from "@/utils/analytics" // Added analytics import
+import { trackEvent } from "@/utils/analytics"
+import { useAirdropSession } from "@/contexts/airdrop-session-context"
 
 const slideInRight = keyframes`
   from {
@@ -150,9 +153,10 @@ export function AirdropSideTag({ walletConnected = false }: AirdropSideTagProps)
   const [showPreRegisterForm, setShowPreRegisterForm] = useState(false)
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
+  const { isAirdropDismissed, dismissAirdrop } = useAirdropSession()
 
   useEffect(() => {
-    if (walletConnected) {
+    if (walletConnected && !isAirdropDismissed) {
       const timer = setTimeout(() => {
         setIsVisible(true)
       }, 4000)
@@ -161,7 +165,7 @@ export function AirdropSideTag({ walletConnected = false }: AirdropSideTagProps)
     } else {
       setIsVisible(false)
     }
-  }, [walletConnected])
+  }, [walletConnected, isAirdropDismissed])
 
   const handleClick = () => {
     trackEvent("Airdrop_Signup_Click", {
@@ -176,7 +180,17 @@ export function AirdropSideTag({ walletConnected = false }: AirdropSideTagProps)
     setIsVisible(false)
   }
 
-  if (!isVisible) return null
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    dismissAirdrop()
+    setIsVisible(false)
+    trackEvent("Airdrop_Dismissed", {
+      theme: isCyberpunk ? "cyberpunk" : "standard",
+      source: "sidebar_widget",
+    })
+  }
+
+  if (!isVisible || isAirdropDismissed) return null
 
   return (
     <>
@@ -189,6 +203,13 @@ export function AirdropSideTag({ walletConnected = false }: AirdropSideTagProps)
       {isCyberpunk ? (
         <CyberTag onClick={handleClick}>
           <TagContent>
+            <button
+              onClick={handleDismiss}
+              className="absolute top-1 right-1 text-cyan-400/70 hover:text-cyan-300 transition-colors z-10"
+              aria-label="Dismiss airdrop"
+            >
+              <X size={12} />
+            </button>
             <TagText>
               <Gift size={16} />
               <span>AIRDROP SIGNUP</span>
@@ -198,6 +219,13 @@ export function AirdropSideTag({ walletConnected = false }: AirdropSideTagProps)
       ) : (
         <StandardTag onClick={handleClick}>
           <StandardTagContent>
+            <button
+              onClick={handleDismiss}
+              className="absolute top-1 right-1 text-blue-400/70 hover:text-blue-300 transition-colors z-10"
+              aria-label="Dismiss airdrop"
+            >
+              <X size={12} />
+            </button>
             <StandardTagText>
               <Gift size={16} />
               <span>AIRDROP SIGNUP</span>

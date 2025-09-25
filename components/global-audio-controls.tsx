@@ -35,7 +35,7 @@ export default function GlobalAudioControls() {
   }
 
   return (
-    <div className="fixed bottom-4 right-2 z-50">
+    <div className="fixed bottom-4 left-2 z-50">
       <button
         onClick={handleToggleMute}
         className="w-8 h-8 flex items-center justify-center rounded-full bg-black/70 backdrop-blur-sm hover:bg-black/80 transition-colors"

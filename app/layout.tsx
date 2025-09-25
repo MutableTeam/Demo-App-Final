@@ -12,6 +12,9 @@ import { AnalyticsProvider } from "@/components/analytics-provider"
 import { Suspense } from "react"
 import { Analytics } from "@vercel/analytics/next"
 import Script from "next/script"
+import { ChatProviderWrapper } from "@/components/chat/chat-provider-wrapper"
+import { GlobalUsernameProvider } from "@/contexts/global-username-context"
+import { AirdropSessionProvider } from "@/contexts/airdrop-session-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -72,7 +75,13 @@ export default function RootLayout({
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
             <CyberpunkThemeProvider>
               <PlatformProvider>
-                <AnalyticsProvider>{children}</AnalyticsProvider>
+                <GlobalUsernameProvider>
+                  <AirdropSessionProvider>
+                    <ChatProviderWrapper>
+                      <AnalyticsProvider>{children}</AnalyticsProvider>
+                    </ChatProviderWrapper>
+                  </AirdropSessionProvider>
+                </GlobalUsernameProvider>
                 <Toaster />
                 <SonnerToaster />
                 <Analytics />

@@ -13,6 +13,7 @@ import { usePlatform } from "@/contexts/platform-context"
 import SpaceShooter from "./space-shooter"
 import GamePopOutContainer, { type GamePopOutContainerRef } from "@/components/game-pop-out-container"
 import LeaderboardScreen from "./components/leaderboard-screen"
+import { useGlobalUsername } from "@/contexts/global-username-context"
 
 interface GalacticVanguardGameLauncherProps {
   publicKey: string
@@ -37,6 +38,8 @@ export default function GalacticVanguardGameLauncher({
   const { platformType } = usePlatform()
   const isMobile = platformType === "mobile"
   const popOutRef = useRef<GamePopOutContainerRef>(null)
+  const { username: globalUsername } = useGlobalUsername()
+  const effectivePlayerName = globalUsername && globalUsername.trim() ? globalUsername : playerName
 
   const lightButtonStyle =
     "bg-[#FFD54F] hover:bg-[#FFCA28] text-black border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all font-mono"
@@ -96,7 +99,7 @@ export default function GalacticVanguardGameLauncher({
     return (
       <div className="w-full h-full">
         <SpaceShooter
-          playerName={playerName}
+          playerName={effectivePlayerName}
           onExit={handleClosePopOut}
           isMobile={isMobile}
           platformType={platformType}
@@ -166,7 +169,7 @@ export default function GalacticVanguardGameLauncher({
 
   if (selectedMode === "iframe-game") {
     const gameUrl = galacticVanguardConfig.externalUrl || "https://galactic-vanguard-c1030fc2.base44.app"
-    const fullGameUrl = `${gameUrl}?player=${encodeURIComponent(playerName)}&id=${encodeURIComponent(publicKey)}&embedded=true&autostart=true`
+    const fullGameUrl = `${gameUrl}?player=${encodeURIComponent(effectivePlayerName)}&id=${encodeURIComponent(publicKey)}&embedded=true&autostart=true`
 
     return (
       <Card

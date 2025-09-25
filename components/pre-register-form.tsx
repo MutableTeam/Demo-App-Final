@@ -1,13 +1,13 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { X, Loader2, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCyberpunkTheme } from "@/contexts/cyberpunk-theme-context"
+import { useGlobalUsername } from "@/contexts/global-username-context"
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 
@@ -98,6 +98,13 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
   const [error, setError] = useState("")
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
+  const { username: globalUsername, setUsername: setGlobalUsername } = useGlobalUsername()
+
+  useEffect(() => {
+    if (isOpen && globalUsername && !username) {
+      setUsername(globalUsername)
+    }
+  }, [isOpen, globalUsername, username])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,11 +132,12 @@ export function PreRegisterForm({ isOpen, onClose, onSuccess }: PreRegisterFormP
       const data = await response.json()
 
       if (response.ok && data.success) {
+        setGlobalUsername(username.trim())
+
         setIsSuccess(true)
         setUsername("")
         setEmail("")
 
-        // Auto-close after 2 seconds and trigger success callback
         setTimeout(() => {
           setIsSuccess(false)
           if (onSuccess) {

@@ -24,6 +24,7 @@ import { gameRegistry } from "@/types/game-registry"
 import { Users, Target } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { TOKENS } from "@/utils/image-paths"
+import { useGlobalUsername } from "@/contexts/global-username-context"
 
 // Cyberpunk styled components
 const glitchAnim1 = keyframes`
@@ -226,6 +227,7 @@ export default function MutablePlatform({
 }: MutablePlatformProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
+  const { username: globalUsername } = useGlobalUsername()
 
   const [activeTab, setActiveTab] = useState("desktop-games")
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
@@ -241,6 +243,9 @@ export default function MutablePlatform({
   }, [balance])
 
   const getPlayerName = () => {
+    if (globalUsername && globalUsername.trim()) {
+      return globalUsername
+    }
     if (!publicKey) return "Player"
     return "Player_" + publicKey.substring(0, 4)
   }

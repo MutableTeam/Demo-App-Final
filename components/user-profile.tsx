@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
 import StatisticsModal from "@/components/statistics-modal"
 import { trackEvent } from "@/utils/analytics"
+import { useGlobalUsername } from "@/contexts/global-username-context"
 
 interface UserProfileProps {
   publicKey: string
@@ -28,9 +29,14 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
   const isCyberpunk = styleMode === "cyberpunk"
 
   const [isEditingUsername, setIsEditingUsername] = useState(false)
-  const [username, setUsername] = useState(`Player_${publicKey.substring(0, 4)}`)
+  const { username: globalUsername, setUsername: setGlobalUsername } = useGlobalUsername()
+  const username = globalUsername || `Player_${publicKey.substring(0, 4)}`
   const [tempUsername, setTempUsername] = useState(username)
   const [showStatsModal, setShowStatsModal] = useState(false)
+
+  useEffect(() => {
+    setTempUsername(username)
+  }, [username])
 
   // Mock user statistics
   const userStats = {
@@ -57,11 +63,11 @@ export default function UserProfile({ publicKey, balance, mutbBalance, onDisconn
   }
 
   const handleSaveUsername = () => {
-    setUsername(tempUsername)
+    setGlobalUsername(tempUsername)
     setIsEditingUsername(false)
     toast({
       title: "Username Updated",
-      description: "Your username has been updated successfully",
+      description: "Your username has been updated across the platform",
     })
   }
 
