@@ -147,8 +147,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
           clearInterval(userPollingIntervalRef.current)
         }
 
-        const msgInterval = setInterval(pollForNewMessages, 30000) // Poll every 30 seconds
-        const userInterval = setInterval(pollForOnlineUsers, 60000) // Poll every 60 seconds
+        const msgInterval = setInterval(pollForNewMessages, 5000) // Poll every 5 seconds instead of 30
+        const userInterval = setInterval(pollForOnlineUsers, 30000) // Poll every 30 seconds instead of 60
 
         messagePollingIntervalRef.current = msgInterval
         userPollingIntervalRef.current = userInterval

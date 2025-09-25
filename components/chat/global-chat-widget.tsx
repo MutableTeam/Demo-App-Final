@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MessageCircle, X, Minimize2, User } from "lucide-react"
+import { MessageCircle, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatWindow } from "./chat-window"
 import { useChatContext } from "@/contexts/chat-context"
@@ -160,8 +160,8 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
             </Button>
           </SheetTrigger>
 
-          <SheetContent side="bottom" className="h-[80vh] p-0">
-            <SheetHeader className="p-4 border-b border-chat-border">
+          <SheetContent side="bottom" className="h-[80vh] p-0 flex flex-col">
+            <SheetHeader className="p-4 border-b border-chat-border flex-shrink-0">
               <SheetTitle className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
                 Global Chat
@@ -172,7 +172,7 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
                 )}
               </SheetTitle>
             </SheetHeader>
-            <div className="h-full">
+            <div className="flex-1 overflow-hidden">
               {showUsernamePrompt ? (
                 <div className="flex items-center justify-center h-full p-6">
                   <div className="w-full max-w-sm space-y-4">
@@ -200,7 +200,9 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
                   </div>
                 </div>
               ) : currentUser ? (
-                <ChatWindow currentUserId={currentUser.userId} showUserList={false} />
+                <div className="h-full">
+                  <ChatWindow currentUserId={currentUser.userId} showUserList={false} />
+                </div>
               ) : null}
             </div>
           </SheetContent>
@@ -228,29 +230,10 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
                   </Badge>
                 )}
               </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsMinimized(true)}
-                  className="h-6 w-6 p-0 hover:bg-chat-border"
-                >
-                  <Minimize2 className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsOpen(false)}
-                  className="h-6 w-6 p-0 hover:bg-chat-border"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
             </div>
 
             {/* Chat Content */}
-            <div className="h-[calc(100%-49px)]">
+            <div className="h-[calc(100%-49px)] overflow-hidden">
               {showUsernamePrompt ? (
                 <div className="flex items-center justify-center h-full p-6">
                   <div className="w-full max-w-sm space-y-4">
@@ -278,7 +261,9 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
                   </div>
                 </div>
               ) : currentUser ? (
-                <ChatWindow currentUserId={currentUser.userId} showUserList={showUserList} />
+                <div className="h-full">
+                  <ChatWindow currentUserId={currentUser.userId} showUserList={showUserList} />
+                </div>
               ) : null}
             </div>
           </div>

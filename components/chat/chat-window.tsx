@@ -1,12 +1,8 @@
 "use client"
 
-import type React from "react"
-
 import { useEffect, useRef, useState } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
 import { ChevronDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatMessageComponent } from "./chat-message"
@@ -35,22 +31,37 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
 
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isAtBottom, setIsAtBottom] = useState(true)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  console.log("[v0] ChatWindow render - messages count:", messages.length)
+
+  const scrollToBottom = (smooth = true) => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      })
+      console.log("[v0] Scrolled to bottom, scrollHeight:", container.scrollHeight)
+    }
   }
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return
+
+    const container = messagesContainerRef.current
+    const { scrollTop, scrollHeight, clientHeight } = container
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50
+
+    console.log("[v0] Scroll event:", { scrollTop, scrollHeight, clientHeight, isNearBottom })
 
     setIsAtBottom(isNearBottom)
     setShowScrollButton(!isNearBottom && messages.length > 0)
 
     // Load more messages when scrolled to top
-    if (scrollTop === 0 && hasMoreMessages && !isLoading) {
+    if (scrollTop < 100 && hasMoreMessages && !isLoading) {
+      console.log("[v0] Loading more messages...")
       loadMoreMessages()
     }
   }
@@ -58,9 +69,19 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
   // Auto-scroll to bottom for new messages if user is at bottom
   useEffect(() => {
     if (isAtBottom && messages.length > 0) {
-      scrollToBottom()
+      console.log("[v0] Auto-scrolling to bottom for new messages")
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => scrollToBottom(false), 50)
     }
-  }, [messages, isAtBottom])
+  }, [messages.length, isAtBottom])
+
+  // Initial scroll to bottom
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log("[v0] Initial scroll to bottom")
+      setTimeout(() => scrollToBottom(false), 100)
+    }
+  }, [messages.length > 0])
 
   const typingUsersText =
     typingUsers.length > 0
@@ -72,28 +93,22 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
   return (
     <div className={cn("flex h-full chat-container rounded-lg overflow-hidden", className)}>
       {/* Main chat area */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-chat-border">
-          <div className="flex items-center gap-2">
-            <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-chat-online" : "bg-destructive")} />
-            <span className="font-medium text-sm">Global Chat</span>
-            {onlineUsers.length > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {onlineUsers.length} online
-              </Badge>
-            )}
-          </div>
-
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-        </div>
-
-        {/* Messages area */}
-        <div className="flex-1 relative">
-          <ScrollArea ref={scrollAreaRef} className="h-full chat-scroll-area" onScrollCapture={handleScroll}>
-            <div className="p-2 space-y-1">
+      <div className="flex flex-col flex-1 min-w-0 h-full">
+        {/* Messages area - COMPLETELY REDESIGNED */}
+        <div className="flex-1 relative overflow-hidden">
+          <div
+            ref={messagesContainerRef}
+            className="absolute inset-0 overflow-y-auto overscroll-contain"
+            onScroll={handleScroll}
+            style={{
+              WebkitOverflowScrolling: "touch",
+              scrollBehavior: "smooth",
+            }}
+          >
+            <div className="p-2 space-y-1 min-h-full flex flex-col">
+              {/* Load more button */}
               {hasMoreMessages && (
-                <div className="text-center py-2">
+                <div className="text-center py-2 flex-shrink-0">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -113,31 +128,41 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
                 </div>
               )}
 
-              {messages.length === 0 && !isLoading ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No messages yet. Start the conversation!
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <ChatMessageComponent key={message.id} message={message} isOwn={message.user_id === currentUserId} />
-                ))
-              )}
+              {/* Messages */}
+              <div className="flex-1">
+                {messages.length === 0 && !isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No messages yet. Start the conversation!
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {messages.map((message) => (
+                      <ChatMessageComponent
+                        key={message.id}
+                        message={message}
+                        isOwn={message.user_id === currentUserId}
+                      />
+                    ))}
+                  </div>
+                )}
 
-              {/* Typing indicator */}
-              {typingUsersText && (
-                <div className="px-4 py-2 text-xs chat-typing-indicator italic">{typingUsersText}</div>
-              )}
+                {/* Typing indicator */}
+                {typingUsersText && (
+                  <div className="px-4 py-2 text-xs chat-typing-indicator italic">{typingUsersText}</div>
+                )}
 
-              <div ref={messagesEndRef} />
+                {/* Scroll anchor */}
+                <div ref={messagesEndRef} className="h-1" />
+              </div>
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Scroll to bottom button */}
           {showScrollButton && (
             <Button
-              onClick={scrollToBottom}
+              onClick={() => scrollToBottom(true)}
               size="sm"
-              className="absolute bottom-4 right-4 rounded-full w-8 h-8 p-0 bg-chat-accent hover:bg-chat-accent/90"
+              className="absolute bottom-4 right-4 rounded-full w-8 h-8 p-0 bg-chat-accent hover:bg-chat-accent/90 z-10"
             >
               <ChevronDown className="h-4 w-4" />
             </Button>
@@ -145,12 +170,14 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
         </div>
 
         {/* Input area */}
-        <ChatInput
-          onSendMessage={sendMessage}
-          onTyping={sendTyping}
-          disabled={!isConnected}
-          placeholder={isConnected ? "Type a message..." : "Connecting..."}
-        />
+        <div className="flex-shrink-0">
+          <ChatInput
+            onSendMessage={sendMessage}
+            onTyping={sendTyping}
+            disabled={!isConnected}
+            placeholder={isConnected ? "Type a message..." : "Connecting..."}
+          />
+        </div>
       </div>
 
       {/* User list sidebar */}
