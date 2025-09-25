@@ -30,6 +30,7 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
   const [usernameInput, setUsernameInput] = useState("")
   const [isSettingUsername, setIsSettingUsername] = useState(false)
   const [viewportHeight, setViewportHeight] = useState("100vh")
+  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(false)
 
   const hasInitializedRef = useRef(false)
   const { username: globalUsername, setUsername: setGlobalUsername } = useGlobalUsername()
@@ -138,6 +139,8 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
     }
     setIsMinimized(false)
     setIsOpen(true)
+    setShouldScrollToBottom(true)
+    setTimeout(() => setShouldScrollToBottom(false), 200)
   }
 
   useEffect(() => {
@@ -235,7 +238,11 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
                 </div>
               ) : currentUser ? (
                 <div className="h-full">
-                  <ChatWindow currentUserId={currentUser.userId} showUserList={false} />
+                  <ChatWindow
+                    currentUserId={currentUser.userId}
+                    showUserList={false}
+                    shouldScrollToBottom={shouldScrollToBottom}
+                  />
                 </div>
               ) : null}
             </div>
@@ -296,7 +303,11 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
                 </div>
               ) : currentUser ? (
                 <div className="h-full">
-                  <ChatWindow currentUserId={currentUser.userId} showUserList={showUserList} />
+                  <ChatWindow
+                    currentUserId={currentUser.userId}
+                    showUserList={showUserList}
+                    shouldScrollToBottom={shouldScrollToBottom}
+                  />
                 </div>
               ) : null}
             </div>

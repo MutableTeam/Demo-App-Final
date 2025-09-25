@@ -14,9 +14,10 @@ interface ChatWindowProps {
   currentUserId?: string
   showUserList?: boolean
   className?: string
+  shouldScrollToBottom?: boolean
 }
 
-export function ChatWindow({ currentUserId, showUserList = true, className }: ChatWindowProps) {
+export function ChatWindow({ currentUserId, showUserList = true, className, shouldScrollToBottom }: ChatWindowProps) {
   const {
     messages,
     onlineUsers,
@@ -80,6 +81,13 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
       setTimeout(() => scrollToBottom(false), 100)
     }
   }, [messages.length > 0])
+
+  useEffect(() => {
+    if (shouldScrollToBottom && messages.length > 0) {
+      console.log("[v0] Scrolling to bottom due to shouldScrollToBottom prop")
+      setTimeout(() => scrollToBottom(false), 100)
+    }
+  }, [shouldScrollToBottom, messages.length > 0])
 
   const typingUsersText =
     typingUsers.length > 0
