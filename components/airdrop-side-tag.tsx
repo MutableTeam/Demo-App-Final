@@ -46,15 +46,15 @@ const glow = keyframes`
 const CyberTag = styled.div`
   position: fixed;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 20%;
+  transform: translateY(0);
   z-index: 9998;
   animation: ${slideInRight} 0.6s ease-out forwards;
   cursor: pointer;
   transition: all 0.3s ease;
   
   &:hover {
-    transform: translateY(-50%) translateX(-4px);
+    transform: translateX(-4px);
   }
 `
 
@@ -104,15 +104,15 @@ const TagText = styled.div`
 const StandardTag = styled.div`
   position: fixed;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 20%;
+  transform: translateY(0);
   z-index: 9998;
   animation: ${slideInRight} 0.6s ease-out forwards;
   cursor: pointer;
   transition: all 0.3s ease;
   
   &:hover {
-    transform: translateY(-50%) translateX(-4px);
+    transform: translateX(-4px);
   }
 `
 

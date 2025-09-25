@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { ChevronDown, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChatMessageComponent } from "./chat-message"
 import { ChatInput } from "./chat-input"
@@ -29,7 +29,6 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
     hasMoreMessages,
   } = useChatContext()
 
-  const [showScrollButton, setShowScrollButton] = useState(false)
   const [isAtBottom, setIsAtBottom] = useState(true)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -57,7 +56,6 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
     console.log("[v0] Scroll event:", { scrollTop, scrollHeight, clientHeight, isNearBottom })
 
     setIsAtBottom(isNearBottom)
-    setShowScrollButton(!isNearBottom && messages.length > 0)
 
     // Load more messages when scrolled to top
     if (scrollTop < 100 && hasMoreMessages && !isLoading) {
@@ -156,17 +154,6 @@ export function ChatWindow({ currentUserId, showUserList = true, className }: Ch
               </div>
             </div>
           </div>
-
-          {/* Scroll to bottom button */}
-          {showScrollButton && (
-            <Button
-              onClick={() => scrollToBottom(true)}
-              size="sm"
-              className="absolute bottom-4 right-4 rounded-full w-8 h-8 p-0 bg-chat-accent hover:bg-chat-accent/90 z-10"
-            >
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          )}
         </div>
 
         {/* Input area */}

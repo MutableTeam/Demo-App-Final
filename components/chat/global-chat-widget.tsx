@@ -29,11 +29,41 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false)
   const [usernameInput, setUsernameInput] = useState("")
   const [isSettingUsername, setIsSettingUsername] = useState(false)
+  const [viewportHeight, setViewportHeight] = useState("100vh")
 
   const hasInitializedRef = useRef(false)
   const { username: globalUsername, setUsername: setGlobalUsername } = useGlobalUsername()
 
   const { messages, onlineUsers, isConnected, connect } = useChatContext()
+
+  useEffect(() => {
+    const handleResize = () => {
+      // Use visual viewport if available (better for mobile keyboards)
+      if (window.visualViewport) {
+        setViewportHeight(`${window.visualViewport.height}px`)
+      } else {
+        setViewportHeight(`${window.innerHeight}px`)
+      }
+    }
+
+    // Listen to visual viewport changes (mobile keyboard)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize)
+    } else {
+      window.addEventListener("resize", handleResize)
+    }
+
+    // Set initial height
+    handleResize()
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleResize)
+      } else {
+        window.removeEventListener("resize", handleResize)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (hasInitializedRef.current) return
@@ -141,7 +171,7 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
               size="lg"
               onClick={handleOpenChat}
               className={cn(
-                "fixed z-50 rounded-full w-14 h-14 p-0 shadow-lg bg-chat-accent hover:bg-chat-accent/90 text-chat-accent-foreground",
+                "fixed z-40 rounded-full w-14 h-14 p-0 shadow-lg bg-chat-accent hover:bg-chat-accent/90 text-chat-accent-foreground",
                 positionClasses[position],
                 className,
               )}
@@ -160,7 +190,11 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
             </Button>
           </SheetTrigger>
 
-          <SheetContent side="bottom" className="h-[80vh] p-0 flex flex-col">
+          <SheetContent
+            side="bottom"
+            className="p-0 flex flex-col z-40"
+            style={{ height: viewportHeight, maxHeight: viewportHeight }}
+          >
             <SheetHeader className="p-4 border-b border-chat-border flex-shrink-0">
               <SheetTitle className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
@@ -214,7 +248,7 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
         {!isMinimized ? (
           <div
             className={cn(
-              "fixed z-50 w-96 h-[500px] bg-background border border-chat-border rounded-lg shadow-2xl",
+              "fixed z-40 w-96 h-[500px] bg-background border border-chat-border rounded-lg shadow-2xl",
               positionClasses[position],
               className,
             )}
@@ -275,7 +309,7 @@ export function GlobalChatWidget({ className, position = "bottom-right", showUse
             }}
             size="lg"
             className={cn(
-              "fixed z-50 rounded-full w-14 h-14 p-0 shadow-lg bg-chat-accent hover:bg-chat-accent/90 text-chat-accent-foreground",
+              "fixed z-40 rounded-full w-14 h-14 p-0 shadow-lg bg-chat-accent hover:bg-chat-accent/90 text-chat-accent-foreground",
               positionClasses[position],
               className,
             )}
