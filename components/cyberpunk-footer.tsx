@@ -29,7 +29,6 @@ const CyberFooterContainer = styled.footer`
   border-top: 1px solid rgba(0, 255, 255, 0.3);
   position: relative;
   z-index: 10;
-  backdrop-filter: blur(10px);
   
   &::before {
     content: '';
@@ -245,12 +244,7 @@ export function CyberpunkFooter({
   }
 
   return (
-    <div
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-black/20 backdrop-blur-sm",
-        className,
-      )}
-    >
+    <div className={cn("fixed bottom-0 left-0 right-0 z-50 flex justify-between items-center p-4", className)}>
       <div className="w-full grid grid-cols-3 items-center">
         {/* Left section - Mute button */}
         <div className="flex justify-start">
