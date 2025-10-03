@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import PromoWatermark from "@/components/promo-watermark"
 import DebugOverlay from "@/components/debug-overlay"
 import PlatformSelector from "@/components/platform-selector"
@@ -12,7 +12,7 @@ import "@/styles/retro-arcade.css"
 import { trackLogin } from "@/utils/analytics"
 import { initializeEnhancedRenderer } from "@/utils/enhanced-renderer-bridge"
 import { PlatformProvider, usePlatform } from "@/contexts/platform-context"
-import { AirdropSideTag } from "@/components/airdrop-side-tag"
+import { GalacticVanguardBanner } from "@/components/galactic-vanguard-banner"
 import { CyberpunkFooter } from "@/components/cyberpunk-footer"
 import { useIsMobile } from "@/components/ui/use-mobile"
 
@@ -22,6 +22,7 @@ function HomeContent() {
   const [balance, setBalance] = useState<number | null>(null)
   const [provider, setProvider] = useState<any>(null)
   const [showPlatform, setShowPlatform] = useState(false)
+  const launchGameCallbackRef = useRef<(() => void) | null>(null)
 
   // Platform context
   const { isSelected: isPlatformSelected } = usePlatform()
@@ -105,6 +106,13 @@ function HomeContent() {
     setShowPlatform(false)
   }
 
+  const handleLaunchGameFromBanner = () => {
+    console.log("[v0] Banner Play Now clicked, launching game callback")
+    if (launchGameCallbackRef.current) {
+      launchGameCallbackRef.current()
+    }
+  }
+
   // Create a connection object for Solana
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed")
 
@@ -146,12 +154,15 @@ function HomeContent() {
               provider={provider}
               connection={connection}
               onDisconnect={handleDisconnect}
+              launchGameCallbackRef={launchGameCallbackRef}
             />
           </div>
         </RetroArcadeBackground>
       </div>
 
-      {walletConnected && <AirdropSideTag walletConnected={walletConnected} />}
+      {walletConnected && (
+        <GalacticVanguardBanner walletConnected={walletConnected} onLaunchGame={handleLaunchGameFromBanner} />
+      )}
 
       <CyberpunkFooter />
     </main>

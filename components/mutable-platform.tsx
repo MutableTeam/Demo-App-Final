@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type MutableRefObject } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Gamepad2, ArrowLeftRight, Code, Mail, CheckCircle, AlertCircle, User, ShoppingCart } from "lucide-react"
@@ -216,6 +216,7 @@ interface MutablePlatformProps {
   provider: any
   connection: Connection
   onDisconnect: () => void
+  launchGameCallbackRef?: MutableRefObject<(() => void) | null>
 }
 
 export default function MutablePlatform({
@@ -224,6 +225,7 @@ export default function MutablePlatform({
   provider,
   connection,
   onDisconnect,
+  launchGameCallbackRef,
 }: MutablePlatformProps) {
   const { styleMode } = useCyberpunkTheme()
   const isCyberpunk = styleMode === "cyberpunk"
@@ -241,6 +243,21 @@ export default function MutablePlatform({
   useEffect(() => {
     setLocalBalance(balance)
   }, [balance])
+
+  useEffect(() => {
+    if (launchGameCallbackRef) {
+      launchGameCallbackRef.current = () => {
+        console.log("[v0] Launching Galactic Vanguard from banner")
+        setActiveTab("desktop-games")
+        setSelectedGame("galactic-vanguard")
+      }
+    }
+    return () => {
+      if (launchGameCallbackRef) {
+        launchGameCallbackRef.current = null
+      }
+    }
+  }, [launchGameCallbackRef])
 
   const getPlayerName = () => {
     if (globalUsername && globalUsername.trim()) {

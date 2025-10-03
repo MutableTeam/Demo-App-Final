@@ -18,8 +18,9 @@ export const galacticVanguardConfig = {
   modes: [
     {
       id: "practice",
-      name: "Practice",
-      description: "Practice your skills with no entry fee. Perfect for learning the game mechanics.",
+      name: "Weekend Quest!",
+      description:
+        "Battle for cash prizes, leaderboard position, at the end of the challenge 1st 2nd & 3rd place will earn MUTB, keep an eye on socials for when we announce the winners",
       players: 1,
       icon: <Target className="h-4 w-4" />,
       minWager: 0,

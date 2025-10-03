@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ChatWindow } from "./chat/chat-window"
 import { useChatContext } from "@/contexts/chat-context"
-import { audioManager, initializeAudio, playRandomCoinSound } from "@/utils/audio-manager"
+import { audioManager, playRandomCoinSound } from "@/utils/audio-manager"
 
 const scanline = keyframes`
   0% {
@@ -133,7 +133,7 @@ export function CyberpunkFooter({
   const isCyberpunk = styleMode === "cyberpunk"
 
   const [isOpen, setIsOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadCount, setUnreadCount] = useState(9)
   const [lastMessageCount, setLastMessageCount] = useState(0)
   const [currentUser, setCurrentUser] = useState<{ userId: string; username: string } | null>(null)
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false)
@@ -155,6 +155,7 @@ export function CyberpunkFooter({
           username: existingUsername,
         }
         setCurrentUser(user)
+        setUnreadCount(0)
         await connect("username-auth", user)
         return
       }
@@ -164,13 +165,18 @@ export function CyberpunkFooter({
   }, [showChat, connect])
 
   useEffect(() => {
-    const init = async () => {
-      await initializeAudio()
-      setIsAudioInitialized(true)
-      setIsMuted(audioManager.isSoundMuted())
+    if (currentUser && messages.length > lastMessageCount && !isOpen) {
+      const newMessages = messages.length - lastMessageCount
+      setUnreadCount((prev) => prev + newMessages)
     }
-    init()
-  }, [])
+    setLastMessageCount(messages.length)
+  }, [messages.length, lastMessageCount, isOpen, currentUser])
+
+  useEffect(() => {
+    if (isOpen) {
+      setUnreadCount(0)
+    }
+  }, [isOpen])
 
   const handleToggleMute = () => {
     const newMuted = !isMuted
@@ -214,20 +220,6 @@ export function CyberpunkFooter({
     }
     setIsOpen(true)
   }
-
-  useEffect(() => {
-    if (messages.length > lastMessageCount && !isOpen) {
-      const newMessages = messages.length - lastMessageCount
-      setUnreadCount((prev) => prev + newMessages)
-    }
-    setLastMessageCount(messages.length)
-  }, [messages.length, lastMessageCount, isOpen])
-
-  useEffect(() => {
-    if (isOpen) {
-      setUnreadCount(0)
-    }
-  }, [isOpen])
 
   const getCookie = (name: string): string | null => {
     if (typeof document === "undefined") return null
@@ -318,7 +310,7 @@ export function CyberpunkFooter({
                   <MessageCircle size={18} />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-[10px] bg-destructive text-destructive-foreground flex items-center justify-center">
-                      {unreadCount > 99 ? "99+" : unreadCount}
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </Badge>
                   )}
                   {isConnected && onlineUsers.length > 0 && (

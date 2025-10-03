@@ -279,81 +279,83 @@ export default function GalacticVanguardGameLauncher({
 
       <CardContent className={cn(isMobile ? "p-4" : "p-6")}>
         <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "grid-cols-2")}>
-          {galacticVanguardConfig.modes.map((mode) => (
-            <Card
-              key={mode.id}
-              className={cn(
-                "border-2 border-black overflow-hidden cursor-pointer hover:bg-[#f5efdc] transition-colors flex flex-col",
-                isCyberpunk && "!bg-black/80 !border-cyan-500/50 hover:!bg-black/60",
-                isMobile && "min-h-[120px]",
-              )}
-              style={
-                isCyberpunk
-                  ? {
-                      backgroundColor: "rgba(0, 0, 0, 0.8)",
-                      borderColor: "rgba(6, 182, 212, 0.5)",
-                    }
-                  : {}
-              }
-              onClick={withClickSound(() => handleModeSelect(mode.id))}
-            >
-              <CardHeader className={cn(isMobile ? "p-4" : "p-4")}>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      "p-1 rounded-md flex items-center justify-center w-8 h-8",
-                      isCyberpunk
-                        ? "bg-transparent border border-cyan-500/70 text-cyan-400 shadow-[0_0_5px_rgba(0,255,255,0.5)]"
-                        : "bg-transparent border border-gray-400",
-                    )}
-                  >
-                    <Rocket className={cn("h-5 w-5", isCyberpunk && "text-cyan-400")} />
-                  </div>
-                  <CardTitle className={cn("font-mono", isMobile ? "text-base" : "text-lg")}>{mode.name}</CardTitle>
-                </div>
-              </CardHeader>
-
-              <CardContent className={cn("pt-0 flex-grow", isMobile ? "p-4" : "p-4")}>
-                <p className={cn("text-sm text-muted-foreground leading-relaxed", isCyberpunk && "text-gray-400")}>
-                  {mode.description}
-                </p>
-
-                <div className={cn("mt-3 text-sm flex items-center gap-2", isCyberpunk && "text-cyan-400/80")}>
-                  <span className="font-medium">Entry Fee:</span>
-                  <div className="flex items-center gap-1">
-                    <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} />
-                    <span>{mode.entryFee || mode.minWager || 0} MUTB</span>
-                  </div>
-                </div>
-
-                {mode.duration && mode.duration > 0 && (
-                  <div className={cn("mt-2 text-sm flex items-center gap-2", isCyberpunk && "text-cyan-400/80")}>
-                    <span className="font-medium">Duration:</span>
-                    <span>
-                      {mode.duration / (60 * 60 * 1000) >= 1
-                        ? `${mode.duration / (60 * 60 * 1000)} hours`
-                        : `${mode.duration / (60 * 1000)} minutes`}
-                    </span>
-                  </div>
+          {galacticVanguardConfig.modes
+            .filter((mode) => mode.id !== "survival")
+            .map((mode) => (
+              <Card
+                key={mode.id}
+                className={cn(
+                  "border-2 border-black overflow-hidden cursor-pointer hover:bg-[#f5efdc] transition-colors flex flex-col",
+                  isCyberpunk && "!bg-black/80 !border-cyan-500/50 hover:!bg-black/60",
+                  isMobile && "min-h-[120px]",
                 )}
-              </CardContent>
+                style={
+                  isCyberpunk
+                    ? {
+                        backgroundColor: "rgba(0, 0, 0, 0.8)",
+                        borderColor: "rgba(6, 182, 212, 0.5)",
+                      }
+                    : {}
+                }
+                onClick={withClickSound(() => handleModeSelect(mode.id))}
+              >
+                <CardHeader className={cn(isMobile ? "p-4" : "p-4")}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        "p-1 rounded-md flex items-center justify-center w-8 h-8",
+                        isCyberpunk
+                          ? "bg-transparent border border-cyan-500/70 text-cyan-400 shadow-[0_0_5px_rgba(0,255,255,0.5)]"
+                          : "bg-transparent border border-gray-400",
+                      )}
+                    >
+                      <Rocket className={cn("h-5 w-5", isCyberpunk && "text-cyan-400")} />
+                    </div>
+                    <CardTitle className={cn("font-mono", isMobile ? "text-base" : "text-lg")}>{mode.name}</CardTitle>
+                  </div>
+                </CardHeader>
 
-              <CardFooter className={cn("mt-auto", isMobile ? "p-4" : "p-4")}>
-                <SoundButton
-                  className={cn(
-                    lightButtonStyle,
-                    "w-full",
-                    isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
-                    isMobile ? "text-base py-3 min-h-[48px] font-bold" : "py-3",
+                <CardContent className={cn("pt-0 flex-grow", isMobile ? "p-4" : "p-4")}>
+                  <p className={cn("text-sm text-muted-foreground leading-relaxed", isCyberpunk && "text-gray-400")}>
+                    {mode.description}
+                  </p>
+
+                  <div className={cn("mt-3 text-sm flex items-center gap-2", isCyberpunk && "text-cyan-400/80")}>
+                    <span className="font-medium">Entry Fee:</span>
+                    <div className="flex items-center gap-1">
+                      <Image src="/images/mutable-token.png" alt="MUTB" width={16} height={16} />
+                      <span>{mode.entryFee || mode.minWager || 0} MUTB</span>
+                    </div>
+                  </div>
+
+                  {mode.duration && mode.duration > 0 && (
+                    <div className={cn("mt-2 text-sm flex items-center gap-2", isCyberpunk && "text-cyan-400/80")}>
+                      <span className="font-medium">Duration:</span>
+                      <span>
+                        {mode.duration / (60 * 60 * 1000) >= 1
+                          ? `${mode.duration / (60 * 60 * 1000)} hours`
+                          : `${mode.duration / (60 * 1000)} minutes`}
+                      </span>
+                    </div>
                   )}
-                  onClick={() => handleModeSelect(mode.id)}
-                  disabled={(mode.entryFee || mode.minWager || 0) > mutbBalance}
-                >
-                  {(mode.entryFee || mode.minWager || 0) > mutbBalance ? "INSUFFICIENT FUNDS" : "Pay Fee & Play"}
-                </SoundButton>
-              </CardFooter>
-            </Card>
-          ))}
+                </CardContent>
+
+                <CardFooter className={cn("mt-auto", isMobile ? "p-4" : "p-4")}>
+                  <SoundButton
+                    className={cn(
+                      lightButtonStyle,
+                      "w-full",
+                      isCyberpunk && "!bg-gradient-to-r !from-cyan-500 !to-purple-500 !text-black !border-cyan-400",
+                      isMobile ? "text-base py-3 min-h-[48px] font-bold" : "py-3",
+                    )}
+                    onClick={() => handleModeSelect(mode.id)}
+                    disabled={(mode.entryFee || mode.minWager || 0) > mutbBalance}
+                  >
+                    {(mode.entryFee || mode.minWager || 0) > mutbBalance ? "INSUFFICIENT FUNDS" : "Pay Fee & Play"}
+                  </SoundButton>
+                </CardFooter>
+              </Card>
+            ))}
         </div>
       </CardContent>
     </Card>
