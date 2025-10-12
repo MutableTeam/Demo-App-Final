@@ -349,11 +349,11 @@ export default function GameSelection({
         description: "Classic 8-ball pool with futuristic MutaBall physics",
       }
     }
-    if (game.name === "Mutable FPS") {
+    if (game.name === "Mutable FPS" || game.name === "Battlefield 6 Portal") {
       return {
         ...game,
-        name: "Mutable FPS",
-        description: "Intense first-person shooter battles in cyberpunk arenas",
+        name: "Battlefield 6 Portal",
+        description: "Battlefield 6 / Mutable PvP crossover - Create custom game modes using Portal",
       }
     }
     return game
@@ -365,8 +365,18 @@ export default function GameSelection({
     if (a.status === "live" && b.status !== "live") return -1
     if (a.status !== "live" && b.status === "live") return 1
 
-    if (a.name === "Mutable FPS" && b.name !== "Mutable FPS") return -1
-    if (a.name !== "Mutable FPS" && b.name === "Mutable FPS") return 1
+    if (
+      (a.name === "Mutable FPS" || a.name === "Battlefield 6 Portal") &&
+      b.name !== "Mutable FPS" &&
+      b.name !== "Battlefield 6 Portal"
+    )
+      return -1
+    if (
+      a.name !== "Mutable FPS" &&
+      a.name !== "Battlefield 6 Portal" &&
+      (b.name === "Mutable FPS" || b.name === "Battlefield 6 Portal")
+    )
+      return 1
 
     // Then, ensure "Last Stand" is next to "Archer Arena"
     if (a.name === "Archer Arena" && b.name === "Last Stand") return -1
@@ -388,7 +398,7 @@ export default function GameSelection({
       return "/images/pixel-pool-card.jpg"
     }
     if (game.id === "mutable-fps") {
-      return "/images/mutable-fps-card.jpg"
+      return "/images/battlefield6-card.png"
     }
     if (game.id === "closest-to-the-pin") {
       return "/images/closest-to-the-pin-card.png"
@@ -429,8 +439,8 @@ export default function GameSelection({
         trackGamePlay("App-Last Stand", gameId)
       } else if (game.name === "MutaBall Pool") {
         trackGamePlay("App-MutaBall Pool", gameId)
-      } else if (game.name === "Mutable FPS") {
-        trackGamePlay("App-Mutable FPS", gameId)
+      } else if (game.name === "Mutable FPS" || game.name === "Battlefield 6 Portal") {
+        trackGamePlay("App-Battlefield 6 Portal", gameId)
       } else {
         // Generic tracking for other games
         trackGamePlay(`App-${game.name}`, gameId)
@@ -688,7 +698,7 @@ export default function GameSelection({
                               disabled={game.status !== "live"}
                               onClick={(e) => handleGameSelect(game.id, e)}
                             >
-                              {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
+                              {game.status === "live" ? "PLAY NOW" : "IN DEVELOPMENT"}
                             </CyberPlayButton>
                           </div>
                         </div>
@@ -785,7 +795,7 @@ export default function GameSelection({
                               disabled={game.status !== "live"}
                               onClick={(e) => handleGameSelect(game.id, e)}
                             >
-                              {game.status === "live" ? "PLAY NOW" : "COMING SOON"}
+                              {game.status === "live" ? "PLAY NOW" : "IN DEVELOPMENT"}
                             </SoundButton>
                           </div>
                         </div>

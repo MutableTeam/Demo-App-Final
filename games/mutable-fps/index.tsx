@@ -7,9 +7,9 @@ import MutableFPSInstructions from "./instructions"
 // Game configuration
 const mutableFPSConfig: GameConfig = {
   id: "mutable-fps",
-  name: "Mutable FPS",
-  description: "Intense first-person shooter battles in a cyberpunk arena",
-  image: "/images/mutable-fps-card.jpg",
+  name: "Battlefield 6 Portal",
+  description: "Battlefield 6 / Mutable PvP crossover - Create custom game modes using Portal",
+  image: "/images/battlefield6-card.png",
   icon: <Crosshair size={16} />,
   status: "coming-soon", // Set status to coming-soon for now
   minWager: 10,
